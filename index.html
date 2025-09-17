@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحميل تطبيق BlueApple</title>
+    
+    <!-- Meta tags للـ SEO -->
+    <meta name="description" content="حمل تطبيق BlueApple الآن مجاناً على هاتفك">
+    <meta name="keywords" content="BlueApple, تطبيق, تحميل, مجاني">
+    
+    <!-- Open Graph للمشاركة -->
+    <meta property="og:title" content="تطبيق BlueApple">
+    <meta property="og:description" content="حمل التطبيق الآن!">
+    <meta property="og:image" content="https://via.placeholder.com/1200x630/667eea/ffffff?text=BlueApple">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+        
+        .logo {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        
+        .fallback {
+            display: none;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 400px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .fallback h2 {
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            margin: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-android {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            border-color: #27ae60;
+        }
+        
+        .btn-ios {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            border-color: #3498db;
+        }
+        
+        @media (max-width: 600px) {
+            h1 { font-size: 2rem; }
+            .logo { width: 100px; height: 100px; font-size: 50px; }
+            .btn { display: block; margin: 10px 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="loader" id="loader">
+        <div class="logo">🍎</div>
+        <div class="spinner"></div>
+        <h1>BlueApple</h1>
+        <p>جاري توجيهك لمتجر التطبيقات...</p>
+    </div>
+    
+    <div class="fallback" id="fallback">
+        <h2>اختر متجر التطبيقات</h2>
+        <p>حمل تطبيق BlueApple الآن:</p>
+        <a href="https://play.google.com/store/apps/details?id=com.Linktsp.BlueAppleMarket&pcampaignid=web_share" 
+           class="btn btn-android">📱 Google Play</a>
+        <a href="https://apps.apple.com/app/id6503000547" 
+           class="btn btn-ios">🍎 App Store</a>
+    </div>
+
+    <script>
+        // إعدادات التطبيق
+        const APP_CONFIG = {
+            android: {
+                packageName: 'com.Linktsp.BlueAppleMarket',
+                playStoreUrl: 'https://play.google.com/store/apps/details?id=com.Linktsp.BlueAppleMarket&pcampaignid=web_share'
+            },
+            ios: {
+                appId: '6503000547',
+                appStoreUrl: 'https://apps.apple.com/app/id6503000547'
+            },
+            fallback: 'https://www.facebook.com/blueapplemarket'
+        };
+
+        // كشف نوع الجهاز بدقة عالية
+        function detectDevice() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            
+            // iOS Detection
+            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                return 'ios';
+            }
+            
+            // Android Detection
+            if (/android/i.test(userAgent)) {
+                return 'android';
+            }
+            
+            // Desktop/Other
+            return 'other';
+        }
+
+        // التوجيه الذكي للتطبيق
+        function smartRedirect() {
+            const device = detectDevice();
+            let redirectUrl;
+            
+            switch(device) {
+                case 'ios':
+                    // محاولة فتح التطبيق أولاً، ثم App Store
+                    redirectUrl = APP_CONFIG.ios.appStoreUrl;
+                    
+                    // محاولة فتح التطبيق مباشرة (إذا كان مثبت)
+                    const iosAppUrl = `https://apps.apple.com/app/id${APP_CONFIG.ios.appId}`;
+                    window.location.href = iosAppUrl;
+                    
+                    // fallback للـ App Store بعد ثانية واحدة
+                    setTimeout(() => {
+                        window.location.href = APP_CONFIG.ios.appStoreUrl;
+                    }, 1000);
+                    return;
+                    
+                case 'android':
+                    // محاولة فتح التطبيق أولاً باستخدام Intent
+                    const intentUrl = `intent://details?id=${APP_CONFIG.android.packageName}#Intent;scheme=market;action=android.intent.action.VIEW;package=com.android.vending;end`;
+                    
+                    try {
+                        window.location.href = intentUrl;
+                        // fallback للـ Play Store
+                        setTimeout(() => {
+                            window.location.href = APP_CONFIG.android.playStoreUrl;
+                        }, 1000);
+                    } catch (e) {
+                        window.location.href = APP_CONFIG.android.playStoreUrl;
+                    }
+                    return;
+                    
+                default:
+                    redirectUrl = APP_CONFIG.fallback;
+                    break;
+            }
+            
+            // التوجيه النهائي
+            if (redirectUrl) {
+                window.location.href = redirectUrl;
+            }
+        }
+
+        // إظهار خيارات fallback بعد 3 ثوان
+        function showFallback() {
+            setTimeout(() => {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('fallback').style.display = 'block';
+            }, 3000);
+        }
+
+        // تشغيل التوجيه الذكي فور تحميل الصفحة
+        document.addEventListener('DOMContentLoaded', function() {
+            // تأخير قصير لإظهار اللوادر
+            setTimeout(() => {
+                smartRedirect();
+                showFallback(); // backup plan
+            }, 500);
+        });
+
+        // معالجة حالة عدم عمل التوجيه
+        window.addEventListener('focus', function() {
+            // إذا عاد المستخدم للصفحة، يعني التوجيه لم يعمل
+            setTimeout(() => {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('fallback').style.display = 'block';
+            }, 1000);
+        });
+
+        // تتبع النقرات (اختياري)
+        function trackClick(platform) {
+            // يمكنك إضافة Google Analytics هنا
+            console.log(`User clicked: ${platform}`);
+        }
+
+        // إضافة event listeners للأزرار
+        document.addEventListener('DOMContentLoaded', function() {
+            const androidBtn = document.querySelector('.btn-android');
+            const iosBtn = document.querySelector('.btn-ios');
+            
+            if (androidBtn) {
+                androidBtn.addEventListener('click', () => trackClick('android'));
+            }
+            
+            if (iosBtn) {
+                iosBtn.addEventListener('click', () => trackClick('ios'));
+            }
+        });
+    </script>
+</body>
+</html>
