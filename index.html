@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تحميل تطبيق BlueApple</title>
     
+    <!-- DNS prefetch للسرعة القصوى -->
+    <link rel="dns-prefetch" href="//apps.apple.com">
+    <link rel="dns-prefetch" href="//play.google.com">
+    <link rel="preconnect" href="https://apps.apple.com">
+    <link rel="preconnect" href="https://play.google.com">
+    
     <!-- Meta tags للـ SEO -->
     <meta name="description" content="حمل تطبيق BlueApple الآن مجاناً على هاتفك">
     <meta name="keywords" content="BlueApple, تطبيق, تحميل, مجاني">
@@ -23,10 +29,10 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #667eea;
             color: white;
             min-height: 100vh;
-            display: flex;
+            display: none; /* مخفي عشان ميظهرش للمستخدم */
             align-items: center;
             justify-content: center;
             text-align: center;
@@ -156,101 +162,23 @@
     </div>
 
     <script>
-        // إعدادات التطبيق
-        const APP_CONFIG = {
-            android: {
-                packageName: 'com.Linktsp.BlueAppleMarket',
-                playStoreUrl: 'https://play.google.com/store/apps/details?id=com.Linktsp.BlueAppleMarket&pcampaignid=web_share'
-            },
-            ios: {
-                appId: '6503000547',
-                appStoreUrl: 'https://apps.apple.com/app/id6503000547'
-            },
-            fallback: 'https://www.facebook.com/blueapplemarket'
-        };
-
-        // كشف نوع الجهاز بدقة عالية
-        function detectDevice() {
-            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-            
-            // iOS Detection
-            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
-                return 'ios';
-            }
-            
-            // Android Detection
-            if (/android/i.test(userAgent)) {
-                return 'android';
-            }
-            
-            // Desktop/Other
-            return 'other';
-        }
-
-        // التوجيه الذكي للتطبيق (فوري جداً)
-        function smartRedirect() {
-            const userAgent = navigator.userAgent;
-            
-            // iOS - توجيه فوري
-            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
-                window.location.replace(APP_CONFIG.ios.appStoreUrl);
-                return;
-            }
-            
-            // Android - توجيه فوري
-            if (/android/i.test(userAgent)) {
-                window.location.replace(APP_CONFIG.android.playStoreUrl);
-                return;
-            }
-            
-            // Desktop/Other - توجيه فوري
-            window.location.replace(APP_CONFIG.fallback);
-        }
-
-        // إظهار خيارات fallback بعد ثانية واحدة فقط
-        function showFallback() {
-            setTimeout(() => {
-                if (document.getElementById('loader')) {
-                    document.getElementById('loader').style.display = 'none';
-                    document.getElementById('fallback').style.display = 'block';
-                }
-            }, 1000);
-        }
-
-        // تشغيل التوجيه الذكي فوراً بدون انتظار
+        // التوجيه الفوري - قبل ما الصفحة تحمل خالص
         (function() {
-            smartRedirect();
-            showFallback(); // backup plan
+            const ua = navigator.userAgent;
+            
+            // iOS - توجيه لحظي
+            if (/iPad|iPhone|iPod/.test(ua)) {
+                window.location.replace('https://apps.apple.com/app/id6503000547');
+            }
+            // Android - توجيه لحظي  
+            else if (/android/i.test(ua)) {
+                window.location.replace('https://play.google.com/store/apps/details?id=com.Linktsp.BlueAppleMarket&pcampaignid=web_share');
+            }
+            // Desktop - توجيه لحظي
+            else {
+                window.location.replace('https://www.facebook.com/blueapplemarket');
+            }
         })();
-
-        // معالجة حالة عدم عمل التوجيه
-        window.addEventListener('focus', function() {
-            // إذا عاد المستخدم للصفحة، يعني التوجيه لم يعمل
-            setTimeout(() => {
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('fallback').style.display = 'block';
-            }, 1000);
-        });
-
-        // تتبع النقرات (اختياري)
-        function trackClick(platform) {
-            // يمكنك إضافة Google Analytics هنا
-            console.log(`User clicked: ${platform}`);
-        }
-
-        // إضافة event listeners للأزرار
-        document.addEventListener('DOMContentLoaded', function() {
-            const androidBtn = document.querySelector('.btn-android');
-            const iosBtn = document.querySelector('.btn-ios');
-            
-            if (androidBtn) {
-                androidBtn.addEventListener('click', () => trackClick('android'));
-            }
-            
-            if (iosBtn) {
-                iosBtn.addEventListener('click', () => trackClick('ios'));
-            }
-        });
     </script>
 </body>
 </html>
