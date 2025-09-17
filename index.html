@@ -187,68 +187,41 @@
             return 'other';
         }
 
-        // التوجيه الذكي للتطبيق
+        // التوجيه الذكي للتطبيق (فوري جداً)
         function smartRedirect() {
-            const device = detectDevice();
-            let redirectUrl;
+            const userAgent = navigator.userAgent;
             
-            switch(device) {
-                case 'ios':
-                    // محاولة فتح التطبيق أولاً، ثم App Store
-                    redirectUrl = APP_CONFIG.ios.appStoreUrl;
-                    
-                    // محاولة فتح التطبيق مباشرة (إذا كان مثبت)
-                    const iosAppUrl = `https://apps.apple.com/app/id${APP_CONFIG.ios.appId}`;
-                    window.location.href = iosAppUrl;
-                    
-                    // fallback للـ App Store بعد ثانية واحدة
-                    setTimeout(() => {
-                        window.location.href = APP_CONFIG.ios.appStoreUrl;
-                    }, 1000);
-                    return;
-                    
-                case 'android':
-                    // محاولة فتح التطبيق أولاً باستخدام Intent
-                    const intentUrl = `intent://details?id=${APP_CONFIG.android.packageName}#Intent;scheme=market;action=android.intent.action.VIEW;package=com.android.vending;end`;
-                    
-                    try {
-                        window.location.href = intentUrl;
-                        // fallback للـ Play Store
-                        setTimeout(() => {
-                            window.location.href = APP_CONFIG.android.playStoreUrl;
-                        }, 1000);
-                    } catch (e) {
-                        window.location.href = APP_CONFIG.android.playStoreUrl;
-                    }
-                    return;
-                    
-                default:
-                    redirectUrl = APP_CONFIG.fallback;
-                    break;
+            // iOS - توجيه فوري
+            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                window.location.replace(APP_CONFIG.ios.appStoreUrl);
+                return;
             }
             
-            // التوجيه النهائي
-            if (redirectUrl) {
-                window.location.href = redirectUrl;
+            // Android - توجيه فوري
+            if (/android/i.test(userAgent)) {
+                window.location.replace(APP_CONFIG.android.playStoreUrl);
+                return;
             }
+            
+            // Desktop/Other - توجيه فوري
+            window.location.replace(APP_CONFIG.fallback);
         }
 
-        // إظهار خيارات fallback بعد 3 ثوان
+        // إظهار خيارات fallback بعد ثانية واحدة فقط
         function showFallback() {
             setTimeout(() => {
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('fallback').style.display = 'block';
-            }, 3000);
+                if (document.getElementById('loader')) {
+                    document.getElementById('loader').style.display = 'none';
+                    document.getElementById('fallback').style.display = 'block';
+                }
+            }, 1000);
         }
 
-        // تشغيل التوجيه الذكي فور تحميل الصفحة
-        document.addEventListener('DOMContentLoaded', function() {
-            // تأخير قصير لإظهار اللوادر
-            setTimeout(() => {
-                smartRedirect();
-                showFallback(); // backup plan
-            }, 500);
-        });
+        // تشغيل التوجيه الذكي فوراً بدون انتظار
+        (function() {
+            smartRedirect();
+            showFallback(); // backup plan
+        })();
 
         // معالجة حالة عدم عمل التوجيه
         window.addEventListener('focus', function() {
