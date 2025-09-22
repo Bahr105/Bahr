@@ -809,6 +809,7 @@ function updateStats() {
     dailyData.creditAmount = dailyData.credit.reduce((sum, item) => sum + item.amount, 0);
     
     // Removed dailyData.exchangeExpenses from expectedCash calculation
+    // هذا الكاش المتوقع هو صافي الكاش الذي يجب أن يكون في الدرج (للعرض فقط للكاشير)
     const expectedCash = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount;
     
     // Update UI elements
@@ -835,7 +836,7 @@ function calculateDrawer() {
     
     dailyData.drawerAmount = drawerAmount;
     
-    // Removed dailyData.exchangeExpenses from expectedCash calculation
+    // هذا الكاش المتوقع هو صافي الكاش الذي يجب أن يكون في الدرج (للعرض فقط للكاشير)
     const expectedCash = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount;
     const difference = drawerAmount - expectedCash;
     
@@ -863,23 +864,27 @@ async function finalizeDayCloseout() {
         return;
     }
 
-    // Removed dailyData.exchangeExpenses from expectedCash calculation
+    // هذا الكاش المتوقع هو صافي الكاش الذي يجب أن يكون في الدرج (للعرض فقط للكاشير)
     const expectedCash = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount;
-    const ourTotalSales = dailyData.totalSales; // Total sales recorded by cashier
-    const ourTotalCloseout = expectedCash + dailyData.visaAmount + dailyData.creditAmount; // Total closeout based on cashier's entries
+    
+    const ourTotalSales = dailyData.totalSales; // إجمالي المبيعات من الأقسام
+    
+    // *** التعديل هنا: حساب تقفيلة الكاشير للمقارنة مع نيو مايند ***
+    // تقفيلة الكاشير = إجمالي المبيعات (الأقسام) + الكاش الفعلي في الدرج
+    const ourTotalCloseout = ourTotalSales + drawerAmount; 
 
     // For cashier, we don't have NewMind total yet, so we'll leave it for accountant
     const finalData = [
         new Date().toLocaleDateString('ar-EG'),
         currentUser,
-        ourTotalSales.toFixed(2),
-        dailyData.totalExpenses.toFixed(2),
-        dailyData.visaAmount.toFixed(2),
-        dailyData.creditAmount.toFixed(2),
-        0, // dailyData.exchangeExpenses.toFixed(2), // تم إزالة سكشن البدل، لذا نضع 0
-        expectedCash.toFixed(2),
-        drawerAmount.toFixed(2),
-        ourTotalCloseout.toFixed(2), // Our calculated total closeout
+        ourTotalSales.toFixed(2), // إجمالي المبيعات
+        dailyData.totalExpenses.toFixed(2), // إجمالي المصروفات
+        dailyData.visaAmount.toFixed(2), // مبيعات الفيزا
+        dailyData.creditAmount.toFixed(2), // المبيعات الآجلة
+        0, // Exchange Expenses (تم إزالته، لذا نضع 0)
+        expectedCash.toFixed(2), // الكاش المتوقع (للعرض فقط للكاشير)
+        drawerAmount.toFixed(2), // الكاش الفعلي في الدرج
+        ourTotalCloseout.toFixed(2), // تقفيلة الكاشير الجديدة للمقارنة (إجمالي المبيعات + الكاش الفعلي)
         'N/A', // NewMind Total (to be filled by accountant)
         'N/A', // Difference with NewMind
         'بانتظار المحاسب', // Status
@@ -1145,9 +1150,12 @@ async function performAccountantCloseout() {
     const cashierVisaAmount = parseFloat(cashierCloseout[4]);
     const cashierCreditAmount = parseFloat(cashierCloseout[5]);
     // const cashierExchangeExpenses = parseFloat(cashierCloseout[6]); // تم إزالة سكشن البدل
-    const cashierExpectedCash = parseFloat(cashierCloseout[7]);
-    const cashierActualDrawerAmount = parseFloat(cashierCloseout[8]);
-    const cashierOurTotalCloseout = parseFloat(cashierCloseout[9]); // This is the cashier's calculated total
+    const cashierExpectedCash = parseFloat(cashierCloseout[7]); // الكاش المتوقع (للعرض فقط)
+    const cashierActualDrawerAmount = parseFloat(cashierCloseout[8]); // الكاش الفعلي في الدرج
+    
+    // *** التعديل هنا: استخدام ourTotalCloseout الجديد من صف الكاشير ***
+    // هذا هو الحقل الذي يحتوي على (إجمالي المبيعات + الكاش الفعلي)
+    const cashierOurTotalCloseout = parseFloat(cashierCloseout[9]); 
 
     const differenceWithNewMind = cashierOurTotalCloseout - accountantNewMindTotal;
     let status = 'مطابق';
@@ -1156,13 +1164,13 @@ async function performAccountantCloseout() {
 
     let resultHtml = `
         <h4>نتائج تقفيل حساب الكاشير: ${cashierUsername} (${closeoutDateStr})</h4>
-        <p><strong>إجمالي مبيعات الكاشير:</strong> ${cashierTotalSales.toFixed(2)} جنيه</p>
+        <p><strong>إجمالي مبيعات الكاشير (الأقسام):</strong> ${cashierTotalSales.toFixed(2)} جنيه</p>
         <p><strong>إجمالي مصروفات الكاشير:</strong> ${cashierTotalExpenses.toFixed(2)} جنيه</p>
         <p><strong>مبيعات الفيزا:</strong> ${cashierVisaAmount.toFixed(2)} جنيه</p>
         <p><strong>المبيعات الآجلة:</strong> ${cashierCreditAmount.toFixed(2)} جنيه</p>
-        <p><strong>الكاش المتوقع:</strong> ${cashierExpectedCash.toFixed(2)} جنيه</p>
+        <p><strong>الكاش المتوقع (حسب الكاشير):</strong> ${cashierExpectedCash.toFixed(2)} جنيه</p>
         <p><strong>الكاش الفعلي في الدرج:</strong> ${cashierActualDrawerAmount.toFixed(2)} جنيه</p>
-        <p><strong>إجمالي تقفيلة الكاشير:</strong> ${cashierOurTotalCloseout.toFixed(2)} جنيه</p>
+        <p><strong>إجمالي تقفيلة الكاشير (مبيعات الأقسام + الكاش الفعلي):</strong> ${cashierOurTotalCloseout.toFixed(2)} جنيه</p>
         <p><strong>تقفيلة نيو مايند (المحاسب):</strong> ${accountantNewMindTotal.toFixed(2)} جنيه</p>
         <p><strong>الفرق:</strong> <span style="color: ${differenceWithNewMind >= 0 ? 'green' : 'red'};">${Math.abs(differenceWithNewMind).toFixed(2)} جنيه ${differenceWithNewMind >= 0 ? 'زيادة' : 'نقص'}</span></p>
         <p><strong>الحالة:</strong> ${status}</p>
