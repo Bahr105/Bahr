@@ -1342,7 +1342,336 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+
+// --- دوال إضافية مطلوبة ---
+
+// دالة حساب الشيفت للكاشير
+async function calculateCashierShift() {
+    const dateFrom = document.getElementById('shiftDateFromCashier').value;
+    const dateTo = document.getElementById('shiftDateToCashier').value;
+    const timeFrom = document.getElementById('shiftTimeFromCashier').value;
+    const timeTo = document.getElementById('shiftTimeToCashier').value;
+
+    if (!dateFrom || !dateTo || !timeFrom || !timeTo) {
+        showWarningMessage('يرجى ملء جميع حقول التاريخ والوقت.');
+        return;
+    }
+
+    showLoading(true);
+    
+    try {
+        const filters = {
+            dateFrom: dateFrom,
+            dateTo: dateTo,
+            timeFrom: timeFrom,
+            timeTo: timeTo,
+            cashier: currentUser.username
+        };
+
+        const expenses = await loadExpenses(filters);
+        
+        // تصنيف المصروفات حسب النوع
+        const categorizedExpenses = {
+            expenses: [],
+            insta: [],
+            visa: [],
+            online: []
+        };
+
+        expenses.forEach(expense => {
+            const category = categories.find(cat => cat.name === expense.category);
+            if (category) {
+                switch (category.formType) {
+                    case 'إنستا':
+                        categorizedExpenses.insta.push(expense);
+                        break;
+                    case 'فيزا':
+                        categorizedExpenses.visa.push(expense);
+                        break;
+                    case 'اونلاين':
+                        categorizedExpenses.online.push(expense);
+                        break;
+                    default:
+                        categorizedExpenses.expenses.push(expense);
+                }
+            }
+        });
+
+        // حساب الإجماليات
+        const totalExpenses = categorizedExpenses.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const totalInsta = categorizedExpenses.insta.reduce((sum, exp) => sum + exp.amount, 0);
+        const totalVisa = categorizedExpenses.visa.reduce((sum, exp) => sum + exp.amount, 0);
+        const totalOnline = categorizedExpenses.online.reduce((sum, exp) => sum + exp.amount, 0);
+        const grandTotal = totalExpenses + totalInsta + totalVisa + totalOnline;
+
+        // تحديث الواجهة
+        document.getElementById('totalExpensesCashier').textContent = totalExpenses.toFixed(2);
+        document.getElementById('expenseCountCashier').textContent = categorizedExpenses.expenses.length;
+        document.getElementById('totalInstaCashier').textContent = totalInsta.toFixed(2);
+        document.getElementById('instaCountCashier').textContent = categorizedExpenses.insta.length;
+        document.getElementById('totalVisaCashier').textContent = totalVisa.toFixed(2);
+        document.getElementById('visaCountCashier').textContent = categorizedExpenses.visa.length;
+        document.getElementById('totalOnlineCashier').textContent = totalOnline.toFixed(2);
+        document.getElementById('onlineCountCashier').textContent = categorizedExpenses.online.length;
+        document.getElementById('grandTotalCashier').textContent = grandTotal.toFixed(2);
+
+        document.getElementById('shiftSummaryCashier').style.display = 'block';
+        
+        showSuccessMessage('تم حساب الشيفت بنجاح.');
+    } catch (error) {
+        showErrorMessage('حدث خطأ أثناء حساب الشيفت.');
+        console.error(error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+// دالة تقفيل الشيفت النهائي
+async function finalizeCashierShiftCloseout() {
+    const drawerCash = parseFloat(document.getElementById('drawerCashCashier').value);
+    
+    if (isNaN(drawerCash) || drawerCash < 0) {
+        showWarningMessage('يرجى إدخال قيمة صحيحة للنقدية في الدرج.');
+        return;
+    }
+
+    showLoading(true);
+    
+    try {
+        const now = new Date();
+        const shiftId = 'SHIFT_' + now.getTime();
+        
+        const totalExpenses = parseFloat(document.getElementById('totalExpensesCashier').textContent) || 0;
+        const totalInsta = parseFloat(document.getElementById('totalInstaCashier').textContent) || 0;
+        const totalVisa = parseFloat(document.getElementById('totalVisaCashier').textContent) || 0;
+        const totalOnline = parseFloat(document.getElementById('totalOnlineCashier').textContent) || 0;
+        const grandTotal = parseFloat(document.getElementById('grandTotalCashier').textContent) || 0;
+
+        const newShift = [
+            shiftId,
+            currentUser.username,
+            document.getElementById('shiftDateFromCashier').value,
+            document.getElementById('shiftTimeFromCashier').value,
+            document.getElementById('shiftDateToCashier').value,
+            document.getElementById('shiftTimeToCashier').value,
+            totalExpenses,
+            parseInt(document.getElementById('expenseCountCashier').textContent) || 0,
+            totalInsta,
+            parseInt(document.getElementById('instaCountCashier').textContent) || 0,
+            totalVisa,
+            parseInt(document.getElementById('visaCountCashier').textContent) || 0,
+            totalOnline,
+            parseInt(document.getElementById('onlineCountCashier').textContent) || 0,
+            grandTotal,
+            drawerCash,
+            grandTotal, // NewMind total (افتراضي)
+            drawerCash - grandTotal, // الفرق
+            'مغلق',
+            now.toISOString().split('T')[0],
+            now.toTimeString().split(' ')[0],
+            '' // المحاسب (يتم تعبئته لاحقاً)
+        ];
+
+        const result = await appendToSheet(SHEETS.SHIFT_CLOSURES, newShift);
+
+        if (result.success) {
+            showSuccessMessage('تم تقفيل الشيفت بنجاح.');
+            resetCashierDailyData();
+        } else {
+            showErrorMessage('فشل تقفيل الشيفت.');
+        }
+    } catch (error) {
+        showErrorMessage('حدث خطأ أثناء تقفيل الشيفت.');
+        console.error(error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+// دوال المحاسب المفقودة
+async function searchInvoiceAccountant() {
+    const invoiceNumber = document.getElementById('searchInputAccountant').value.trim();
+    
+    if (!invoiceNumber) {
+        showWarningMessage('يرجى إدخال رقم الفاتورة للبحث.');
+        return;
+    }
+
+    showLoading(true);
+    
+    try {
+        const expenses = await loadExpenses();
+        const filteredExpenses = expenses.filter(exp => 
+            exp.invoiceNumber && exp.invoiceNumber.includes(invoiceNumber)
+        );
+
+        const resultDiv = document.getElementById('invoiceSearchResultAccountant');
+        
+        if (filteredExpenses.length === 0) {
+            resultDiv.innerHTML = '<p class="message warning">لا توجد فواتير مطابقة للرقم المدخل.</p>';
+        } else {
+            let html = '<h4>نتائج البحث:</h4>';
+            html += '<table class="expenses-table"><thead><tr><th>رقم الفاتورة</th><th>التصنيف</th><th>القيمة</th><th>التاريخ</th><th>الكاشير</th></tr></thead><tbody>';
+            
+            filteredExpenses.forEach(exp => {
+                html += `<tr>
+                    <td>${exp.invoiceNumber}</td>
+                    <td>${exp.category}</td>
+                    <td>${exp.amount.toFixed(2)}</td>
+                    <td>${exp.date}</td>
+                    <td>${exp.cashier}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            resultDiv.innerHTML = html;
+        }
+        
+        resultDiv.style.display = 'block';
+    } catch (error) {
+        showErrorMessage('حدث خطأ أثناء البحث.');
+        console.error(error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function generateAccountantReport() {
+    const dateFrom = document.getElementById('reportDateFromAccountant').value;
+    const dateTo = document.getElementById('reportDateToAccountant').value;
+    const cashier = document.getElementById('reportCashierAccountant').value;
+    const category = document.getElementById('reportCategoryAccountant').value;
+
+    if (!dateFrom || !dateTo) {
+        showWarningMessage('يرجى تحديد تاريخ البداية والنهاية.');
+        return;
+    }
+
+    showLoading(true);
+    
+    try {
+        const filters = { dateFrom, dateTo };
+        if (cashier) filters.cashier = cashier;
+        
+        const expenses = await loadExpenses(filters);
+        let filteredExpenses = expenses;
+        
+        if (category) {
+            filteredExpenses = expenses.filter(exp => exp.category === category);
+        }
+
+        displayAccountantReport(filteredExpenses, dateFrom, dateTo);
+    } catch (error) {
+        showErrorMessage('حدث خطأ أثناء إنشاء التقرير.');
+        console.error(error);
+    } finally {
+        showLoading(false);
+    }
+}
+
+function displayAccountantReport(expenses, dateFrom, dateTo) {
+    const reportContent = document.getElementById('reportContentAccountant');
+    
+    const totalAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const cashiers = [...new Set(expenses.map(exp => exp.cashier))];
+    
+    let html = `
+        <div class="report-header">
+            <h3>تقرير المصروفات</h3>
+            <p>الفترة: من ${dateFrom} إلى ${dateTo}</p>
+            <p>إجمالي عدد الفواتير: ${expenses.length}</p>
+            <p>إجمالي القيمة: ${totalAmount.toFixed(2)}</p>
+        </div>
+    `;
+
+    // تفصيل حسب الكاشير
+    cashiers.forEach(cashier => {
+        const cashierExpenses = expenses.filter(exp => exp.cashier === cashier);
+        const cashierTotal = cashierExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        
+        html += `
+            <div class="cashier-section">
+                <h4>الكاشير: ${cashier}</h4>
+                <p>عدد الفواتير: ${cashierExpenses.length} | الإجمالي: ${cashierTotal.toFixed(2)}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>رقم الفاتورة</th>
+                            <th>التصنيف</th>
+                            <th>القيمة</th>
+                            <th>الوقت</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        cashierExpenses.forEach(exp => {
+            html += `
+                <tr>
+                    <td>${exp.date}</td>
+                    <td>${exp.invoiceNumber || '--'}</td>
+                    <td>${exp.category}</td>
+                    <td>${exp.amount.toFixed(2)}</td>
+                    <td>${exp.time}</td>
+                </tr>
+            `;
+        });
+        
+        html += `</tbody></table></div>`;
+    });
+
+    reportContent.innerHTML = html;
+}
+
+// دوال إضافية للمحاسب
+async function searchCashierClosuresAccountant() {
+    // سيتم تطبيقها لاحقاً
+    showWarningMessage('هذه الوظيفة قيد التطوير.');
+}
+
+function calculateDifferenceAccountant() {
+    // سيتم تطبيقها لاحقاً
+    showWarningMessage('هذه الوظيفة قيد التطوير.');
+}
+
+function closeCashierByAccountant() {
+    // سيتم تطبيقها لاحقاً
+    showWarningMessage('هذه الوظيفة قيد التطوير.');
+}
+
+// دوال المساعدة
+function showLoading(show) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (show) {
+        overlay.classList.remove('hidden');
+    } else {
+        overlay.classList.add('hidden');
+    }
+}
+
+// تهيئة الصفحة عند التحميل
+document.addEventListener('DOMContentLoaded', function() {
+    // تحديث التواريخ الحالية
+    const today = new Date().toISOString().split('T')[0];
+    document.querySelectorAll('input[type="date"]').forEach(input => {
+        if (!input.value) {
+            input.value = today;
+        }
+    });
+    
+    // تحديث الأوقات الحالية
+    const now = new Date();
+    const timeString = now.toTimeString().split(' ')[0].substring(0, 5);
+    document.querySelectorAll('input[type="time"]').forEach(input => {
+        if (!input.value) {
+            input.value = timeString;
+        }
+    });
+});
+
 // --- Google API Scripts ---
 // Add these scripts to your HTML head section
 // <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 // <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
