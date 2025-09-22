@@ -87,16 +87,21 @@ async function handleAuthClick() {
 // Helper function to load data from a specific sheet
 async function loadDataFromSheet(sheetName) {
     if (!gapi.client.getToken()) {
+        console.log(`Attempting to authenticate for sheet: ${sheetName}`);
         await handleAuthClick(); // Request token if not available
     }
     try {
+        console.log(`Attempting to load data from sheet: ${sheetName} with SPREADSHEET_ID: ${SPREADSHEET_ID}`);
         const response = await gapi.client.sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
             range: `${sheetName}!A:Z`,
         });
+        console.log(`Successfully loaded data from ${sheetName}. Response:`, response);
         return response.result.values || [];
     } catch (err) {
         console.error(`خطأ في تحميل البيانات من ${sheetName}:`, err);
+        // Log the full error object for more details
+        console.error("Full error object:", err);
         showErrorMessage(`خطأ في تحميل البيانات من ${sheetName}. يرجى التحقق من الاتصال والاذونات.`);
         return [];
     }
@@ -1296,4 +1301,5 @@ window.onload = async function() {
         }
     }
 };
+
 
