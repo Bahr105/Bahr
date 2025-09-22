@@ -813,19 +813,10 @@
     </div>
 
 <!-- رسائل التنبيه -->
-<div id="alertContainer" class="alert-container"></div>
-
-<!-- Google API client -->
- 
- <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-
-<!-- Google Identity Services -->
-<
- <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-
-<!-- سكريبتك -->
+<!-- ✅ هذا الترتيب الصحيح -->
 <script src="script.js"></script>
-     --- Google API Scripts ---
+<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 
 
 </body>
