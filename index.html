@@ -17,16 +17,15 @@
             
             <div class="login-form">
                 <div class="form-group">
-                    <label>اسم الكاشير:</label>
+                    <label>اسم المستخدم:</label>
                     <select id="username" required>
-                        <!-- Options will be populated dynamically by JavaScript -->
                         <option value="">اختر المستخدم</option>
                     </select>
                 </div>
                 
                 <div class="form-group">
                     <label>كلمة المرور:</label>
-                    <input type="password" id="password" value="123" required>
+                    <input type="password" id="password" required>
                 </div>
                 
                 <button class="btn" onclick="login()">تسجيل الدخول</button>
@@ -46,169 +45,145 @@
                 </div>
             </div>
             
-            <!-- Add New Section (Cashier can add, Accountant can manage) -->
-            <div class="add-section-card">
-                <h3>إضافة قسم جديد</h3>
-                <div class="section-form">
-                    <input type="text" id="newSectionName" placeholder="اسم القسم الجديد">
-                    <div style="display: flex; gap: 10px; margin: 10px 0;">
-                        <label style="display: flex; align-items: center; gap: 5px;">
-                            <input type="radio" name="sectionType" value="sales" checked>
-                            قسم مبيعات
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 5px;">
-                            <input type="radio" name="sectionType" value="expenses">
-                            قسم مصروفات
-                        </label>
-                    </div>
-                    <button class="btn" onclick="addNewSection()">إضافة قسم</button>
-                </div>
+            <!-- Navigation Tabs for Cashier -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="openTab('expensesTab')">المصروفات</button>
+                <button class="tab-btn" onclick="openTab('sectionsTab')">أقسام المبيعات</button>
+                <button class="tab-btn" onclick="openTab('customersTab')">العملاء الآجلين</button>
+                <button class="tab-btn" onclick="openTab('summaryTab')">ملخص اليوم</button>
+            </div>
+            
+            <!-- Expenses Tab -->
+            <div id="expensesTab" class="tab-content active">
+                <h2>📊 إدخال المصروفات والفواتير</h2>
+                
                 <div class="search-section">
-                    <input type="text" id="sectionSearch" placeholder="ابحث عن قسم..." onkeyup="searchSections()">
-                </div>
-            </div>
-            
-            <!-- Statistics Cards -->
-            <div class="stats-grid">
-                <div class="stats-card">
-                    <h4>📊 إجمالي العمليات</h4>
-                    <div class="stats-number" id="totalOperations">0</div>
-                </div>
-                <div class="stats-card">
-                    <h4>💰 إجمالي المبيعات</h4>
-                    <div class="stats-number" id="totalSales">0</div>
-                </div>
-                <div class="stats-card">
-                    <h4>📉 إجمالي المصروفات</h4>
-                    <div class="stats-number" id="totalExpenses">0</div>
-                </div>
-                <div class="stats-card">
-                    <h4>💳 مبيعات الفيزا</h4>
-                    <div class="stats-number" id="visaAmount">0</div>
-                </div>
-                <div class="stats-card">
-                    <h4>📝 المبيعات الآجلة</h4>
-                    <div class="stats-number" id="creditAmount">0</div>
-                </div>
-                <div class="stats-card">
-                    <h4>💵 النقدي المتوقع</h4>
-                    <div class="stats-number" id="expectedCash">0</div>
-                </div>
-            </div>
-            
-            <!-- Sales Sections -->
-            <h2 style="color: #1e3c72; margin-bottom: 15px;">🛒 أقسام المبيعات</h2>
-            <div class="sections-container" id="salesSectionsContainer">
-                <!-- سيتم إضافة الأقسام ديناميكياً هنا -->
-            </div>
-            
-            <!-- Special Sections -->
-            <h2 style="color: #dc3545; margin-bottom: 15px;">⭐ الأقسام الخاصة</h2>
-            <div class="sections-container">
-                
-                <!-- فيزا -->
-                <div class="section-card special-section">
-                    <h4>💳 فيزا</h4>
-                    <div class="invoice-form">
-                        <input type="text" placeholder="رقم الفاتورة" id="فيزا-invoice" required>
-                        <input type="number" placeholder="القيمة" id="فيزا-amount" step="0.01" required>
-                        <input type="text" placeholder="رقم الفيزا الأخير (4 أرقام)" id="فيزا-number" maxlength="4" required>
-                        <input type="text" placeholder="ملاحظات (اختياري)" id="فيزا-notes">
-                        <button onclick="addVisa()">إضافة فيزا</button>
-                    </div>
-                    <div id="فيزا-error" class="error-message"></div>
-                    <div class="invoice-list" id="فيزا-list"></div>
+                    <input type="text" id="expenseSearch" placeholder="ابحث عن نوع المصروف..." onkeyup="searchExpenses()">
                 </div>
                 
-                <!-- آجل -->
-                <div class="section-card special-section">
-                    <h4>📝 آجل</h4>
-                    <div class="invoice-form">
-                        <input type="text" placeholder="رقم الفاتورة" id="آجل-invoice" required>
-                        <input type="number" placeholder="القيمة" id="آجل-amount" step="0.01" required>
-                        <button type="button" onclick="openCustomerModal()">اختيار العميل</button>
-                        <input type="text" placeholder="العميل المختار" id="selected-customer" readonly>
-                        <input type="text" placeholder="ملاحظات (اختياري)" id="آجل-notes">
-                        <button onclick="addCredit()">إضافة آجل</button>
-                    </div>
-                    <div class="invoice-list" id="آجل-list"></div>
-                </div>
-                
-                <!-- بدل -->
-                <div class="section-card special-section">
-                    <h4>🔄 بدل</h4>
-                    <div class="invoice-form">
-                        <input type="text" placeholder="رقم الفاتورة الأصلية" id="بدل-original-invoice" required>
-                        <input type="number" placeholder="قيمة الفاتورة الأصلية" id="بدل-original-amount" step="0.01" required>
-                        <input type="text" placeholder="رقم فاتورة البدل" id="بدل-new-invoice" required>
-                        <input type="number" placeholder="قيمة فاتورة البدل" id="بدل-new-amount" step="0.01" required>
-                        <input type="text" placeholder="ملاحظات (اختياري)" id="بدل-notes">
-                        <button onclick="addExchange()">إضافة بدل</button>
-                    </div>
-                    <div class="exchange-calculation" id="بدل-calculation"></div>
-                    <div class="invoice-list" id="بدل-list"></div>
-                </div>
-                
-            </div>
-            
-            <!-- Expense Sections -->
-            <h2 style="color: #ffc107; margin-bottom: 15px;">📉 أقسام المصروفات</h2>
-            <div class="sections-container" id="expenseSectionsContainer">
-                <!-- سيتم إضافة الأقسام ديناميكياً هنا -->
-            </div>
-            
-            <!-- Drawer Count Section -->
-            <div class="drawer-section">
-                <h3>💰 جرد الدرج النهائي</h3>
-                <div class="form-group">
-                    <label>الكاش الفعلي في الدرج (آخر الشيفت):</label>
-                    <input type="number" id="drawerAmount" step="0.01" placeholder="أدخل المبلغ الفعلي في الدرج">
-                    <button class="btn btn-warning" onclick="calculateDrawer()" style="width: auto; margin-top: 10px;">حساب التقفيلة</button>
-                </div>
-                <div id="drawerResult"></div>
-            </div>
-            
-            <!-- Final Summary -->
-            <div class="final-summary">
-                <h3>📊 ملخص اليوم النهائي</h3>
-                <div class="summary-grid">
-                    <div class="summary-card">
-                        <h4>💰 إجمالي المبيعات</h4>
-                        <p><strong><span id="summaryTotalSales">0</span> جنيه</strong></p>
-                    </div>
-                    <div class="summary-card">
-                        <h4>📉 إجمالي المصروفات</h4>
-                        <p><strong><span id="summaryTotalExpenses">0</span> جنيه</strong></p>
-                    </div>
-                    <div class="summary-card">
-                        <h4>💳 مبيعات الفيزا</h4>
-                        <p><strong><span id="summaryVisa">0</span> جنيه</strong></p>
-                    </div>
-                    <div class="summary-card">
-                        <h4>📝 المبيعات الآجلة</h4>
-                        <p><strong><span id="summaryCredit">0</span> جنيه</strong></p>
-                    </div>
-                    <div class="summary-card">
-                        <h4>💵 الكاش الفعلي</h4>
-                        <p><strong><span id="summaryActualCash">0</span> جنيه</strong></p>
-                    </div>
-                    <div class="summary-card">
-                        <h4>📊 إجمالي التقفيلة</h4>
-                        <p><strong><span id="summaryTotal">0</span> جنيه</strong></p>
-                    </div>
-                </div>
-                
-                <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 15px;">
-                    <h4>🔄 مقارنة مع نيو مايند</h4>
+                <div class="expense-form">
                     <div class="form-group">
-                        <label>تقفيلة نيو مايند:</label>
-                        <input type="number" id="newMindTotal" step="0.01" placeholder="أدخل إجمالي التقفيلة من نيو مايند">
-                        <button class="btn btn-warning" onclick="compareWithNewMind()" style="width: auto; margin-top: 10px;">مقارنة التقفيلة</button>
+                        <label>نوع المصروف:</label>
+                        <select id="expenseType" onchange="toggleExtraField()">
+                            <!-- Options populated dynamically from Google Sheets -->
+                        </select>
                     </div>
-                    <div id="comparisonResult"></div>
+                    
+                    <div class="form-group" id="extraFieldContainer" style="display: none;">
+                        <label id="extraFieldLabel"></label>
+                        <input type="text" id="extraField">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>رقم الفاتورة:</label>
+                        <input type="text" id="expenseInvoice" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>قيمة الفاتورة:</label>
+                        <input type="number" id="expenseAmount" step="0.01" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>ملاحظات:</label>
+                        <textarea id="expenseNotes" rows="2"></textarea>
+                    </div>
+                    
+                    <button class="btn" onclick="addExpense()">إضافة المصروف</button>
                 </div>
                 
-                <button class="btn btn-success" onclick="finalizeDayCloseout()" style="margin-top: 20px; width: 100%;">✅ تقفيل اليوم نهائياً</button>
+                <div class="expenses-list">
+                    <h3>المصروفات المضافة اليوم</h3>
+                    <div id="expensesListContainer"></div>
+                </div>
+            </div>
+            
+            <!-- Sections Tab -->
+            <div id="sectionsTab" class="tab-content">
+                <h2>🛒 أقسام المبيعات</h2>
+                
+                <div class="sections-container" id="salesSectionsContainer">
+                    <!-- سيتم إضافة الأقسام ديناميكياً هنا -->
+                </div>
+            </div>
+            
+            <!-- Customers Tab -->
+            <div id="customersTab" class="tab-content">
+                <h2>👥 العملاء الآجلين</h2>
+                
+                <div class="customer-management">
+                    <div class="form-group">
+                        <input type="text" id="newCustomerName" placeholder="اسم العميل الجديد">
+                        <button class="btn" onclick="addNewCustomer()">إضافة عميل</button>
+                    </div>
+                    
+                    <div class="customers-list" id="customersListContainer">
+                        <!-- قائمة العملاء -->
+                    </div>
+                    
+                    <div class="customer-credits">
+                        <h3>الآجل على العملاء</h3>
+                        <div id="customerCreditsContainer"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Summary Tab -->
+            <div id="summaryTab" class="tab-content">
+                <h2>📊 ملخص اليوم</h2>
+                
+                <div class="stats-grid">
+                    <div class="stats-card">
+                        <h4>💰 إجمالي المبيعات</h4>
+                        <div class="stats-number" id="totalSales">0</div>
+                    </div>
+                    <div class="stats-card">
+                        <h4>📉 إجمالي المصروفات</h4>
+                        <div class="stats-number" id="totalExpenses">0</div>
+                    </div>
+                    <div class="stats-card">
+                        <h4>💳 مبيعات الفيزا</h4>
+                        <div class="stats-number" id="visaAmount">0</div>
+                    </div>
+                    <div class="stats-card">
+                        <h4>📝 المبيعات الآجلة</h4>
+                        <div class="stats-number" id="creditAmount">0</div>
+                    </div>
+                </div>
+                
+                <div class="drawer-section">
+                    <h3>💰 جرد الدرج النهائي</h3>
+                    <div class="form-group">
+                        <label>الكاش الفعلي في الدرج (آخر الشيفت):</label>
+                        <input type="number" id="drawerAmount" step="0.01" placeholder="أدخل المبلغ الفعلي في الدرج">
+                        <button class="btn btn-warning" onclick="calculateDrawer()">حساب التقفيلة</button>
+                    </div>
+                    <div id="drawerResult"></div>
+                </div>
+                
+                <div class="final-summary">
+                    <h3>📋 الملخص النهائي</h3>
+                    <div class="summary-grid">
+                        <div class="summary-card">
+                            <h4>💰 إجمالي المبيعات</h4>
+                            <p><strong><span id="summaryTotalSales">0</span> جنيه</strong></p>
+                        </div>
+                        <div class="summary-card">
+                            <h4>📉 إجمالي المصروفات</h4>
+                            <p><strong><span id="summaryTotalExpenses">0</span> جنيه</strong></p>
+                        </div>
+                        <div class="summary-card">
+                            <h4>💵 الكاش المتوقع</h4>
+                            <p><strong><span id="summaryExpectedCash">0</span> جنيه</strong></p>
+                        </div>
+                        <div class="summary-card">
+                            <h4>💵 الكاش الفعلي</h4>
+                            <p><strong><span id="summaryActualCash">0</span> جنيه</strong></p>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-success" onclick="finalizeDayCloseout()">✅ تقفيل اليوم نهائياً</button>
+                </div>
             </div>
         </div>
 
@@ -225,15 +200,49 @@
                 </div>
             </div>
 
-            <div class="accountant-actions">
+            <!-- Navigation Tabs for Accountant -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="openAccountantTab('usersTab')">إدارة المستخدمين</button>
+                <button class="tab-btn" onclick="openAccountantTab('reportsTab')">تقارير الكاشير</button>
+                <button class="tab-btn" onclick="openAccountantTab('closeoutTab')">تقفيل الحسابات</button>
+                <button class="tab-btn" onclick="openAccountantTab('searchTab')">بحث عن فاتورة</button>
+            </div>
+            
+            <!-- Users Management Tab -->
+            <div id="usersTab" class="tab-content active">
+                <h2>👥 إدارة المستخدمين</h2>
+                
                 <div class="action-card">
-                    <h3>➕ إدارة المستخدمين</h3>
-                    <button class="btn" onclick="openCreateUserModal()">إنشاء مستخدم جديد</button>
-                    <button class="btn btn-secondary" onclick="openManageSectionsModal()">إدارة الأقسام</button>
+                    <h3>➕ إنشاء مستخدم جديد</h3>
+                    <div class="form-group">
+                        <label>اسم المستخدم:</label>
+                        <input type="text" id="newUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label>كلمة المرور:</label>
+                        <input type="password" id="newUserPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label>الدور:</label>
+                        <select id="newUserRole" required>
+                            <option value="Cashier">كاشير</option>
+                            <option value="Accountant">محاسب</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="createNewUser()">إنشاء المستخدم</button>
                 </div>
-
+                
                 <div class="action-card">
-                    <h3>🔍 تقارير الكاشير</h3>
+                    <h3>📋 قائمة المستخدمين</h3>
+                    <div id="usersListContainer"></div>
+                </div>
+            </div>
+            
+            <!-- Reports Tab -->
+            <div id="reportsTab" class="tab-content">
+                <h2>📊 تقارير الكاشير</h2>
+                
+                <div class="action-card">
                     <div class="form-group">
                         <label>اختر الكاشير:</label>
                         <select id="selectCashierForReport">
@@ -251,9 +260,13 @@
                     <button class="btn" onclick="generateCashierReport()">عرض التقرير</button>
                     <div id="cashierReportResult" class="report-result"></div>
                 </div>
-
+            </div>
+            
+            <!-- Closeout Tab -->
+            <div id="closeoutTab" class="tab-content">
+                <h2>✅ تقفيل حساب كاشير</h2>
+                
                 <div class="action-card">
-                    <h3>✅ تقفيل حساب كاشير</h3>
                     <div class="form-group">
                         <label>اختر الكاشير لتقفيل حسابه:</label>
                         <select id="selectCashierForCloseout">
@@ -271,9 +284,13 @@
                     <button class="btn btn-success" onclick="performAccountantCloseout()">تقفيل الحساب</button>
                     <div id="accountantCloseoutResult" class="report-result"></div>
                 </div>
-
+            </div>
+            
+            <!-- Search Tab -->
+            <div id="searchTab" class="tab-content">
+                <h2>🔎 بحث عن فاتورة</h2>
+                
                 <div class="action-card">
-                    <h3>🔎 بحث عن فاتورة</h3>
                     <div class="form-group">
                         <label>رقم الفاتورة:</label>
                         <input type="text" id="searchInvoiceNumber" placeholder="أدخل رقم الفاتورة">
@@ -284,79 +301,7 @@
             </div>
         </div>
     </div>
-    
-    <!-- Customer Selection Modal -->
-    <div id="customerModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeCustomerModal()">&times;</span>
-            <h2>اختيار العميل</h2>
-            <div class="form-group">
-                <input type="text" id="customerSearch" placeholder="ابحث عن عميل..." onkeyup="searchCustomers()">
-            </div>
-            <div class="form-group">
-                <input type="text" id="newCustomerName" placeholder="اسم عميل جديد">
-                <button class="btn" onclick="addNewCustomer()">إضافة عميل جديد</button>
-            </div>
-            <div class="customers-list" id="customersList"></div>
-        </div>
-    </div>
 
-    <!-- Create User Modal -->
-    <div id="createUserModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeCreateUserModal()">&times;</span>
-            <h2>إنشاء مستخدم جديد</h2>
-            <div class="form-group">
-                <label>اسم المستخدم:</label>
-                <input type="text" id="newUsername" required>
-            </div>
-            <div class="form-group">
-                <label>كلمة المرور:</label>
-                <input type="password" id="newUserPassword" required>
-            </div>
-            <div class="form-group">
-                <label>الدور:</label>
-                <select id="newUserRole" required>
-                    <option value="Cashier">كاشير</option>
-                    <option value="Accountant">محاسب</option>
-                </select>
-            </div>
-            <button class="btn" onclick="createNewUser()">إنشاء المستخدم</button>
-        </div>
-    </div>
-
-    <!-- Manage Sections Modal -->
-    <div id="manageSectionsModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeManageSectionsModal()">&times;</span>
-            <h2>إدارة الأقسام</h2>
-            <div class="form-group">
-                <input type="text" id="manageSectionName" placeholder="اسم القسم الجديد">
-                <div style="display: flex; gap: 10px; margin: 10px 0;">
-                    <label style="display: flex; align-items: center; gap: 5px;">
-                        <input type="radio" name="manageSectionType" value="sales" checked>
-                        قسم مبيعات
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 5px;">
-                        <input type="radio" name="manageSectionType" value="expenses">
-                        قسم مصروفات
-                    </label>
-                </div>
-                <button class="btn" onclick="addSectionFromManageModal()">إضافة قسم</button>
-            </div>
-            <h3>الأقسام الحالية:</h3>
-            <div id="currentSalesSections" class="sections-list">
-                <h4>أقسام المبيعات:</h4>
-                <!-- Sales sections will be loaded here -->
-            </div>
-            <div id="currentExpenseSections" class="sections-list">
-                <h4>أقسام المصروفات:</h4>
-                <!-- Expense sections will be loaded here -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Google APIs Scripts -->
     <script src="https://apis.google.com/js/api.js" async defer></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="script.js"></script>
