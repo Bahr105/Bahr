@@ -167,7 +167,7 @@ function populateUserDropdown() {
 
 // Load Sales Sections and Expense Types from Google Sheets
 async function loadSectionsAndExpenseTypesFromSheets() {
-    const sectionsData = await loadDataFromSheet('Categories'); // Assuming a 'Categories' sheet
+    async function loadSectionsAndExpenseTypesFromSheets() {     const sectionsData = await loadDataFromSheet('Sections'); // تم تعديل الاسم هنا     salesSections = [];     expenseTypes = [];      if (sectionsData.length > 1) { // Skip header row         sectionsData.slice(1).forEach(row => {             const name = row[0]; // Category name             const type = row[1]; // Type (sales/expense)             if (name && type) {                 if (type === 'sales' && !salesSections.includes(name)) {                     salesSections.push(name);                 } else if (type === 'expense' && !expenseTypes.includes(name)) {                     expenseTypes.push(name);                 }             }         });     } else {         console.warn('No category data found in Google Sheet "Sections".');     }     initializeDataStructures(); // Re-initialize dailyData with loaded sections/types     populateExpenseTypeDropdown(); } // Assuming a 'Categories' sheet
     salesSections = [];
     expenseTypes = [];
 
@@ -1296,3 +1296,4 @@ window.onload = async function() {
         }
     }
 };
+
