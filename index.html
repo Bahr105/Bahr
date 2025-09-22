@@ -190,7 +190,7 @@
                 
                 <div class="summary-details">
                     <div class="summary-section">
-                        <h3>💰 إيرادات الأقسام</h3>
+                        <h3>💰 إيرادات الأقسام (كاش)</h3>
                         <div id="sectionsSummary"></div>
                     </div>
                     
@@ -214,8 +214,8 @@
                     <h3>📋 الملخص النهائي</h3>
                     <div class="summary-grid">
                         <div class="summary-card">
-                            <h4>💰 إجمالي إيرادات الأقسام</h4>
-                            <p><strong><span id="summaryTotalSections">0</span> جنيه</strong></p>
+                            <h4>💰 إجمالي إيرادات الأقسام (كاش)</h4>
+                            <p><strong><span id="summaryTotalSectionsCash">0</span> جنيه</strong></p>
                         </div>
                         <div class="summary-card">
                             <h4>📉 إجمالي المصروفات</h4>
@@ -365,12 +365,8 @@
                         <label>تاريخ التقفيل:</label>
                         <input type="date" id="closeoutDate">
                     </div>
-                    <div class="form-group">
-                        <label>تقفيلة نيو مايند:</label>
-                        <input type="number" id="accountantNewMindTotal" step="0.01" placeholder="أدخل إجمالي التقفيلة من نيو مايند">
-                    </div>
-                    <button class="btn btn-success" onclick="performAccountantCloseout()">تقفيل الحساب</button>
-                    <div id="accountantCloseoutResult" class="report-result"></div>
+                    <button class="btn btn-primary" onclick="loadCloseoutData()">تحميل بيانات التقفيل</button>
+                    <div id="closeoutResults" class="report-result mt-20"></div>
                 </div>
             </div>
             
