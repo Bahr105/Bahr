@@ -88,22 +88,16 @@ async function handleAuthClick() {
 async function callAppScript(action, data = {}) {
     showLoadingOverlay();
     try {
-        const response = await fetch(APP_SCRIPT_URL, {
+        const response = await fetch(APP_SCRIPT_URL, { // <--- This is where the URL is used
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ action, ...data }),
         });
-        const result = await response.json();
-        if (!result.success) {
-            showErrorMessage(result.message || 'حدث خطأ غير معروف.');
-        }
-        return result;
+        // ... rest of the function
     } catch (error) {
-        console.error('Error calling App Script:', error);
-        showErrorMessage('خطأ في الاتصال بالخادم. يرجى التحقق من الاتصال بالإنترنت.');
-        return { success: false, message: 'خطأ في الاتصال بالخادم.' };
+        // ...
     } finally {
         hideLoadingOverlay();
     }
