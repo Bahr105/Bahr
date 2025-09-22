@@ -8,13 +8,14 @@ let gapiInited = false;
 let gisInited = false;
 let tokenClient;
 
+
 // --- Global Application State ---
 let dailyData = {
-    sales: {}, // المبيعات
-    expenses: {}, // المصروفات
-    visa: [], // فواتير الفيزا
-    credit: [], // المبيعات الآجلة
-    exchanges: [], // عمليات البدل
+    sales: {}, // المبيعات (هيكل: { "اسم القسم": [{id, invoiceNumber, amount, notes, timestamp}] })
+    expenses: [], // المصروفات (هيكل: [{id, type, invoiceNumber, amount, notes, extraField, timestamp}])
+    visa: [], // فواتير الفيزا (هيكل: [{id, invoiceNumber, amount, visaNumber, notes, timestamp}])
+    credit: [], // المبيعات الآجلة (هيكل: [{id, invoiceNumber, amount, customer, notes, timestamp}])
+    exchanges: [], // عمليات البدل (هيكل: [{id, originalInvoice, originalAmount, newInvoice, newAmount, difference, notes, timestamp}])
     totalSales: 0,
     totalExpenses: 0,
     visaAmount: 0,
@@ -23,10 +24,10 @@ let dailyData = {
     exchangeExpenses: 0 // مصروفات البدل (الفلوس اللي اتدفعت للعميل)
 };
 
-let users = []; // Loaded from Google Sheets
-let salesSections = []; // Loaded from Google Sheets
-let expenseSections = []; // Loaded from Google Sheets
-let customers = []; // Loaded from Google Sheets
+let users = []; // Loaded from Google Sheets (username, password, role)
+let salesSections = []; // Loaded from Google Sheets (names of sales sections)
+let expenseTypes = []; // Loaded from Google Sheets (names of expense types)
+let customers = []; // Loaded from Google Sheets (customer names)
 let currentUser = '';
 let currentUserRole = '';
 let selectedCustomer = '';
@@ -127,8 +128,6 @@ async function saveToGoogleSheets(data, sheetName) {
     } catch (err) {
         console.error('خطأ في حفظ البيانات:', err);
         showErrorMessage(`خطأ في حفظ البيانات في ${sheetName}. يرجى التحقق من الاتصال والاذونات.`);
-        // Optionally save to local storage for retry
-        // saveToLocalStorage(data, sheetName);
         return false;
     }
 }
@@ -136,7 +135,7 @@ async function saveToGoogleSheets(data, sheetName) {
 // --- Initial Data Loading on Page Load ---
 async function loadInitialData() {
     await loadUsers();
-    await loadSectionsFromSheets();
+    await loadSectionsAndExpenseTypesFromSheets();
     await loadCustomersFromSheets();
     populateUserDropdown();
 }
@@ -168,28 +167,42 @@ function populateUserDropdown() {
     });
 }
 
-// Load Sales and Expense Sections from Google Sheets
-async function loadSectionsFromSheets() {
-    const sectionsData = await loadDataFromSheet('Sections');
+// Load Sales Sections and Expense Types from Google Sheets
+async function loadSectionsAndExpenseTypesFromSheets() {
+    const sectionsData = await loadDataFromSheet('Categories'); // Assuming a 'Categories' sheet
     salesSections = [];
-    expenseSections = [];
+    expenseTypes = [];
 
     if (sectionsData.length > 1) { // Skip header row
         sectionsData.slice(1).forEach(row => {
-            const sectionName = row[0]; // Assuming section name is in the 1st column
-            const sectionType = row[1]; // Assuming section type is in the 2nd column
-            if (sectionName && sectionType) {
-                if (sectionType === 'sales' && !salesSections.includes(sectionName)) {
-                    salesSections.push(sectionName);
-                } else if (sectionType === 'expenses' && !expenseSections.includes(sectionName)) {
-                    expenseSections.push(sectionName);
+            const name = row[0]; // Category name
+            const type = row[1]; // Type (sales/expense)
+            if (name && type) {
+                if (type === 'sales' && !salesSections.includes(name)) {
+                    salesSections.push(name);
+                } else if (type === 'expense' && !expenseTypes.includes(name)) {
+                    expenseTypes.push(name);
                 }
             }
         });
     } else {
-        console.warn('No section data found in Google Sheet "Sections".');
+        console.warn('No category data found in Google Sheet "Categories".');
     }
-    initializeDataStructures(); // Re-initialize dailyData with loaded sections
+    initializeDataStructures(); // Re-initialize dailyData with loaded sections/types
+    populateExpenseTypeDropdown();
+}
+
+// Populate expense type dropdown in cashier dashboard
+function populateExpenseTypeDropdown() {
+    const expenseTypeSelect = document.getElementById('expenseType');
+    expenseTypeSelect.innerHTML = ''; // Clear existing options
+    expenseTypes.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        expenseTypeSelect.appendChild(option);
+    });
+    toggleExtraField(); // Call to set initial state for extra field
 }
 
 // Load Customers from Google Sheets
@@ -208,19 +221,21 @@ async function loadCustomersFromSheets() {
 // Initialize data structures for daily operations
 function initializeDataStructures() {
     dailyData.sales = {};
-    dailyData.expenses = {};
-
     salesSections.forEach(section => {
         if (!dailyData.sales[section]) {
             dailyData.sales[section] = [];
         }
     });
-
-    expenseSections.forEach(section => {
-        if (!dailyData.expenses[section]) {
-            dailyData.expenses[section] = [];
-        }
-    });
+    dailyData.expenses = []; // Expenses are now a flat array
+    dailyData.visa = [];
+    dailyData.credit = [];
+    dailyData.exchanges = [];
+    dailyData.totalSales = 0;
+    dailyData.totalExpenses = 0;
+    dailyData.visaAmount = 0;
+    dailyData.creditAmount = 0;
+    dailyData.drawerAmount = 0;
+    dailyData.exchangeExpenses = 0;
 }
 
 // Login Function
@@ -275,75 +290,320 @@ async function showCashierDashboard() {
     document.getElementById('currentDateCashier').textContent = new Date().toLocaleDateString('ar-EG');
     
     // Reload sections and customers in case they were updated by accountant
-    await loadSectionsFromSheets();
+    await loadSectionsAndExpenseTypesFromSheets();
     await loadCustomersFromSheets();
     initializeDataStructures();
-    loadCustomers();
-    loadSections();
+    loadCustomersForCashier(); // Load customers for the customer tab
+    loadSalesSectionsForCashier(); // Load sales sections for the sales tab
+    updateExpensesList(); // Update expenses list for the expenses tab
     updateStats();
+    openTab('expensesTab'); // Default to expenses tab
 }
 
-// Add New Section (available to cashier, but accountant can manage/delete)
-async function addNewSection() {
-    const sectionName = document.getElementById('newSectionName').value.trim();
-    const sectionType = document.querySelector('input[name="sectionType"]:checked').value;
-    
-    if (!sectionName) {
-        alert('يرجى إدخال اسم القسم');
-        return;
+// Function to open specific tab
+function openTab(tabName) {
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => content.style.display = 'none');
+
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+
+    document.getElementById(tabName).style.display = 'block';
+    document.querySelector(`.tab-btn[onclick="openTab('${tabName}')"]`).classList.add('active');
+
+    // Specific updates for each tab
+    if (tabName === 'sectionsTab') {
+        loadSalesSectionsForCashier();
+    } else if (tabName === 'customersTab') {
+        loadCustomersForCashier();
+        updateCustomerCredits();
+    } else if (tabName === 'summaryTab') {
+        updateStats();
+    } else if (tabName === 'expensesTab') {
+        updateExpensesList();
     }
+}
+
+// Toggle extra field based on expense type
+function toggleExtraField() {
+    const expenseType = document.getElementById('expenseType').value;
+    const extraFieldContainer = document.getElementById('extraFieldContainer');
+    const extraFieldLabel = document.getElementById('extraFieldLabel');
+    const expenseInvoiceInput = document.getElementById('expenseInvoice');
+
+    extraFieldContainer.style.display = 'none';
+    expenseInvoiceInput.required = true; // Default to required
+
+    if (expenseType === 'شحن تاب') {
+        extraFieldContainer.style.display = 'block';
+        extraFieldLabel.textContent = 'رقم التاب/الفون:';
+        expenseInvoiceInput.required = false; // No invoice for tab charge
+    } else if (expenseType === 'شحن كهربا') {
+        extraFieldContainer.style.display = 'block';
+        extraFieldLabel.textContent = 'مكان الشحن:';
+        expenseInvoiceInput.required = false; // No invoice for electricity charge
+    } else if (expenseType === 'بنزين') {
+        extraFieldContainer.style.display = 'block';
+        extraFieldLabel.textContent = 'اسم المستلم:';
+        expenseInvoiceInput.required = false; // No invoice for gas
+    } else if (expenseType === 'أجل') {
+        extraFieldContainer.style.display = 'block';
+        extraFieldLabel.textContent = 'اختر العميل:';
+        extraFieldContainer.innerHTML = `
+            <label id="extraFieldLabel">اختر العميل:</label>
+            <select id="extraFieldCustomerSelect" onchange="selectedCustomer = this.value"></select>
+            <button class="btn btn-small" onclick="openAddNewCustomerModal()">+ عميل جديد</button>
+        `;
+        populateCustomerSelectForExpense();
+        expenseInvoiceInput.required = true; // Invoice required for credit sales
+    } else if (expenseType === 'عجوزات') {
+        extraFieldContainer.style.display = 'block';
+        extraFieldLabel.textContent = 'المسؤول عن العجز:';
+        expenseInvoiceInput.required = false; // No invoice for deficit
+    }
+}
+
+// Populate customer select for 'أجل' expense type
+function populateCustomerSelectForExpense() {
+    const customerSelectElement = document.getElementById('extraFieldCustomerSelect');
+    if (customerSelectElement) {
+        customerSelectElement.innerHTML = '<option value="">اختر العميل</option>';
+        customers.forEach(customer => {
+            const option = document.createElement('option');
+            option.value = customer;
+            option.textContent = customer;
+            customerSelectElement.appendChild(option);
+        });
+    }
+}
+
+// Open modal for adding new customer from expense tab
+function openAddNewCustomerModal() {
+    const newCustomerName = prompt('أدخل اسم العميل الجديد:');
+    if (newCustomerName && newCustomerName.trim() !== '') {
+        addNewCustomer(newCustomerName.trim()); // Call existing function to add customer
+    }
+}
+
+// Search expenses by type
+function searchExpenses() {
+    const searchTerm = document.getElementById('expenseSearch').value.toLowerCase();
+    const expenseTypeSelect = document.getElementById('expenseType');
     
-    if (salesSections.includes(sectionName) || expenseSections.includes(sectionName)) {
-        alert('هذا القسم موجود بالفعل');
+    // Filter options in the dropdown
+    const filteredOptions = expenseTypes.filter(type => type.toLowerCase().includes(searchTerm));
+    expenseTypeSelect.innerHTML = '';
+    filteredOptions.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        expenseTypeSelect.appendChild(option);
+    });
+    toggleExtraField(); // Update extra field based on new selection
+}
+
+// Add Expense Function
+async function addExpense() {
+    const expenseType = document.getElementById('expenseType').value;
+    const expenseInvoice = document.getElementById('expenseInvoice').value.trim();
+    const expenseAmount = parseFloat(document.getElementById('expenseAmount').value);
+    const expenseNotes = document.getElementById('expenseNotes').value.trim();
+    let extraFieldValue = '';
+
+    if (isNaN(expenseAmount) || expenseAmount <= 0) {
+        alert('يرجى إدخال قيمة صحيحة للمصروف.');
         return;
     }
 
-    const success = await saveToGoogleSheets([sectionName, sectionType, currentUser, new Date().toLocaleDateString('ar-EG')], 'Sections');
-    if (success) {
-        if (sectionType === 'sales') {
-            salesSections.push(sectionName);
-            dailyData.sales[sectionName] = [];
-            createSalesSection(sectionName);
-        } else {
-            expenseSections.push(sectionName);
-            dailyData.expenses[sectionName] = [];
-            createExpenseSection(sectionName);
+    if (expenseType === 'أجل') {
+        extraFieldValue = document.getElementById('extraFieldCustomerSelect').value;
+        if (!extraFieldValue) {
+            alert('يرجى اختيار العميل الآجل.');
+            return;
         }
-        document.getElementById('newSectionName').value = '';
-        showSuccessMessage(`تم إضافة قسم ${sectionName} بنجاح`);
+        if (!expenseInvoice) {
+            alert('يرجى إدخال رقم الفاتورة للمبيعات الآجلة.');
+            return;
+        }
+    } else if (expenseType === 'شحن تاب' || expenseType === 'شحن كهربا' || expenseType === 'بنزين' || expenseType === 'عجوزات') {
+        extraFieldValue = document.getElementById('extraField').value.trim();
+        if (!extraFieldValue) {
+            alert(`يرجى إدخال ${expenseType === 'شحن تاب' ? 'رقم التاب/الفون' : expenseType === 'شحن كهربا' ? 'مكان الشحن' : expenseType === 'بنزين' ? 'اسم المستلم' : 'المسؤول عن العجز'}.`);
+            return;
+        }
+    } else if (!expenseInvoice) {
+        alert('يرجى إدخال رقم الفاتورة.');
+        return;
+    }
+
+    // Prepare data for Google Sheets based on expense type
+    let sheetName = 'Expenses';
+    let dataToSave = [
+        new Date().toLocaleDateString('ar-EG'),
+        new Date().toLocaleTimeString('ar-EG'),
+        currentUser,
+        expenseType,
+        expenseInvoice,
+        expenseAmount,
+        expenseNotes,
+        extraFieldValue // This column will hold the specific detail
+    ];
+
+    if (expenseType === 'فيزا') {
+        sheetName = 'Visa';
+        // For Visa, we need a visa number, not an extra field for customer/etc.
+        // Assuming 'extraFieldValue' is used for visa number if type is 'فيزا'
+        // This needs a dedicated input for visa number in the UI for better UX.
+        // For now, let's assume 'expenseNotes' might contain it or we add a new field.
+        // Let's adjust the UI to have a dedicated visa number field.
+        // For this example, I'll use expenseNotes for visa number if it's 'فيزا'
+        const visaNumber = prompt('يرجى إدخال آخر 4 أرقام من الفيزا:');
+        if (!visaNumber || visaNumber.length !== 4 || !/^\d+$/.test(visaNumber)) {
+            alert('يرجى إدخال آخر 4 أرقام من الفيزا بشكل صحيح (4 أرقام فقط).');
+            return;
+        }
+        if (usedVisaNumbers.has(visaNumber)) {
+            alert(`رقم الفيزا ${visaNumber} مستخدم بالفعل اليوم!`);
+            return;
+        }
+        dataToSave = [
+            new Date().toLocaleDateString('ar-EG'),
+            new Date().toLocaleTimeString('ar-EG'),
+            currentUser,
+            expenseInvoice, // Invoice number for visa
+            expenseAmount,
+            visaNumber,
+            expenseNotes
+        ];
+    } else if (expenseType === 'أجل') {
+        sheetName = 'Credit';
+        dataToSave = [
+            new Date().toLocaleDateString('ar-EG'),
+            new Date().toLocaleTimeString('ar-EG'),
+            currentUser,
+            expenseInvoice, // Invoice number for credit
+            expenseAmount,
+            extraFieldValue, // Customer name
+            expenseNotes
+        ];
+    } else if (expenseType === 'مرتجع') {
+        // For returns, we might need original invoice details.
+        // This is a simplified implementation.
+        // For now, treat it as a regular expense with negative amount or a separate sheet.
+        // Let's assume it's an expense for now.
+    }
+
+    const success = await saveToGoogleSheets(dataToSave, sheetName);
+
+    if (success) {
+        const newEntry = {
+            id: Date.now(),
+            type: expenseType,
+            invoiceNumber: expenseInvoice,
+            amount: expenseAmount,
+            notes: expenseNotes,
+            extraField: extraFieldValue,
+            timestamp: new Date().toLocaleString('ar-EG')
+        };
+
+        if (expenseType === 'فيزا') {
+            dailyData.visa.push(newEntry);
+            dailyData.visaAmount += expenseAmount;
+            usedVisaNumbers.add(dataToSave[5]); // Add visa number to used set
+        } else if (expenseType === 'أجل') {
+            dailyData.credit.push(newEntry);
+            dailyData.creditAmount += expenseAmount;
+        } else {
+            dailyData.expenses.push(newEntry);
+            dailyData.totalExpenses += expenseAmount;
+        }
+        
+        updateExpensesList();
+        updateStats();
+        clearExpenseForm();
+        showSuccessMessage(`تم إضافة ${expenseType} بنجاح`);
     }
 }
 
-// Search Sections
-function searchSections() {
-    const searchTerm = document.getElementById('sectionSearch').value.toLowerCase();
-    
-    const salesContainer = document.getElementById('salesSectionsContainer');
-    salesContainer.querySelectorAll('.section-card').forEach(section => {
-        const sectionName = section.querySelector('h4').textContent.toLowerCase();
-        section.style.display = sectionName.includes(searchTerm) ? 'block' : 'none';
-    });
-    
-    const expenseContainer = document.getElementById('expenseSectionsContainer');
-    expenseContainer.querySelectorAll('.section-card').forEach(section => {
-        const sectionName = section.querySelector('h4').textContent.toLowerCase();
-        section.style.display = sectionName.includes(searchTerm) ? 'block' : 'none';
+// Update Expenses List (for expenses tab)
+function updateExpensesList() {
+    const expensesListContainer = document.getElementById('expensesListContainer');
+    expensesListContainer.innerHTML = '';
+
+    if (dailyData.expenses.length === 0 && dailyData.visa.length === 0 && dailyData.credit.length === 0) {
+        expensesListContainer.innerHTML = '<p>لا توجد مصروفات أو مبيعات خاصة مسجلة اليوم.</p>';
+        return;
+    }
+
+    // Combine all relevant entries for display
+    const allEntries = [
+        ...dailyData.expenses.map(e => ({ ...e, category: e.type, displayType: 'مصروف' })),
+        ...dailyData.visa.map(v => ({ ...v, category: 'فيزا', displayType: 'فيزا', invoiceNumber: v.invoiceNumber, notes: `رقم الفيزا: ${v.visaNumber}, ${v.notes}` })),
+        ...dailyData.credit.map(c => ({ ...c, category: 'آجل', displayType: 'آجل', invoiceNumber: c.invoiceNumber, notes: `العميل: ${c.extraField}, ${c.notes}` }))
+    ].sort((a, b) => b.id - a.id); // Sort by latest first
+
+    allEntries.forEach(item => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'invoice-item';
+        itemElement.innerHTML = `
+            <div>
+                <strong>${item.displayType}: ${item.category}</strong>
+                ${item.invoiceNumber ? ` (#${item.invoiceNumber})` : ''}: ${item.amount.toFixed(2)} جنيه
+                ${item.notes ? `<br><small>ملاحظات: ${item.notes}</small>` : ''}
+                <br><small>${item.timestamp}</small>
+            </div>
+            <button class="btn-danger btn-small" onclick="deleteEntryFromDailyData('${item.displayType}', ${item.id})">حذف</button>
+        `;
+        expensesListContainer.appendChild(itemElement);
     });
 }
 
-// Load Sections into Dashboard
-function loadSections() {
+// Delete Entry from dailyData (client-side only)
+function deleteEntryFromDailyData(displayType, id) {
+    if (!confirm('هل أنت متأكد من حذف هذا الإدخال؟ (سيتم حذفه من الواجهة فقط، وليس من Google Sheets تلقائيًا)')) return;
+
+    let itemIndex;
+    let amountToRemove = 0;
+
+    if (displayType === 'مصروف') {
+        itemIndex = dailyData.expenses.findIndex(item => item.id === id);
+        if (itemIndex > -1) {
+            amountToRemove = dailyData.expenses[itemIndex].amount;
+            dailyData.expenses.splice(itemIndex, 1);
+            dailyData.totalExpenses -= amountToRemove;
+        }
+    } else if (displayType === 'فيزا') {
+        itemIndex = dailyData.visa.findIndex(item => item.id === id);
+        if (itemIndex > -1) {
+            amountToRemove = dailyData.visa[itemIndex].amount;
+            const visaNum = dailyData.visa[itemIndex].visaNumber;
+            dailyData.visa.splice(itemIndex, 1);
+            dailyData.visaAmount -= amountToRemove;
+            usedVisaNumbers.delete(visaNum);
+        }
+    } else if (displayType === 'آجل') {
+        itemIndex = dailyData.credit.findIndex(item => item.id === id);
+        if (itemIndex > -1) {
+            amountToRemove = dailyData.credit[itemIndex].amount;
+            dailyData.credit.splice(itemIndex, 1);
+            dailyData.creditAmount -= amountToRemove;
+        }
+    }
+    updateExpensesList();
+    updateStats();
+    showSuccessMessage('تم حذف الإدخال بنجاح من القائمة المحلية.');
+}
+
+
+// Load Sales Sections into Dashboard
+function loadSalesSectionsForCashier() {
     const salesContainer = document.getElementById('salesSectionsContainer');
     salesContainer.innerHTML = '';
-    salesSections.forEach(section => createSalesSection(section));
-    
-    const expenseContainer = document.getElementById('expenseSectionsContainer');
-    expenseContainer.innerHTML = '';
-    expenseSections.forEach(section => createExpenseSection(section));
+    salesSections.forEach(section => createSalesSectionUI(section));
 }
 
 // Create Sales Section UI
-function createSalesSection(section) {
+function createSalesSectionUI(section) {
     const container = document.getElementById('salesSectionsContainer');
     const sectionCard = document.createElement('div');
     sectionCard.className = 'section-card';
@@ -363,47 +623,6 @@ function createSalesSection(section) {
     `;
     container.appendChild(sectionCard);
     updateSaleDisplay(section);
-}
-
-// Create Expense Section UI
-function createExpenseSection(section) {
-    const container = document.getElementById('expenseSectionsContainer');
-    const sectionCard = document.createElement('div');
-    sectionCard.className = 'section-card';
-    let extraInput = '';
-    let placeholderText = `ملاحظات (اختياري)`;
-
-    // Special handling for specific expense types
-    if (section === 'شحن_تاب') {
-        extraInput = `<input type="text" placeholder="رقم التاب/الفون" id="${section}-extra" required>`;
-        placeholderText = `ملاحظات (اختياري)`;
-    } else if (section === 'شحن_كهربا') {
-        extraInput = `<input type="text" placeholder="مكان الشحن" id="${section}-extra" required>`;
-        placeholderText = `ملاحظات (اختياري)`;
-    } else if (section === 'بنزين') {
-        extraInput = `<input type="text" placeholder="اسم المستلم" id="${section}-extra" required>`;
-        placeholderText = `ملاحظات (اختياري)`;
-    } else if (section === 'عجوزات') {
-        extraInput = `<input type="text" placeholder="المسؤول عن العجز" id="${section}-extra" required>`;
-        placeholderText = `سبب العجز (اختياري)`;
-    }
-
-    sectionCard.innerHTML = `
-        <h4>${section}</h4>
-        <div class="section-stats">
-            <small>عدد العمليات: <span id="${section}-count">0</span></small>
-            <small>الإجمالي: <span id="${section}-total">0</span> جنيه</small>
-        </div>
-        <div class="invoice-form">
-            ${extraInput}
-            <input type="number" placeholder="المبلغ" id="${section}-amount" step="0.01" required>
-            <input type="text" placeholder="${placeholderText}" id="${section}-notes">
-            <button onclick="addExpense('${section}')">إضافة ${section}</button>
-        </div>
-        <div class="invoice-list" id="${section}-list"></div>
-    `;
-    container.appendChild(sectionCard);
-    updateExpenseDisplay(section);
 }
 
 // Add Sale Function
@@ -438,201 +657,7 @@ async function addSale(section) {
     }
 }
 
-// Add Visa Function
-async function addVisa() {
-    const invoiceNumber = document.getElementById('فيزا-invoice').value.trim();
-    const amount = parseFloat(document.getElementById('فيزا-amount').value);
-    const visaNumber = document.getElementById('فيزا-number').value.trim();
-    const notes = document.getElementById('فيزا-notes').value.trim();
-    const errorDiv = document.getElementById('فيزا-error');
-    
-    errorDiv.innerHTML = '';
-    
-    if (!invoiceNumber || isNaN(amount) || amount <= 0) {
-        errorDiv.innerHTML = 'يرجى إدخال رقم الفاتورة وقيمة صحيحة';
-        return;
-    }
-    
-    if (!visaNumber || visaNumber.length !== 4 || !/^\d+$/.test(visaNumber)) {
-        errorDiv.innerHTML = 'يرجى إدخال آخر 4 أرقام من الفيزا بشكل صحيح (4 أرقام فقط)';
-        return;
-    }
-    
-    if (usedVisaNumbers.has(visaNumber)) {
-        errorDiv.innerHTML = `رقم الفيزا ${visaNumber} مستخدم بالفعل اليوم!`;
-        return;
-    }
-    
-    const success = await saveToGoogleSheets([
-        new Date().toLocaleDateString('ar-EG'),
-        new Date().toLocaleTimeString('ar-EG'),
-        currentUser,
-        invoiceNumber,
-        amount,
-        visaNumber,
-        notes
-    ], 'Visa');
-
-    if (success) {
-        let visa = { id: Date.now(), invoiceNumber, amount, visaNumber, notes, timestamp: new Date().toLocaleString('ar-EG') };
-        dailyData.visa.push(visa);
-        dailyData.visaAmount += amount;
-        usedVisaNumbers.add(visaNumber);
-        updateVisaDisplay();
-        updateStats();
-        clearVisaForm();
-        showSuccessMessage(`تم إضافة فاتورة الفيزا بنجاح`);
-    }
-}
-
-// Add Credit Function
-async function addCredit() {
-    const invoiceNumber = document.getElementById('آجل-invoice').value.trim();
-    const amount = parseFloat(document.getElementById('آجل-amount').value);
-    const notes = document.getElementById('آجل-notes').value.trim();
-    
-    if (!invoiceNumber || isNaN(amount) || amount <= 0) {
-        alert('يرجى إدخال رقم الفاتورة وقيمة صحيحة');
-        return;
-    }
-    
-    if (!selectedCustomer) {
-        alert('يرجى اختيار العميل');
-        return;
-    }
-    
-    const success = await saveToGoogleSheets([
-        new Date().toLocaleDateString('ar-EG'),
-        new Date().toLocaleTimeString('ar-EG'),
-        currentUser,
-        invoiceNumber,
-        amount,
-        selectedCustomer,
-        notes
-    ], 'Credit');
-
-    if (success) {
-        let credit = { id: Date.now(), invoiceNumber, amount, customer: selectedCustomer, notes, timestamp: new Date().toLocaleString('ar-EG') };
-        dailyData.credit.push(credit);
-        dailyData.creditAmount += amount;
-        updateCreditDisplay();
-        updateStats();
-        clearCreditForm();
-        showSuccessMessage(`تم إضافة فاتورة آجل للعميل ${selectedCustomer} بنجاح`);
-    }
-}
-
-// Add Exchange Function
-async function addExchange() {
-    const originalInvoice = document.getElementById('بدل-original-invoice').value.trim();
-    const originalAmount = parseFloat(document.getElementById('بدل-original-amount').value);
-    const newInvoice = document.getElementById('بدل-new-invoice').value.trim();
-    const newAmount = parseFloat(document.getElementById('بدل-new-amount').value);
-    const notes = document.getElementById('بدل-notes').value.trim();
-    
-    if (!originalInvoice || isNaN(originalAmount) || originalAmount <= 0 || 
-        !newInvoice || isNaN(newAmount) || newAmount <= 0) {
-        alert('يرجى إدخال بيانات الفواتير بشكل صحيح');
-        return;
-    }
-    
-    const difference = newAmount - originalAmount;
-    
-    const success = await saveToGoogleSheets([
-        new Date().toLocaleDateString('ar-EG'),
-        new Date().toLocaleTimeString('ar-EG'),
-        currentUser,
-        originalInvoice,
-        originalAmount,
-        newInvoice,
-        newAmount,
-        difference,
-        notes
-    ], 'Exchanges');
-
-    if (success) {
-        let exchange = { id: Date.now(), originalInvoice, originalAmount, newInvoice, newAmount, difference, notes, timestamp: new Date().toLocaleString('ar-EG') };
-        dailyData.exchanges.push(exchange);
-        
-        if (difference > 0) { // If new item is more expensive, it's an expense
-            dailyData.exchangeExpenses += difference;
-            dailyData.totalExpenses += difference;
-        }
-        
-        updateExchangeDisplay();
-        updateStats();
-        clearExchangeForm();
-        showSuccessMessage(`تم إضافة عملية البدل بنجاح`);
-    }
-}
-
-// Add Expense Function
-async function addExpense(section) {
-    const amount = parseFloat(document.getElementById(section + '-amount').value);
-    const notes = document.getElementById(section + '-notes').value.trim();
-    let typeOrDescription = '';
-
-    // Handle special expense types
-    if (section === 'شحن_تاب' || section === 'شحن_كهربا' || section === 'بنزين' || section === 'عجوزات') {
-        typeOrDescription = document.getElementById(section + '-extra').value.trim();
-        if (!typeOrDescription) {
-            alert(`يرجى إدخال ${section === 'شحن_تاب' ? 'رقم التاب/الفون' : section === 'شحن_كهربا' ? 'مكان الشحن' : section === 'بنزين' ? 'اسم المستلم' : 'المسؤول عن العجز'}`);
-            return;
-        }
-    } else {
-        typeOrDescription = section; // Default to section name if no specific input
-    }
-    
-    if (isNaN(amount) || amount <= 0) {
-        alert('يرجى إدخال مبلغ صحيح');
-        return;
-    }
-    
-    const success = await saveToGoogleSheets([
-        new Date().toLocaleDateString('ar-EG'),
-        new Date().toLocaleTimeString('ar-EG'),
-        currentUser,
-        section,
-        typeOrDescription, // This column will hold the specific detail
-        amount,
-        notes
-    ], 'Expenses');
-
-    if (success) {
-        let expense = { id: Date.now(), type: typeOrDescription, amount, notes, timestamp: new Date().toLocaleString('ar-EG') };
-        dailyData.expenses[section].push(expense);
-        dailyData.totalExpenses += amount;
-        updateExpenseDisplay(section);
-        updateStats();
-        clearExpenseForm(section);
-        showSuccessMessage(`تم إضافة مصروف ${section} بنجاح`);
-    }
-}
-
-// Update Statistics
-function updateStats() {
-    let totalOperations = dailyData.visa.length + dailyData.credit.length + dailyData.exchanges.length;
-    for (const section in dailyData.sales) { totalOperations += dailyData.sales[section].length; }
-    for (const section in dailyData.expenses) { totalOperations += dailyData.expenses[section].length; }
-    
-    document.getElementById('totalOperations').textContent = totalOperations;
-    document.getElementById('totalSales').textContent = dailyData.totalSales.toFixed(2);
-    document.getElementById('totalExpenses').textContent = dailyData.totalExpenses.toFixed(2);
-    document.getElementById('visaAmount').textContent = dailyData.visaAmount.toFixed(2);
-    document.getElementById('creditAmount').textContent = dailyData.creditAmount.toFixed(2);
-    
-    const expectedCash = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount - dailyData.exchangeExpenses;
-    document.getElementById('expectedCash').textContent = expectedCash.toFixed(2);
-    
-    document.getElementById('summaryTotalSales').textContent = dailyData.totalSales.toFixed(2);
-    document.getElementById('summaryTotalExpenses').textContent = dailyData.totalExpenses.toFixed(2);
-    document.getElementById('summaryVisa').textContent = dailyData.visaAmount.toFixed(2);
-    document.getElementById('summaryCredit').textContent = dailyData.creditAmount.toFixed(2);
-    document.getElementById('summaryActualCash').textContent = expectedCash.toFixed(2);
-    document.getElementById('summaryTotal').textContent = (expectedCash + dailyData.visaAmount + dailyData.creditAmount).toFixed(2);
-}
-
-// Update Display Functions
+// Update Sale Display
 function updateSaleDisplay(section) {
     const listElement = document.getElementById(section + '-list');
     const countElement = document.getElementById(section + '-count');
@@ -654,247 +679,59 @@ function updateSaleDisplay(section) {
                 ${item.notes ? `<br><small>ملاحظات: ${item.notes}</small>` : ''}
                 <br><small>${item.timestamp}</small>
             </div>
-            <button class="btn-danger btn-small" onclick="deleteEntry('sales', '${section}', ${item.id})">حذف</button>
+            <button class="btn-danger btn-small" onclick="deleteSaleEntry('${section}', ${item.id})">حذف</button>
         `;
         listElement.appendChild(itemElement);
     });
 }
 
-function updateVisaDisplay() {
-    const listElement = document.getElementById('فيزا-list');
-    listElement.innerHTML = '';
-    
-    dailyData.visa.forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'invoice-item';
-        itemElement.innerHTML = `
-            <div>
-                <strong>فاتورة #${item.invoiceNumber}</strong>: ${item.amount.toFixed(2)} جنيه
-                <br><small>رقم الفيزا: ${item.visaNumber}</small>
-                ${item.notes ? `<br><small>ملاحظات: ${item.notes}</small>` : ''}
-                <br><small>${item.timestamp}</small>
-            </div>
-            <button class="btn-danger btn-small" onclick="deleteEntry('visa', null, ${item.id})">حذف</button>
-        `;
-        listElement.appendChild(itemElement);
-    });
-}
+// Delete Sale Entry (client-side only)
+function deleteSaleEntry(section, id) {
+    if (!confirm('هل أنت متأكد من حذف فاتورة المبيعات هذه؟ (سيتم حذفها من الواجهة فقط)')) return;
 
-function updateCreditDisplay() {
-    const listElement = document.getElementById('آجل-list');
-    listElement.innerHTML = '';
-    
-    dailyData.credit.forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'invoice-item';
-        itemElement.innerHTML = `
-            <div>
-                <strong>فاتورة #${item.invoiceNumber}</strong>: ${item.amount.toFixed(2)} جنيه
-                <br><small>العميل: ${item.customer}</small>
-                ${item.notes ? `<br><small>ملاحظات: ${item.notes}</small>` : ''}
-                <br><small>${item.timestamp}</small>
-            </div>
-            <button class="btn-danger btn-small" onclick="deleteEntry('credit', null, ${item.id})">حذف</button>
-        `;
-        listElement.appendChild(itemElement);
-    });
-}
-
-function updateExchangeDisplay() {
-    const listElement = document.getElementById('بدل-list');
-    const calculationElement = document.getElementById('بدل-calculation');
-    
-    listElement.innerHTML = '';
-    calculationElement.innerHTML = '';
-    
-    let totalDifference = 0;
-    
-    dailyData.exchanges.forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'invoice-item';
-        itemElement.innerHTML = `
-            <div>
-                <strong>بدل من #${item.originalInvoice} (${item.originalAmount.toFixed(2)}) إلى #${item.newInvoice} (${item.newAmount.toFixed(2)})</strong>
-                <br><small>الفرق: ${item.difference.toFixed(2)} جنيه</small>
-                ${item.notes ? `<br><small>ملاحظات: ${item.notes}</small>` : ''}
-                <br><small>${item.timestamp}</small>
-            </div>
-            <button class="btn-danger btn-small" onclick="deleteEntry('exchanges', null, ${item.id})">حذف</button>
-        `;
-        listElement.appendChild(itemElement);
-        
-        totalDifference += item.difference;
-    });
-    
-    if (dailyData.exchanges.length > 0) {
-        calculationElement.innerHTML = `
-            <div class="calculation-result">
-                <strong>إجمالي الفرق من عمليات البدل: ${totalDifference.toFixed(2)} جنيه</strong>
-                ${totalDifference > 0 ? '<p style="color: red;">(هذا المبلغ يعتبر مصروف إضافي)</p>' : ''}
-            </div>
-        `;
+    const itemIndex = dailyData.sales[section].findIndex(item => item.id === id);
+    if (itemIndex > -1) {
+        const amountToRemove = dailyData.sales[section][itemIndex].amount;
+        dailyData.sales[section].splice(itemIndex, 1);
+        dailyData.totalSales -= amountToRemove;
+        updateSaleDisplay(section);
+        updateStats();
+        showSuccessMessage('تم حذف فاتورة المبيعات بنجاح من القائمة المحلية.');
     }
 }
 
-function updateExpenseDisplay(section) {
-    const listElement = document.getElementById(section + '-list');
-    const countElement = document.getElementById(section + '-count');
-    const totalElement = document.getElementById(section + '-total');
-    
-    listElement.innerHTML = '';
-    const count = dailyData.expenses[section].length;
-    const total = dailyData.expenses[section].reduce((sum, item) => sum + item.amount, 0);
-    
-    countElement.textContent = count;
-    totalElement.textContent = total.toFixed(2);
-    
-    dailyData.expenses[section].forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'invoice-item';
-        itemElement.innerHTML = `
-            <div>
-                <strong>${item.type}</strong>: ${item.amount.toFixed(2)} جنيه
-                ${item.notes ? `<br><small>ملاحظات: ${item.notes}</small>` : ''}
-                <br><small>${item.timestamp}</small>
-            </div>
-            <button class="btn-danger btn-small" onclick="deleteEntry('expenses', '${section}', ${item.id})">حذف</button>
-        `;
-        listElement.appendChild(itemElement);
-    });
-}
-
-// Delete Entry (Client-side only for now, full deletion from Sheets is complex)
-function deleteEntry(type, section, id) {
-    if (!confirm('هل أنت متأكد من حذف هذا الإدخال؟')) return;
-
-    let itemIndex;
-    let amountToRemove = 0;
-
-    if (type === 'sales' && section) {
-        itemIndex = dailyData.sales[section].findIndex(item => item.id === id);
-        if (itemIndex > -1) {
-            amountToRemove = dailyData.sales[section][itemIndex].amount;
-            dailyData.sales[section].splice(itemIndex, 1);
-            dailyData.totalSales -= amountToRemove;
-            updateSaleDisplay(section);
-        }
-    } else if (type === 'expenses' && section) {
-        itemIndex = dailyData.expenses[section].findIndex(item => item.id === id);
-        if (itemIndex > -1) {
-            amountToRemove = dailyData.expenses[section][itemIndex].amount;
-            dailyData.expenses[section].splice(itemIndex, 1);
-            dailyData.totalExpenses -= amountToRemove;
-            updateExpenseDisplay(section);
-        }
-    } else if (type === 'visa') {
-        itemIndex = dailyData.visa.findIndex(item => item.id === id);
-        if (itemIndex > -1) {
-            amountToRemove = dailyData.visa[itemIndex].amount;
-            const visaNum = dailyData.visa[itemIndex].visaNumber;
-            dailyData.visa.splice(itemIndex, 1);
-            dailyData.visaAmount -= amountToRemove;
-            usedVisaNumbers.delete(visaNum); // Remove from used set
-            updateVisaDisplay();
-        }
-    } else if (type === 'credit') {
-        itemIndex = dailyData.credit.findIndex(item => item.id === id);
-        if (itemIndex > -1) {
-            amountToRemove = dailyData.credit[itemIndex].amount;
-            dailyData.credit.splice(itemIndex, 1);
-            dailyData.creditAmount -= amountToRemove;
-            updateCreditDisplay();
-        }
-    } else if (type === 'exchanges') {
-        itemIndex = dailyData.exchanges.findIndex(item => item.id === id);
-        if (itemIndex > -1) {
-            const difference = dailyData.exchanges[itemIndex].difference;
-            dailyData.exchanges.splice(itemIndex, 1);
-            if (difference > 0) {
-                dailyData.exchangeExpenses -= difference;
-                dailyData.totalExpenses -= difference;
-            }
-            updateExchangeDisplay();
-        }
-    }
-    updateStats();
-    showSuccessMessage('تم حذف الإدخال بنجاح (مؤقتًا من الواجهة).');
-    // Note: Deleting from Google Sheets requires more complex logic (finding row index and deleting)
-}
-
-
-// Clear Form Functions
+// Clear Sale Form
 function clearSaleForm(section) {
     document.getElementById(section + '-invoice').value = '';
     document.getElementById(section + '-amount').value = '';
     document.getElementById(section + '-notes').value = '';
 }
 
-function clearVisaForm() {
-    document.getElementById('فيزا-invoice').value = '';
-    document.getElementById('فيزا-amount').value = '';
-    document.getElementById('فيزا-number').value = '';
-    document.getElementById('فيزا-notes').value = '';
-    document.getElementById('فيزا-error').innerHTML = '';
-}
-
-function clearCreditForm() {
-    document.getElementById('آجل-invoice').value = '';
-    document.getElementById('آجل-amount').value = '';
-    document.getElementById('آجل-notes').value = '';
-    document.getElementById('selected-customer').value = '';
-    selectedCustomer = '';
-}
-
-function clearExchangeForm() {
-    document.getElementById('بدل-original-invoice').value = '';
-    document.getElementById('بدل-original-amount').value = '';
-    document.getElementById('بدل-new-invoice').value = '';
-    document.getElementById('بدل-new-amount').value = '';
-    document.getElementById('بدل-notes').value = '';
-}
-
-function clearExpenseForm(section) {
-    if (document.getElementById(section + '-extra')) {
-        document.getElementById(section + '-extra').value = '';
-    }
-    document.getElementById(section + '-amount').value = '';
-    document.getElementById(section + '-notes').value = '';
-}
-
-// Customer Management Functions (for Credit)
-function loadCustomers() {
-    const customersList = document.getElementById('customersList');
-    customersList.innerHTML = '';
+// Customer Management Functions (for Customers Tab)
+function loadCustomersForCashier() {
+    const customersListContainer = document.getElementById('customersListContainer');
+    customersListContainer.innerHTML = '';
     
-    customers.forEach(customer => {
+    if (customers.length === 0) {
+        customersListContainer.innerHTML = '<p>لا توجد عملاء آجلين مسجلين.</p>';
+        return;
+    }
+
+    customers.forEach(customerName => {
         const customerElement = document.createElement('div');
         customerElement.className = 'customer-item';
         customerElement.innerHTML = `
-            <span>${customer}</span>
-            <button class="btn btn-small" onclick="selectCustomer('${customer}')">اختيار</button>
+            <span>${customerName}</span>
+            <!-- Add actions like view credit, etc. -->
         `;
-        customersList.appendChild(customerElement);
+        customersListContainer.appendChild(customerElement);
     });
 }
 
-function searchCustomers() {
-    const searchTerm = document.getElementById('customerSearch').value.toLowerCase();
-    const customerItems = document.querySelectorAll('.customer-item');
-    
-    customerItems.forEach(item => {
-        const customerName = item.querySelector('span').textContent.toLowerCase();
-        item.style.display = customerName.includes(searchTerm) ? 'flex' : 'none';
-    });
-}
-
-function selectCustomer(customer) {
-    selectedCustomer = customer;
-    document.getElementById('selected-customer').value = customer;
-    closeCustomerModal();
-}
-
-async function addNewCustomer() {
-    const newCustomerName = document.getElementById('newCustomerName').value.trim();
+// Add New Customer
+async function addNewCustomer(customerNameFromPrompt = null) {
+    const newCustomerNameInput = document.getElementById('newCustomerName');
+    const newCustomerName = customerNameFromPrompt || newCustomerNameInput.value.trim();
     
     if (!newCustomerName) {
         alert('يرجى إدخال اسم العميل');
@@ -909,29 +746,55 @@ async function addNewCustomer() {
     const success = await saveToGoogleSheets([newCustomerName, currentUser, new Date().toLocaleDateString('ar-EG')], 'Customers');
     if (success) {
         customers.push(newCustomerName);
-        loadCustomers();
-        document.getElementById('newCustomerName').value = '';
+        loadCustomersForCashier();
+        populateCustomerSelectForExpense(); // Update customer select in expense tab
+        if (newCustomerNameInput) newCustomerNameInput.value = '';
         showSuccessMessage(`تم إضافة العميل ${newCustomerName} بنجاح`);
     }
 }
 
-function openCustomerModal() {
-    document.getElementById('customerModal').style.display = 'block';
-    loadCustomers(); // Reload customers in modal
+// Update Customer Credits (Placeholder for now, needs actual credit tracking)
+function updateCustomerCredits() {
+    const customerCreditsContainer = document.getElementById('customerCreditsContainer');
+    customerCreditsContainer.innerHTML = '<p>وظيفة تتبع رصيد العملاء الآجلين قيد التطوير.</p>';
+    // This would involve fetching all credit sales for each customer and summing them up.
 }
 
-function closeCustomerModal() {
-    document.getElementById('customerModal').style.display = 'none';
-    document.getElementById('customerSearch').value = '';
-    document.querySelectorAll('.customer-item').forEach(item => item.style.display = 'flex');
+// Update Statistics (Summary Tab)
+function updateStats() {
+    let totalOperations = dailyData.expenses.length + dailyData.visa.length + dailyData.credit.length;
+    for (const section in dailyData.sales) { totalOperations += dailyData.sales[section].length; }
+    
+    // Recalculate totals from dailyData
+    dailyData.totalSales = 0;
+    for (const section in dailyData.sales) {
+        dailyData.totalSales += dailyData.sales[section].reduce((sum, item) => sum + item.amount, 0);
+    }
+    dailyData.totalExpenses = dailyData.expenses.reduce((sum, item) => sum + item.amount, 0);
+    dailyData.visaAmount = dailyData.visa.reduce((sum, item) => sum + item.amount, 0);
+    dailyData.creditAmount = dailyData.credit.reduce((sum, item) => sum + item.amount, 0);
+    
+    const expectedCash = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount - dailyData.exchangeExpenses;
+    
+    // Update UI elements
+    document.getElementById('totalSales').textContent = dailyData.totalSales.toFixed(2);
+    document.getElementById('totalExpenses').textContent = dailyData.totalExpenses.toFixed(2);
+    document.getElementById('visaAmount').textContent = dailyData.visaAmount.toFixed(2);
+    document.getElementById('creditAmount').textContent = dailyData.creditAmount.toFixed(2);
+    
+    document.getElementById('summaryTotalSales').textContent = dailyData.totalSales.toFixed(2);
+    document.getElementById('summaryTotalExpenses').textContent = dailyData.totalExpenses.toFixed(2);
+    document.getElementById('summaryExpectedCash').textContent = expectedCash.toFixed(2);
+    document.getElementById('summaryActualCash').textContent = dailyData.drawerAmount.toFixed(2); // Will be updated by calculateDrawer
 }
 
 // Calculate Drawer Function
 function calculateDrawer() {
-    const drawerAmount = parseFloat(document.getElementById('drawerAmount').value);
+    const drawerAmountInput = document.getElementById('drawerAmount');
+    const drawerAmount = parseFloat(drawerAmountInput.value);
     
     if (isNaN(drawerAmount) || drawerAmount < 0) {
-        alert('يرجى إدخال مبلغ صحيح للدرج');
+        alert('يرجى إدخال مبلغ صحيح للكاش الفعلي في الدرج.');
         return;
     }
     
@@ -942,38 +805,14 @@ function calculateDrawer() {
     
     let resultMessage = `
         <div class="drawer-result">
-            <p><strong>النقدي المتوقع:</strong> ${expectedCash.toFixed(2)} جنيه</p>
-            <p><strong>النقدي الفعلي في الدرج:</strong> ${drawerAmount.toFixed(2)} جنيه</p>
+            <p><strong>الكاش المتوقع:</strong> ${expectedCash.toFixed(2)} جنيه</p>
+            <p><strong>الكاش الفعلي في الدرج:</strong> ${drawerAmount.toFixed(2)} جنيه</p>
             <p><strong>الفرق:</strong> <span style="color: ${difference >= 0 ? 'green' : 'red'};">${Math.abs(difference).toFixed(2)} جنيه ${difference >= 0 ? 'زيادة' : 'نقص'}</span></p>
         </div>
     `;
     
     document.getElementById('drawerResult').innerHTML = resultMessage;
-}
-
-// Compare with New Mind Function
-function compareWithNewMind() {
-    const newMindTotal = parseFloat(document.getElementById('newMindTotal').value);
-    
-    if (isNaN(newMindTotal) || newMindTotal < 0) {
-        alert('يرجى إدخال تقفيلة صحيحة من نيو مايند');
-        return;
-    }
-    
-    const expectedCash = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount - dailyData.exchangeExpenses;
-    const ourTotal = expectedCash + dailyData.visaAmount + dailyData.creditAmount; // This is the total sales recorded by cashier
-    
-    const difference = ourTotal - newMindTotal;
-    
-    let resultMessage = `
-        <div class="comparison-result">
-            <p><strong>إجمالي تقفيلتنا (مبيعات):</strong> ${ourTotal.toFixed(2)} جنيه</p>
-            <p><strong>تقفيلة نيو مايند:</strong> ${newMindTotal.toFixed(2)} جنيه</p>
-            <p><strong>الفرق:</strong> <span style="color: ${difference >= 0 ? 'green' : 'red'};">${Math.abs(difference).toFixed(2)} جنيه ${difference >= 0 ? 'زيادة' : 'نقص'}</span></p>
-        </div>
-    `;
-    
-    document.getElementById('comparisonResult').innerHTML = resultMessage;
+    updateStats(); // Update summary actual cash
 }
 
 // Finalize Day Closeout Function (Cashier's side)
@@ -988,21 +827,11 @@ async function finalizeDayCloseout() {
         return;
     }
 
-    const newMindTotal = parseFloat(document.getElementById('newMindTotal').value);
-    if (isNaN(newMindTotal)) {
-        alert('يرجى إدخال تقفيلة نيو مايند للمقارنة أولاً.');
-        return;
-    }
-
     const expectedCash = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount - dailyData.exchangeExpenses;
     const ourTotalSales = dailyData.totalSales; // Total sales recorded by cashier
     const ourTotalCloseout = expectedCash + dailyData.visaAmount + dailyData.creditAmount; // Total closeout based on cashier's entries
 
-    const differenceWithNewMind = ourTotalCloseout - newMindTotal;
-    let status = 'مطابق';
-    if (differenceWithNewMind > 0) status = 'زيادة';
-    else if (differenceWithNewMind < 0) status = 'نقص';
-
+    // For cashier, we don't have NewMind total yet, so we'll leave it for accountant
     const finalData = [
         new Date().toLocaleDateString('ar-EG'),
         currentUser,
@@ -1010,15 +839,14 @@ async function finalizeDayCloseout() {
         dailyData.totalExpenses.toFixed(2),
         dailyData.visaAmount.toFixed(2),
         dailyData.creditAmount.toFixed(2),
-        dailyData.exchangeExpenses.toFixed(2),
+        dailyData.exchangeExpenses.toFixed(2), // This is currently 0 as exchanges are not fully implemented
         expectedCash.toFixed(2),
         drawerAmount.toFixed(2),
         ourTotalCloseout.toFixed(2), // Our calculated total closeout
-        newMindTotal.toFixed(2),
-        differenceWithNewMind.toFixed(2),
-        status,
-        'لم يتم التقفيل بواسطة محاسب', // Placeholder for accountant
-        new Date().toLocaleString('ar-EG')
+        'N/A', // NewMind Total (to be filled by accountant)
+        'N/A', // Difference with NewMind
+        'بانتظار المحاسب', // Status
+        new Date().toLocaleString('ar-EG') // Timestamp of cashier closeout
     ];
     
     const success = await saveToGoogleSheets(finalData, 'DailyCloseout');
@@ -1030,25 +858,35 @@ async function finalizeDayCloseout() {
     }
 }
 
+// Clear Expense Form
+function clearExpenseForm() {
+    document.getElementById('expenseInvoice').value = '';
+    document.getElementById('expenseAmount').value = '';
+    document.getElementById('expenseNotes').value = '';
+    const extraFieldInput = document.getElementById('extraField');
+    if (extraFieldInput) extraFieldInput.value = '';
+    const extraFieldCustomerSelect = document.getElementById('extraFieldCustomerSelect');
+    if (extraFieldCustomerSelect) extraFieldCustomerSelect.value = '';
+    selectedCustomer = '';
+    toggleExtraField(); // Reset extra field visibility
+}
+
 // Reset Daily Data Function
 function resetDailyData() {
     dailyData = {
-        sales: {}, expenses: {}, visa: [], credit: [], exchanges: [],
+        sales: {}, expenses: [], visa: [], credit: [], exchanges: [],
         totalSales: 0, totalExpenses: 0, visaAmount: 0, creditAmount: 0,
         drawerAmount: 0, exchangeExpenses: 0
     };
     usedVisaNumbers.clear();
     selectedCustomer = '';
     initializeDataStructures();
-    loadSections();
-    updateVisaDisplay();
-    updateCreditDisplay();
-    updateExchangeDisplay();
+    loadSalesSectionsForCashier();
+    loadCustomersForCashier();
+    updateExpensesList();
     updateStats();
     document.getElementById('drawerAmount').value = '';
-    document.getElementById('newMindTotal').value = '';
     document.getElementById('drawerResult').innerHTML = '';
-    document.getElementById('comparisonResult').innerHTML = '';
 }
 
 // --- Accountant Dashboard Functions ---
@@ -1061,7 +899,28 @@ async function showAccountantDashboard() {
     document.getElementById('currentDateAccountant').textContent = new Date().toLocaleDateString('ar-EG');
 
     populateCashierSelects();
-    loadCurrentSectionsForManageModal();
+    loadUsersListForAccountant(); // Load users for management tab
+    openAccountantTab('usersTab'); // Default to users tab
+}
+
+// Function to open specific accountant tab
+function openAccountantTab(tabName) {
+    const tabContents = document.querySelectorAll('#accountantDashboardSection .tab-content');
+    tabContents.forEach(content => content.style.display = 'none');
+
+    const tabButtons = document.querySelectorAll('#accountantDashboardSection .tab-btn');
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+
+    document.getElementById(tabName).style.display = 'block';
+    document.querySelector(`#accountantDashboardSection .tab-btn[onclick="openAccountantTab('${tabName}')"]`).classList.add('active');
+
+    if (tabName === 'usersTab') {
+        loadUsersListForAccountant();
+    } else if (tabName === 'reportsTab') {
+        populateCashierSelects();
+    } else if (tabName === 'closeoutTab') {
+        populateCashierSelects();
+    }
 }
 
 // Populate cashier dropdowns for reports and closeout
@@ -1085,16 +944,28 @@ function populateCashierSelects() {
     });
 }
 
-// Open Create User Modal
-function openCreateUserModal() {
-    document.getElementById('createUserModal').style.display = 'block';
-    document.getElementById('newUsername').value = '';
-    document.getElementById('newUserPassword').value = '';
-    document.getElementById('newUserRole').value = 'Cashier';
-}
+// Load Users List for Accountant Management Tab
+function loadUsersListForAccountant() {
+    const usersListContainer = document.getElementById('usersListContainer');
+    usersListContainer.innerHTML = '';
 
-function closeCreateUserModal() {
-    document.getElementById('createUserModal').style.display = 'none';
+    if (users.length === 0) {
+        usersListContainer.innerHTML = '<p>لا توجد مستخدمون مسجلون.</p>';
+        return;
+    }
+
+    const userList = document.createElement('ul');
+    userList.className = 'users-list';
+    users.forEach(user => {
+        const listItem = document.createElement('li');
+        listItem.className = 'user-item';
+        listItem.innerHTML = `
+            <span>${user.username} (${user.role})</span>
+            <!-- Add edit/delete functionality here if needed -->
+        `;
+        userList.appendChild(listItem);
+    });
+    usersListContainer.appendChild(userList);
 }
 
 // Create New User
@@ -1118,99 +989,12 @@ async function createNewUser() {
         users.push({ username: newUsername, password: newUserPassword, role: newUserRole });
         populateUserDropdown(); // Update login dropdown
         populateCashierSelects(); // Update accountant dropdowns
+        loadUsersListForAccountant(); // Refresh users list
         showSuccessMessage(`تم إنشاء المستخدم ${newUsername} بنجاح.`);
-        closeCreateUserModal();
+        document.getElementById('newUsername').value = '';
+        document.getElementById('newUserPassword').value = '';
     }
 }
-
-// Open Manage Sections Modal
-async function openManageSectionsModal() {
-    document.getElementById('manageSectionsModal').style.display = 'block';
-    await loadSectionsFromSheets(); // Ensure latest sections are loaded
-    loadCurrentSectionsForManageModal();
-}
-
-function closeManageSectionsModal() {
-    document.getElementById('manageSectionsModal').style.display = 'none';
-}
-
-// Load current sections into manage modal
-function loadCurrentSectionsForManageModal() {
-    const salesList = document.getElementById('currentSalesSections');
-    const expenseList = document.getElementById('currentExpenseSections');
-    salesList.innerHTML = '<h4>أقسام المبيعات:</h4>';
-    expenseList.innerHTML = '<h4>أقسام المصروفات:</h4>';
-
-    salesSections.forEach(section => {
-        const item = document.createElement('div');
-        item.className = 'section-item';
-        item.innerHTML = `<span>${section}</span> <button class="btn-danger btn-small" onclick="deleteSection('${section}', 'sales')">حذف</button>`;
-        salesList.appendChild(item);
-    });
-
-    expenseSections.forEach(section => {
-        const item = document.createElement('div');
-        item.className = 'section-item';
-        item.innerHTML = `<span>${section}</span> <button class="btn-danger btn-small" onclick="deleteSection('${section}', 'expenses')">حذف</button>`;
-        expenseList.appendChild(item);
-    });
-}
-
-// Add Section from Manage Modal (Accountant version)
-async function addSectionFromManageModal() {
-    const sectionName = document.getElementById('manageSectionName').value.trim();
-    const sectionType = document.querySelector('input[name="manageSectionType"]:checked').value;
-
-    if (!sectionName) {
-        alert('يرجى إدخال اسم القسم');
-        return;
-    }
-
-    if (salesSections.includes(sectionName) || expenseSections.includes(sectionName)) {
-        alert('هذا القسم موجود بالفعل.');
-        return;
-    }
-
-    const success = await saveToGoogleSheets([sectionName, sectionType, currentUser, new Date().toLocaleDateString('ar-EG')], 'Sections');
-    if (success) {
-        if (sectionType === 'sales') {
-            salesSections.push(sectionName);
-        } else {
-            expenseSections.push(sectionName);
-        }
-        document.getElementById('manageSectionName').value = '';
-        showSuccessMessage(`تم إضافة قسم ${sectionName} بنجاح.`);
-        loadCurrentSectionsForManageModal(); // Refresh list in modal
-        initializeDataStructures(); // Update dailyData structure
-        loadSections(); // Refresh cashier dashboard sections
-    }
-}
-
-// Delete Section (Accountant only)
-async function deleteSection(sectionName, sectionType) {
-    if (!confirm(`هل أنت متأكد من حذف القسم "${sectionName}"؟ هذا سيؤثر على بيانات الكاشير.`)) return;
-
-    // This is a simplified deletion. A robust solution would involve:
-    // 1. Reading all data from 'Sections' sheet.
-    // 2. Filtering out the row to be deleted.
-    // 3. Clearing the sheet.
-    // 4. Writing back the filtered data.
-    // This is more complex for a direct client-side Google Sheets API.
-    // For now, we'll remove it from the local arrays and show a message.
-    // A more advanced backend would handle actual row deletion.
-
-    showErrorMessage('وظيفة حذف الأقسام من Google Sheets غير مطبقة بالكامل في هذا المثال لتعقيدها. تم الحذف من القائمة المحلية فقط.');
-
-    if (sectionType === 'sales') {
-        salesSections = salesSections.filter(s => s !== sectionName);
-    } else {
-        expenseSections = expenseSections.filter(s => s !== sectionName);
-    }
-    loadCurrentSectionsForManageModal();
-    initializeDataStructures(); // Update dailyData structure
-    loadSections(); // Refresh cashier dashboard sections
-}
-
 
 // Generate Cashier Report
 async function generateCashierReport() {
@@ -1235,37 +1019,38 @@ async function generateCashierReport() {
     };
 
     // Helper to filter data by cashier and date
-    const filterData = (data, sheetName) => {
+    const filterData = (data, cashierColIndex, dateColIndex) => {
         return data.filter(row => {
-            const rowDate = new Date(row[0]); // Assuming date is in the first column
-            const rowCashier = row[2]; // Assuming cashier is in the third column
+            const rowDate = new Date(row[dateColIndex]);
+            const rowCashier = row[cashierColIndex];
             return rowCashier === cashierUsername && rowDate >= start && rowDate < end;
         });
     };
 
     const allSales = await loadDataFromSheet('Sales');
-    report.sales = filterData(allSales.slice(1), 'Sales');
-    report.totalSales = report.sales.reduce((sum, row) => sum + parseFloat(row[5] || 0), 0);
+    report.sales = filterData(allSales.slice(1), 2, 0); // Cashier is col 2, Date is col 0
+    report.totalSales = report.sales.reduce((sum, row) => sum + parseFloat(row[5] || 0), 0); // Amount is col 5
 
     const allExpenses = await loadDataFromSheet('Expenses');
-    report.expenses = filterData(allExpenses.slice(1), 'Expenses');
-    report.totalExpenses = report.expenses.reduce((sum, row) => sum + parseFloat(row[5] || 0), 0);
+    report.expenses = filterData(allExpenses.slice(1), 2, 0); // Cashier is col 2, Date is col 0
+    report.totalExpenses = report.expenses.reduce((sum, row) => sum + parseFloat(row[5] || 0), 0); // Amount is col 5
 
     const allVisa = await loadDataFromSheet('Visa');
-    report.visa = filterData(allVisa.slice(1), 'Visa');
-    report.visaAmount = report.visa.reduce((sum, row) => sum + parseFloat(row[4] || 0), 0);
+    report.visa = filterData(allVisa.slice(1), 2, 0); // Cashier is col 2, Date is col 0
+    report.visaAmount = report.visa.reduce((sum, row) => sum + parseFloat(row[4] || 0), 0); // Amount is col 4
 
     const allCredit = await loadDataFromSheet('Credit');
-    report.credit = filterData(allCredit.slice(1), 'Credit');
-    report.creditAmount = report.credit.reduce((sum, row) => sum + parseFloat(row[4] || 0), 0);
+    report.credit = filterData(allCredit.slice(1), 2, 0); // Cashier is col 2, Date is col 0
+    report.creditAmount = report.credit.reduce((sum, row) => sum + parseFloat(row[4] || 0), 0); // Amount is col 4
 
-    const allExchanges = await loadDataFromSheet('Exchanges');
-    report.exchanges = filterData(allExchanges.slice(1), 'Exchanges');
-    report.exchangeExpenses = report.exchanges.reduce((sum, row) => {
-        const diff = parseFloat(row[7] || 0); // Difference column
-        return sum + (diff > 0 ? diff : 0); // Only count positive differences as expenses
-    }, 0);
-    report.totalExpenses += report.exchangeExpenses; // Add exchange expenses to total expenses
+    // Exchanges are not fully implemented in cashier side, so this will be 0 for now
+    // const allExchanges = await loadDataFromSheet('Exchanges');
+    // report.exchanges = filterData(allExchanges.slice(1), 2, 0);
+    // report.exchangeExpenses = report.exchanges.reduce((sum, row) => {
+    //     const diff = parseFloat(row[7] || 0); // Difference column
+    //     return sum + (diff > 0 ? diff : 0); // Only count positive differences as expenses
+    // }, 0);
+    // report.totalExpenses += report.exchangeExpenses;
 
     const expectedCash = report.totalSales - report.totalExpenses - report.visaAmount - report.creditAmount;
 
@@ -1280,13 +1065,11 @@ async function generateCashierReport() {
         <h5>تفاصيل المبيعات:</h5>
         ${report.sales.length > 0 ? report.sales.map(s => `<div class="report-item">فاتورة #${s[4]} (${s[3]}): ${s[5]} جنيه</div>`).join('') : '<p>لا توجد مبيعات.</p>'}
         <h5>تفاصيل المصروفات:</h5>
-        ${report.expenses.length > 0 ? report.expenses.map(e => `<div class="report-item">${e[4]} (${e[3]}): ${e[5]} جنيه</div>`).join('') : '<p>لا توجد مصروفات.</p>'}
+        ${report.expenses.length > 0 ? report.expenses.map(e => `<div class="report-item">${e[3]} (${e[4]}): ${e[5]} جنيه</div>`).join('') : '<p>لا توجد مصروفات.</p>'}
         <h5>تفاصيل الفيزا:</h5>
         ${report.visa.length > 0 ? report.visa.map(v => `<div class="report-item">فاتورة #${v[3]}: ${v[4]} جنيه (فيزا: ${v[5]})</div>`).join('') : '<p>لا توجد عمليات فيزا.</p>'}
         <h5>تفاصيل الآجل:</h5>
         ${report.credit.length > 0 ? report.credit.map(c => `<div class="report-item">فاتورة #${c[3]}: ${c[4]} جنيه (عميل: ${c[5]})</div>`).join('') : '<p>لا توجد مبيعات آجلة.</p>'}
-        <h5>تفاصيل البدل:</h5>
-        ${report.exchanges.length > 0 ? report.exchanges.map(ex => `<div class="report-item">بدل من #${ex[3]} (${ex[4]}) إلى #${ex[5]} (${ex[6]})، فرق: ${ex[7]} جنيه</div>`).join('') : '<p>لا توجد عمليات بدل.</p>'}
     `;
     reportResultDiv.innerHTML = reportHtml;
 }
@@ -1309,11 +1092,16 @@ async function performAccountantCloseout() {
 
     // Find the cashier's closeout entry for this specific date
     const allDailyCloseouts = await loadDataFromSheet('DailyCloseout');
-    const cashierCloseout = allDailyCloseouts.slice(1).find(row => {
+    let rowIndexToUpdate = -1;
+    const cashierCloseout = allDailyCloseouts.slice(1).find((row, index) => {
         const entryDate = new Date(row[0]); // Assuming date is in the first column
         entryDate.setHours(0, 0, 0, 0);
         const entryCashier = row[1]; // Assuming cashier is in the second column
-        return entryCashier === cashierUsername && entryDate.getTime() === closeoutDate.getTime();
+        if (entryCashier === cashierUsername && entryDate.getTime() === closeoutDate.getTime()) {
+            rowIndexToUpdate = index + 2; // +1 for header, +1 for 0-based index
+            return true;
+        }
+        return false;
     });
 
     if (!cashierCloseout) {
@@ -1351,15 +1139,31 @@ async function performAccountantCloseout() {
     closeoutResultDiv.innerHTML = resultHtml;
 
     // Update the existing row in DailyCloseout sheet with accountant's data
-    // This requires finding the row index and using gapi.client.sheets.spreadsheets.values.update
-    // This is more complex than append and requires a separate function.
-    // For simplicity, we'll just show the result and assume a manual update or more complex backend logic.
-    showErrorMessage('وظيفة تحديث تقفيلة الكاشير في Google Sheets بواسطة المحاسب غير مطبقة بالكامل في هذا المثال لتعقيدها.');
-    // A full implementation would involve:
-    // 1. Getting all rows from 'DailyCloseout'.
-    // 2. Finding the specific row index for cashierCloseout.
-    // 3. Modifying that row's 'Accountant' and 'Final Status' columns.
-    // 4. Updating the sheet with the modified data.
+    if (rowIndexToUpdate !== -1) {
+        const updatedRowData = [...cashierCloseout]; // Copy existing data
+        updatedRowData[10] = accountantNewMindTotal.toFixed(2); // Update NewMind Total
+        updatedRowData[11] = differenceWithNewMind.toFixed(2); // Update Difference
+        updatedRowData[12] = status; // Update Status
+        updatedRowData[13] = currentUser; // Accountant who closed it
+        updatedRowData[14] = new Date().toLocaleString('ar-EG'); // Timestamp of accountant closeout
+
+        try {
+            await gapi.client.sheets.spreadsheets.values.update({
+                spreadsheetId: SPREADSHEET_ID,
+                range: `DailyCloseout!A${rowIndexToUpdate}`,
+                valueInputOption: 'RAW',
+                resource: {
+                    values: [updatedRowData]
+                }
+            });
+            showSuccessMessage('تم تقفيل حساب الكاشير بنجاح في Google Sheets.');
+        } catch (err) {
+            console.error('خطأ في تحديث تقفيلة الكاشير:', err);
+            showErrorMessage('خطأ في تحديث تقفيلة الكاشير في Google Sheets.');
+        }
+    } else {
+        showErrorMessage('لم يتم العثور على الصف لتحديثه.');
+    }
 }
 
 // Search Invoice
@@ -1376,30 +1180,34 @@ async function searchInvoice() {
     let found = false;
     let resultHtml = '<h4>نتائج البحث عن فاتورة:</h4>';
 
-    const searchInSheet = async (sheetName, invoiceColIndex, otherCols) => {
+    const searchInSheet = async (sheetName, invoiceColIndex, otherCols = []) => {
         const data = await loadDataFromSheet(sheetName);
-        const header = data[0];
-        const rows = data.slice(1);
+        const rows = data.slice(1); // Skip header
         rows.forEach(row => {
             if (row[invoiceColIndex] === invoiceNumber) {
                 found = true;
                 resultHtml += `<div class="report-item"><strong>الورقة:</strong> ${sheetName}<br>`;
                 resultHtml += `<strong>التاريخ:</strong> ${row[0]}، <strong>الوقت:</strong> ${row[1]}، <strong>الكاشير:</strong> ${row[2]}<br>`;
                 resultHtml += `<strong>رقم الفاتورة:</strong> ${row[invoiceColIndex]}، <strong>القيمة:</strong> ${row[invoiceColIndex + 1]} جنيه<br>`;
-                if (otherCols) {
-                    otherCols.forEach(col => {
-                        if (row[col.index]) resultHtml += `<strong>${col.label}:</strong> ${row[col.index]}<br>`;
-                    });
-                }
+                otherCols.forEach(col => {
+                    if (row[col.index]) resultHtml += `<strong>${col.label}:</strong> ${row[col.index]}<br>`;
+                });
                 resultHtml += `<strong>ملاحظات:</strong> ${row[row.length - 1] || 'لا توجد'}</div>`;
             }
         });
     };
 
-    await searchInSheet('Sales', 4); // Invoice is col 4, Amount is col 5
-    await searchInSheet('Visa', 3, [{label: 'رقم الفيزا', index: 5}]); // Invoice is col 3, Amount is col 4, VisaNum is col 5
-    await searchInSheet('Credit', 3, [{label: 'العميل', index: 5}]); // Invoice is col 3, Amount is col 4, Customer is col 5
-    await searchInSheet('Exchanges', 3, [ // Original Invoice is col 3, New Invoice is col 5
+    // Define column indices based on your Google Sheet structure
+    // Sales: Date, Time, Cashier, Section, Invoice, Amount, Notes
+    await searchInSheet('Sales', 4); 
+    // Expenses: Date, Time, Cashier, Type, Invoice, Amount, Notes, ExtraField
+    await searchInSheet('Expenses', 4, [{label: 'النوع', index: 3}, {label: 'تفاصيل إضافية', index: 7}]);
+    // Visa: Date, Time, Cashier, Invoice, Amount, VisaNumber, Notes
+    await searchInSheet('Visa', 3, [{label: 'رقم الفيزا', index: 5}]); 
+    // Credit: Date, Time, Cashier, Invoice, Amount, Customer, Notes
+    await searchInSheet('Credit', 3, [{label: 'العميل', index: 5}]); 
+    // Exchanges: Date, Time, Cashier, OriginalInvoice, OriginalAmount, NewInvoice, NewAmount, Difference, Notes
+    await searchInSheet('Exchanges', 3, [ 
         {label: 'قيمة أصلية', index: 4},
         {label: 'فاتورة بدل', index: 5},
         {label: 'قيمة بدل', index: 6},
@@ -1417,12 +1225,12 @@ async function searchInvoice() {
 
 function showSuccessMessage(message) {
     console.log('Success:', message);
-    // You can implement a more visible success notification here (e.g., a toast message)
+    alert(message); // For a more visible notification
 }
 
 function showErrorMessage(message) {
     console.error('Error:', message);
-    // You can implement a more visible error notification here
+    alert(message); // For a more visible notification
 }
 
 // --- Initialize on Page Load ---
