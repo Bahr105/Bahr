@@ -654,6 +654,232 @@ function generateDynamicExpenseForm(formType) {
     dynamicFormDiv.innerHTML = formHtml;
 }
 
+
+// دالة لعرض نافذة إضافة مصروف (مكتملة)
+function showAddExpenseModal() {
+    document.getElementById('addExpenseForm').reset();
+    document.getElementById('expenseCategorySearch').value = '';
+    document.getElementById('expenseCategorySuggestions').innerHTML = '';
+    document.getElementById('selectedExpenseCategoryCode').value = '';
+    document.getElementById('selectedExpenseCategoryName').value = '';
+    document.getElementById('selectedExpenseCategoryFormType').value = '';
+    document.getElementById('dynamicExpenseForm').innerHTML = '';
+    document.getElementById('addExpenseModal').classList.add('active');
+}
+
+// دالة البحث عن التصنيفات للمصروفات
+function searchExpenseCategories(searchTerm) {
+    const suggestionsDiv = document.getElementById('expenseCategorySuggestions');
+    suggestionsDiv.innerHTML = '';
+    
+    if (searchTerm.length < 2) {
+        suggestionsDiv.style.display = 'none';
+        return;
+    }
+
+    const filtered = categories.filter(cat => 
+        cat.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        cat.code.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (filtered.length === 0) {
+        suggestionsDiv.innerHTML = '<div class="suggestion-item">لا توجد نتائج</div>';
+        suggestionsDiv.style.display = 'block';
+        return;
+    }
+
+    filtered.forEach(cat => {
+        const item = document.createElement('div');
+        item.className = 'suggestion-item';
+        item.textContent = `${cat.name} (${cat.code}) - ${cat.formType}`;
+        item.onclick = () => selectExpenseCategory(cat);
+        suggestionsDiv.appendChild(item);
+    });
+    
+    suggestionsDiv.style.display = 'block';
+}
+
+// دالة اختيار التصنيف
+function selectExpenseCategory(category) {
+    document.getElementById('expenseCategorySearch').value = `${category.name} (${category.code})`;
+    document.getElementById('selectedExpenseCategoryCode').value = category.code;
+    document.getElementById('selectedExpenseCategoryName').value = category.name;
+    document.getElementById('selectedExpenseCategoryFormType').value = category.formType;
+    document.getElementById('expenseCategorySuggestions').style.display = 'none';
+    
+    generateDynamicExpenseForm(category.formType);
+}
+
+// دالة توليد النموذج الديناميكي (محسنة)
+function generateDynamicExpenseForm(formType) {
+    const dynamicFormDiv = document.getElementById('dynamicExpenseForm');
+    dynamicFormDiv.innerHTML = '';
+
+    let formHtml = `
+        <div class="form-group">
+            <label for="expenseAmount">القيمة:</label>
+            <input type="number" id="expenseAmount" step="0.01" required placeholder="أدخل القيمة">
+        </div>
+        <div class="form-group">
+            <label for="expenseNotes">الملاحظات (اختياري):</label>
+            <input type="text" id="expenseNotes" placeholder="أدخل ملاحظات">
+        </div>
+    `;
+
+    // إضافة الحقول الخاصة بكل نوع تصنيف
+    if (formType === 'عادي' || formType === 'فيزا' || formType === 'اونلاين' || formType === 'مرتجع' || formType === 'خصم عميل' || formType === 'إنستا') {
+        formHtml = `
+            <div class="form-group">
+                <label for="expenseInvoiceNumber">رقم الفاتورة:</label>
+                <input type="text" id="expenseInvoiceNumber" required placeholder="أدخل رقم الفاتورة">
+            </div>
+            ${formHtml}
+        `;
+    }
+
+    if (formType === 'فيزا') {
+        formHtml += `
+            <div class="form-group">
+                <label for="visaReferenceNumber">الرقم المرجعي للفيزا (آخر 4 أرقام):</label>
+                <input type="text" id="visaReferenceNumber" pattern="\\d{4}" maxlength="4" placeholder="أدخل آخر 4 أرقام من الفيزا">
+            </div>
+        `;
+    } else if (formType === 'شحن_تاب') {
+        formHtml += `
+            <div class="form-group">
+                <label for="tabName">اسم التاب (اختياري):</label>
+                <input type="text" id="tabName" placeholder="أدخل اسم التاب">
+            </div>
+            <div class="form-group">
+                <label for="tabPhone">رقم تليفون التاب:</label>
+                <input type="tel" id="tabPhone" required placeholder="أدخل رقم تليفون التاب">
+            </div>
+        `;
+    } else if (formType === 'شحن_كهربا') {
+        formHtml += `
+            <div class="form-group">
+                <label for="electricityLocation">مكان الشحن:</label>
+                <input type="text" id="electricityLocation" required placeholder="أدخل مكان الشحن">
+            </div>
+        `;
+    } else if (formType === 'بنزين' || formType === 'سلف' || formType === 'عجوزات') {
+        formHtml += `
+            <div class="form-group">
+                <label for="personName">اسم الشخص:</label>
+                <input type="text" id="personName" required placeholder="أدخل اسم الشخص">
+            </div>
+        `;
+    } else if (formType === 'دفعة_شركة') {
+        formHtml += `
+            <div class="form-group">
+                <label for="companyName">اسم الشركة:</label>
+                <input type="text" id="companyName" required placeholder="أدخل اسم الشركة">
+            </div>
+            <div class="form-group">
+                <label for="companyCode">كود الشركة:</label>
+                <input type="text" id="companyCode" placeholder="أدخل كود الشركة">
+            </div>
+        `;
+    } else if (formType === 'اجل') {
+        formHtml += `
+            <div class="form-group">
+                <label for="customerSearch">البحث عن العميل:</label>
+                <input type="text" id="customerSearch" placeholder="ابحث بالاسم أو الرقم" onkeyup="searchCustomersForExpense(this.value)">
+                <div id="customerSuggestions" class="suggestions"></div>
+                <input type="hidden" id="selectedCustomerId">
+                <input type="hidden" id="selectedCustomerName">
+            </div>
+            <button type="button" class="add-btn" onclick="showAddCustomerModalFromExpense()">
+                <i class="fas fa-plus"></i> إضافة عميل جديد
+            </button>
+        `;
+    }
+
+    dynamicFormDiv.innerHTML = formHtml;
+}
+
+// دالة البحث عن العملاء للمصروفات الآجلة
+function searchCustomersForExpense(searchTerm) {
+    const suggestionsDiv = document.getElementById('customerSuggestions');
+    suggestionsDiv.innerHTML = '';
+    
+    if (searchTerm.length < 2) {
+        suggestionsDiv.style.display = 'none';
+        return;
+    }
+
+    const filtered = customers.filter(cust => 
+        cust.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        cust.phone.includes(searchTerm)
+    );
+
+    if (filtered.length === 0) {
+        suggestionsDiv.innerHTML = '<div class="suggestion-item">لا توجد نتائج</div>';
+        suggestionsDiv.style.display = 'block';
+        return;
+    }
+
+    filtered.forEach(cust => {
+        const item = document.createElement('div');
+        item.className = 'suggestion-item';
+        item.textContent = `${cust.name} (${cust.phone}) - رصيد: ${cust.totalCredit.toFixed(2)}`;
+        item.onclick = () => selectCustomerForExpense(cust);
+        suggestionsDiv.appendChild(item);
+    });
+    
+    suggestionsDiv.style.display = 'block';
+}
+
+// دالة اختيار العميل للمصروفات الآجلة
+function selectCustomerForExpense(customer) {
+    document.getElementById('customerSearch').value = `${customer.name} (${customer.phone})`;
+    document.getElementById('selectedCustomerId').value = customer.id;
+    document.getElementById('selectedCustomerName').value = customer.name;
+    document.getElementById('customerSuggestions').style.display = 'none';
+}
+
+// دالة إظهار نافذة إضافة عميل من نافذة المصروفات
+function showAddCustomerModalFromExpense() {
+    closeModal('addExpenseModal');
+    showAddCustomerModal(true);
+}
+
+// دالة إضافة العميل من نافذة المصروفات (معدلة)
+async function addCustomerFromExpense() {
+    const name = document.getElementById('customerName').value.trim();
+    const phone = document.getElementById('customerPhone').value.trim();
+
+    if (!name || !phone) {
+        showWarningMessage('يرجى ملء جميع حقول العميل.');
+        return;
+    }
+
+    const customerId = 'CUST_' + new Date().getTime();
+    const newCustomer = [
+        customerId,
+        name,
+        phone,
+        '0', // Total credit
+        new Date().toISOString().split('T')[0], // Creation date
+        new Date().toISOString().split('T')[0]  // Last update
+    ];
+
+    const result = await appendToSheet(SHEETS.CUSTOMERS, newCustomer);
+
+    if (result.success) {
+        showSuccessMessage('تم إضافة العميل بنجاح.');
+        closeModal('addCustomerModal');
+        await loadCustomers();
+        
+        // العودة إلى نافذة إضافة المصروف وتحديث بيانات العميل
+        showAddExpenseModal();
+        const newCustomerObj = { id: customerId, name: name, phone: phone };
+        selectCustomerForExpense(newCustomerObj);
+    } else {
+        showErrorMessage('فشل إضافة العميل.');
+    }
+}
+
 function searchCustomersForExpense(searchTerm) {
     const suggestionsDiv = document.getElementById('customerSuggestions');
     suggestionsDiv.innerHTML = '';
@@ -1674,4 +1900,3 @@ document.addEventListener('DOMContentLoaded', function() {
 // Add these scripts to your HTML head section
 // <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 // <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-
