@@ -4,7 +4,7 @@
 // const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com';
 const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; // لا يزال مفيدًا كمرجع، ولكن Apps Script يستخدمه مباشرة
 // تصحيح رابط Apps Script - استبدل هذا بالرابط الذي حصلت عليه بعد نشر Apps Script كتطبيق ويب
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwgY0fi6-Fh0edEmA1_lmJQn6fasMag6AJ5qpUmoTgGBlFy595rnCyoPDSQCEUmnHpThg/exec'; // <--- هام جداً: استبدل هذا الرابط
+const APP_SCRIPT_URL = https://docs.google.com/spreadsheets/d/16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q/edit?usp=sharing'; // <--- هام جداً: استبدل هذا الرابط
 
 // SCOPES لم تعد ضرورية في الواجهة الأمامية لأن Apps Script هو من سيقوم بالمصادقة
 // const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
@@ -1522,4 +1522,5 @@ window.onload = async function() {
         // }
     }
 };
+
 
