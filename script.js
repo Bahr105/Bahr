@@ -3,7 +3,7 @@ const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU'; //
 const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com'; // 
 const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; // 
 // تصحيح رابط Apps Script
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwgY0fi6-Fh0edEmA1_lmJQn6fasMag6AJ5qpUmoTgGBlFy595rnCyoPDSQCEUmnHpThg/exec';
+const APP_SCRIPT_URL = 'https://docs.google.com/spreadsheets/d/16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q/edit?usp=sharing';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets'; // Full read/write access
 
 let gapiInited = false;
@@ -1537,3 +1537,4 @@ window.onload = async function() {
         }
     }
 };
+
