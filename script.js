@@ -1,35 +1,37 @@
 // --- Google Sheets API Configuration ---
-const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU'; // Replace with your actual API Key
-const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com'; // Replace with your actual Client ID
-const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; // Replace with your actual Spreadsheet ID
+const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU'; // 
+const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com'; // 
+const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; // 
+const APP_SCRIPT_URL = 'https://docs.google.com/spreadsheets/d/16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q/edit?gid=889786358#gid=889786358'; // 
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets'; // Full read/write access
 
 let gapiInited = false;
 let gisInited = false;
 let tokenClient;
 
-
 // --- Global Application State ---
-let dailyData = {
-    sales: {}, // إيرادات المبيعات من الأقسام (هيكل: { "اسم القسم": [{id, invoiceNumber, amount, notes, timestamp}] })
-    expenses: [], // المصروفات المدفوعة (هيكل: [{id, type, invoiceNumber, amount, notes, extraField, timestamp}])
-    visa: [], // فواتير الفيزا (هيكل: [{id, invoiceNumber, amount, visaNumber, notes, timestamp}])
-    credit: [], // المبيعات الآجلة (هيكل: [{id, invoiceNumber, amount, customer, notes, timestamp}])
-    totalSales: 0, // إجمالي إيرادات المبيعات من الأقسام
-    totalExpenses: 0, // إجمالي المصروفات المدفوعة
-    visaAmount: 0,
-    creditAmount: 0,
-    drawerAmount: 0, // الكاش الفعلي في الدرج
-};
-
-let users = []; // Loaded from Google Sheets (username, password, role)
-let salesSections = []; // Loaded from Google Sheets (names of sales sections)
-let expenseTypes = []; // Loaded from Google Sheets (names of expense types)
-let customers = []; // Loaded from Google Sheets (customer names and credit)
-let currentUser = '';
+let users = []; // Loaded from Google Sheets (ID, Name, Phone, Username, Password, Role, Status, CreationDate)
+let categories = []; // Loaded from Google Sheets (Code, Name, FormType, CreationDate, CreatedBy)
+let customers = []; // Loaded from Google Sheets (ID, Name, Phone, TotalCredit, CreationDate, LastUpdate)
+let currentUser = null;
+let currentUserName = '';
 let currentUserRole = '';
-let selectedCustomer = '';
-let usedVisaNumbers = new Set(); // To track unique visa numbers for the day
+
+let cashierDailyData = {
+    expenses: [], // All expenses for the current cashier for the current shift
+    insta: [],
+    visa: [],
+    online: [],
+    totalExpenses: 0,
+    totalInsta: 0,
+    totalVisa: 0,
+    totalOnline: 0,
+    drawerCash: 0,
+    shiftStartDate: null,
+    shiftEndDate: null,
+    shiftStartTime: null,
+    shiftEndTime: null,
+};
 
 // --- Google API Initialization ---
 function gapiLoaded() {
@@ -57,7 +59,6 @@ function gisLoaded() {
 
 function maybeEnableButtons() {
     if (gapiInited && gisInited) {
-        // All Google APIs are loaded, proceed with initial data loading
         loadInitialData();
     }
 }
@@ -67,6 +68,7 @@ async function handleAuthClick() {
         tokenClient.callback = async (resp) => {
             if (resp.error !== undefined) {
                 console.error('Authentication failed:', resp);
+                showErrorMessage('فشل المصادقة مع Google Sheets. يرجى التحقق من الأذونات.');
                 reject(resp);
             } else {
                 console.log('Authentication successful.');
@@ -82,1193 +84,1417 @@ async function handleAuthClick() {
     });
 }
 
-// --- Google Sheets Data Operations ---
-
-// Helper function to load data from a specific sheet
-async function loadDataFromSheet(sheetName) {
-    if (!gapi.client.getToken()) {
-        await handleAuthClick(); // Request token if not available
-    }
+// --- Google Apps Script Interaction ---
+async function callAppScript(action, data = {}) {
+    showLoadingOverlay();
     try {
-        const response = await gapi.client.sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetName}!A:Z`,
+        const response = await fetch(APP_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action, ...data }),
         });
-        return response.result.values || [];
-    } catch (err) {
-        console.error(`خطأ في تحميل البيانات من ${sheetName}:`, err);
-        showErrorMessage(`خطأ في تحميل البيانات من ${sheetName}. يرجى التحقق من الاتصال والاذونات.`);
-        return [];
-    }
-}
-
-// Save data to Google Sheets
-async function saveToGoogleSheets(data, sheetName) {
-    if (!gapi.client.getToken()) {
-        await handleAuthClick();
-    }
-
-    try {
-        const range = `${sheetName}!A:Z`;
-        
-        // Append data to the sheet
-        await gapi.client.sheets.spreadsheets.values.append({
-            spreadsheetId: SPREADSHEET_ID,
-            range: range,
-            valueInputOption: 'RAW',
-            resource: {
-                values: [data]
-            }
-        });
-        
-        console.log(`تم حفظ البيانات في Google Sheets بنجاح في ورقة ${sheetName}`);
-        return true;
-    } catch (err) {
-        console.error('خطأ في حفظ البيانات:', err);
-        showErrorMessage(`خطأ في حفظ البيانات في ${sheetName}. يرجى التحقق من الاتصال والاذونات.`);
-        return false;
+        const result = await response.json();
+        if (!result.success) {
+            showErrorMessage(result.message || 'حدث خطأ غير معروف.');
+        }
+        return result;
+    } catch (error) {
+        console.error('Error calling App Script:', error);
+        showErrorMessage('خطأ في الاتصال بالخادم. يرجى التحقق من الاتصال بالإنترنت.');
+        return { success: false, message: 'خطأ في الاتصال بالخادم.' };
+    } finally {
+        hideLoadingOverlay();
     }
 }
 
 // --- Initial Data Loading on Page Load ---
 async function loadInitialData() {
     await loadUsers();
-    await loadSectionsAndExpenseTypesFromSheets();
-    await loadCustomersFromSheets();
+    await loadCategories();
+    await loadCustomers();
     populateUserDropdown();
 }
 
-// Load Users from Google Sheets
 async function loadUsers() {
-    const userData = await loadDataFromSheet('Users');
-    if (userData.length > 1) { // Skip header row
-        users = userData.slice(1).map(row => ({
-            username: row[0],
-            password: row[1],
-            role: row[2]
+    const result = await callAppScript('getUsers');
+    if (result.success) {
+        users = result.data.map(row => ({
+            id: row[0],
+            name: row[1],
+            phone: row[2],
+            username: row[3],
+            password: row[4], // Note: In a real app, passwords should be hashed and never sent to client.
+            role: row[5],
+            status: row[6],
+            creationDate: row[7]
         }));
     } else {
-        console.warn('No user data found in Google Sheet "Users".');
-        users = []; // Ensure users array is empty if no data
+        users = [];
     }
 }
 
-// Populate the username dropdown in the login form
+async function loadCategories() {
+    const result = await callAppScript('getCategories');
+    if (result.success) {
+        categories = result.data.map(row => ({
+            code: row[0],
+            name: row[1],
+            formType: row[2],
+            creationDate: row[3],
+            createdBy: row[4]
+        }));
+    } else {
+        categories = [];
+    }
+}
+
+async function loadCustomers() {
+    const result = await callAppScript('getCustomers');
+    if (result.success) {
+        customers = result.data.map(row => ({
+            id: row[0],
+            name: row[1],
+            phone: row[2],
+            totalCredit: parseFloat(row[3] || 0),
+            creationDate: row[4],
+            lastUpdate: row[5]
+        }));
+    } else {
+        customers = [];
+    }
+}
+
 function populateUserDropdown() {
     const usernameSelect = document.getElementById('username');
-    usernameSelect.innerHTML = '<option value="">اختر المستخدم</option>'; // Reset options
+    usernameSelect.innerHTML = '<option value="">اختر المستخدم</option>';
     users.forEach(user => {
         const option = document.createElement('option');
         option.value = user.username;
-        option.textContent = user.username;
+        option.textContent = user.name + ' (' + user.role + ')';
         usernameSelect.appendChild(option);
     });
 }
 
-// Load Sales Sections and Expense Types from Google Sheets
-async function loadSectionsAndExpenseTypesFromSheets() {
-    const sectionsData = await loadDataFromSheet('Categories'); // Assuming a 'Categories' sheet
-    salesSections = [];
-    expenseTypes = [];
-
-    if (sectionsData.length > 1) { // Skip header row
-        sectionsData.slice(1).forEach(row => {
-            const name = row[0]; // Category name
-            const type = row[1]; // Type (sales/expense)
-            if (name && type) {
-                if (type === 'sales' && !salesSections.includes(name)) {
-                    salesSections.push(name);
-                } else if (type === 'expense' && !expenseTypes.includes(name)) {
-                    expenseTypes.push(name);
-                }
-            }
-        });
-    } else {
-        console.warn('No category data found in Google Sheet "Categories".');
-    }
-    initializeDataStructures(); // Re-initialize dailyData with loaded sections/types
-    populateExpenseTypeDropdown();
-}
-
-// Populate expense type dropdown in cashier dashboard
-function populateExpenseTypeDropdown() {
-    const expenseTypeSelect = document.getElementById('expenseType');
-    expenseTypeSelect.innerHTML = ''; // Clear existing options
-    expenseTypes.forEach(type => {
-        const option = document.createElement('option');
-        option.value = type;
-        option.textContent = type;
-        expenseTypeSelect.appendChild(option);
-    });
-    toggleExtraField(); // Call to set initial state for extra field
-}
-
-// Load Customers from Google Sheets (Updated to load credit)
-async function loadCustomersFromSheets() {
-    const customerData = await loadDataFromSheet('Customers');
-    customers = [];
-    if (customerData.length > 1) { // Skip header row
-        // Assuming Customer Name is in col 0 and Total Credit is in col 1
-        customers = customerData.slice(1).map(row => ({
-            name: row[0],
-            totalCredit: parseFloat(row[1] || 0) // Load total credit
-        })).filter(c => c.name);
-    } else {
-        console.warn('No customer data found in Google Sheet "Customers".');
-    }
-}
-
-// --- Core Application Logic ---
-
-// Initialize data structures for daily operations
-function initializeDataStructures() {
-    dailyData.sales = {};
-    salesSections.forEach(section => {
-        if (!dailyData.sales[section]) {
-            dailyData.sales[section] = [];
-        }
-    });
-    dailyData.expenses = []; // Expenses are now a flat array
-    dailyData.visa = [];
-    dailyData.credit = [];
-    dailyData.totalSales = 0;
-    dailyData.totalExpenses = 0;
-    dailyData.visaAmount = 0;
-    dailyData.creditAmount = 0;
-    dailyData.drawerAmount = 0;
-}
-
-// Login Function
+// --- Authentication ---
 async function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     
     if (!username || !password) {
-        alert('يرجى اختيار المستخدم وإدخال كلمة المرور');
+        showWarningMessage('يرجى اختيار المستخدم وإدخال كلمة المرور.');
         return;
     }
 
-    const user = users.find(u => u.username === username && u.password === password);
+    const result = await callAppScript('login', { username, password });
 
-    if (user) {
-        currentUser = username;
-        currentUserRole = user.role;
-        localStorage.setItem('currentUser', currentUser);
-        localStorage.setItem('currentUserRole', currentUserRole);
+    if (result.success) {
+        currentUser = result.user;
+        currentUserName = result.user.name;
+        currentUserRole = result.user.role;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
-        if (currentUserRole === 'Cashier') {
-            showCashierDashboard();
-        } else if (currentUserRole === 'Accountant') {
-            showAccountantDashboard();
+        if (currentUserRole === 'كاشير') {
+            showCashierPage();
+        } else if (currentUserRole === 'محاسب') {
+            showAccountantPage();
         }
+        showSuccessMessage(`مرحباً بك، ${currentUserName}!`);
     } else {
-        alert('اسم المستخدم أو كلمة المرور غير صحيحة.');
+        showErrorMessage(result.message || 'اسم المستخدم أو كلمة المرور غير صحيحة.');
     }
 }
 
-// Logout Function
 function logout() {
-    document.getElementById('cashierDashboardSection').style.display = 'none';
-    document.getElementById('accountantDashboardSection').style.display = 'none';
-    document.getElementById('loginSection').style.display = 'block';
+    document.getElementById('loginPage').classList.add('active');
+    document.getElementById('cashierPage').classList.remove('active');
+    document.getElementById('accountantPage').classList.remove('active');
     document.getElementById('username').value = '';
     document.getElementById('password').value = '';
-    currentUser = '';
+    currentUser = null;
+    currentUserName = '';
     currentUserRole = '';
     localStorage.removeItem('currentUser');
-    localStorage.removeItem('currentUserRole');
-    resetDailyData(); // Clear all daily data on logout
+    resetCashierDailyData();
+    showSuccessMessage('تم تسجيل الخروج بنجاح.');
 }
 
-// --- Cashier Dashboard Functions ---
+function togglePasswordVisibility() {
+    const passwordInput = document.getElementById('password');
+    const toggleButton = document.querySelector('.show-password i');
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleButton.classList.remove('fa-eye');
+        toggleButton.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        toggleButton.classList.remove('fa-eye-slash');
+        toggleButton.classList.add('fa-eye');
+    }
+}
 
-async function showCashierDashboard() {
-    document.getElementById('loginSection').style.display = 'none';
-    document.getElementById('accountantDashboardSection').style.display = 'none';
-    document.getElementById('cashierDashboardSection').style.display = 'block';
-    document.getElementById('currentUserCashier').textContent = currentUser;
+// --- Page Navigation ---
+function showTab(tabId) {
+    const allTabs = document.querySelectorAll('.tab-content');
+    allTabs.forEach(tab => tab.classList.remove('active'));
+
+    const allNavTabs = document.querySelectorAll('.nav-tab');
+    allNavTabs.forEach(navTab => navTab.classList.remove('active'));
+
+    document.getElementById(tabId).classList.add('active');
+    document.querySelector(`.nav-tab[onclick="showTab('${tabId}')"]`).classList.add('active');
+
+    // Specific actions for each tab
+    if (tabId === 'categoriesTabCashier' || tabId === 'categoriesTabAccountant') {
+        displayCategories(tabId === 'categoriesTabCashier' ? 'categoriesGridCashier' : 'categoriesGridAccountant');
+    } else if (tabId === 'expensesTabCashier') {
+        loadCashierExpenses();
+        populateExpenseCategoryFilter();
+    } else if (tabId === 'customersTabCashier') {
+        displayCustomers('customersTableBodyCashier');
+    } else if (tabId === 'dashboardTabAccountant') {
+        updateAccountantDashboard();
+    } else if (tabId === 'usersTabAccountant') {
+        displayUsers();
+    } else if (tabId === 'reportsTabAccountant') {
+        populateReportFilters();
+    } else if (tabId === 'shiftCloseTabAccountant') {
+        loadAccountantShiftClosuresHistory();
+    }
+}
+
+// --- Cashier Page Functions ---
+async function showCashierPage() {
+    document.getElementById('loginPage').classList.remove('active');
+    document.getElementById('accountantPage').classList.remove('active');
+    document.getElementById('cashierPage').classList.add('active');
+    document.getElementById('cashierNameDisplay').textContent = currentUserName;
     document.getElementById('currentDateCashier').textContent = new Date().toLocaleDateString('ar-EG');
     
-    // Reload sections and customers in case they were updated by accountant
-    await loadSectionsAndExpenseTypesFromSheets();
-    await loadCustomersFromSheets();
-    initializeDataStructures();
-    loadCustomersForCashier(); // Load customers for the customer tab
-    loadSalesSectionsForCashier(); // Load sales sections for the sales tab
-    updateExpensesList(); // Update expenses list for the expenses tab
-    updateStats();
-    openTab('expensesTab'); // Default to expenses tab
+    await loadCategories(); // Reload categories in case accountant changed them
+    await loadCustomers(); // Reload customers in case accountant changed them
+    resetCashierDailyData(); // Clear previous shift data
+    showTab('expensesTabCashier'); // Default to expenses tab
 }
 
-// Function to open specific tab
-function openTab(tabName) {
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabContents.forEach(content => content.style.display = 'none');
+function resetCashierDailyData() {
+    cashierDailyData = {
+        expenses: [],
+        insta: [],
+        visa: [],
+        online: [],
+        totalExpenses: 0,
+        totalInsta: 0,
+        totalVisa: 0,
+        totalOnline: 0,
+        drawerCash: 0,
+        shiftStartDate: null,
+        shiftEndDate: null,
+        shiftStartTime: null,
+        shiftEndTime: null,
+    };
+    // Clear UI elements
+    document.getElementById('expensesTableBodyCashier').innerHTML = '';
+    document.getElementById('shiftSummaryCashier').style.display = 'none';
+    document.getElementById('drawerCashCashier').value = '';
+    updateCashierShiftSummary();
+}
 
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    tabButtons.forEach(btn => btn.classList.remove('active'));
-
-    document.getElementById(tabName).style.display = 'block';
-    document.querySelector(`.tab-btn[onclick="openTab('${tabName}')"]`).classList.add('active');
-
-    // Specific updates for each tab
-    if (tabName === 'sectionsTab') {
-        loadSalesSectionsForCashier();
-    } else if (tabName === 'customersTab') {
-        loadCustomersForCashier();
-        updateCustomerCredits(); // Updated to show actual credits
-    } else if (tabName === 'summaryTab') {
-        updateStats();
-    } else if (tabName === 'expensesTab') {
-        updateExpensesList();
+// --- Categories Management (Cashier & Accountant) ---
+function displayCategories(gridId) {
+    const categoriesGrid = document.getElementById(gridId);
+    categoriesGrid.innerHTML = '';
+    if (categories.length === 0) {
+        categoriesGrid.innerHTML = '<p>لا توجد تصنيفات مسجلة.</p>';
+        return;
     }
-}
 
-// Toggle extra field based on expense type
-function toggleExtraField() {
-    const expenseType = document.getElementById('expenseType').value;
-    const extraFieldContainer = document.getElementById('extraFieldContainer');
-    const extraFieldLabel = document.getElementById('extraFieldLabel');
-    const expenseInvoiceInput = document.getElementById('expenseInvoice');
-
-    extraFieldContainer.style.display = 'none';
-    expenseInvoiceInput.required = true; // Default to required
-
-    if (expenseType === 'شحن تاب') {
-        extraFieldContainer.style.display = 'block';
-        extraFieldLabel.textContent = 'رقم التاب/الفون:';
-        expenseInvoiceInput.required = false; // No invoice for tab charge
-    } else if (expenseType === 'شحن كهربا') {
-        extraFieldContainer.style.display = 'block';
-        extraFieldLabel.textContent = 'مكان الشحن:';
-        expenseInvoiceInput.required = false; // No invoice for electricity charge
-    } else if (expenseType === 'بنزين') {
-        extraFieldContainer.style.display = 'block';
-        extraFieldLabel.textContent = 'اسم المستلم:';
-        expenseInvoiceInput.required = false; // No invoice for gas
-    } else if (expenseType === 'أجل') {
-        extraFieldContainer.style.display = 'block';
-        extraFieldLabel.textContent = 'اختر العميل:';
-        extraFieldContainer.innerHTML = `
-            <label id="extraFieldLabel">اختر العميل:</label>
-            <select id="extraFieldCustomerSelect" onchange="selectedCustomer = this.value"></select>
-            <button class="btn btn-small" onclick="openAddNewCustomerModal()">+ عميل جديد</button>
+    categories.forEach(cat => {
+        const categoryCard = document.createElement('div');
+        categoryCard.className = 'category-card';
+        categoryCard.innerHTML = `
+            <div class="category-header">
+                <span class="category-name">${cat.name}</span>
+                <span class="category-code">${cat.code}</span>
+            </div>
+            <div class="category-type">نوع الفورم: ${cat.formType}</div>
+            <div class="category-actions">
+                <button class="edit-btn" onclick="editCategory('${cat.code}')"><i class="fas fa-edit"></i> تعديل</button>
+                <button class="delete-btn" onclick="deleteCategory('${cat.code}')"><i class="fas fa-trash"></i> حذف</button>
+            </div>
         `;
-        populateCustomerSelectForExpense();
-        expenseInvoiceInput.required = true; // Invoice required for credit sales
-    } else if (expenseType === 'عجوزات') {
-        extraFieldContainer.style.display = 'block';
-        extraFieldLabel.textContent = 'المسؤول عن العجز:';
-        expenseInvoiceInput.required = false; // No invoice for deficit
-    } else {
-        // Reset extra field if type changes to one without extra field
-        extraFieldContainer.innerHTML = `<label id="extraFieldLabel"></label><input type="text" id="extraField">`;
-    }
-}
-
-// Populate customer select for 'أجل' expense type
-function populateCustomerSelectForExpense() {
-    const customerSelectElement = document.getElementById('extraFieldCustomerSelect');
-    if (customerSelectElement) {
-        customerSelectElement.innerHTML = '<option value="">اختر العميل</option>';
-        customers.forEach(customer => {
-            const option = document.createElement('option');
-            option.value = customer.name;
-            option.textContent = customer.name;
-            customerSelectElement.appendChild(option);
-        });
-    }
-}
-
-// Open modal for adding new customer from expense tab
-function openAddNewCustomerModal() {
-    const newCustomerName = prompt('أدخل اسم العميل الجديد:');
-    if (newCustomerName && newCustomerName.trim() !== '') {
-        addNewCustomer(newCustomerName.trim()); // Call existing function to add customer
-    }
-}
-
-// Search expenses by type
-function searchExpenses() {
-    const searchTerm = document.getElementById('expenseSearch').value.toLowerCase();
-    const expenseTypeSelect = document.getElementById('expenseType');
-    
-    // Filter options in the dropdown
-    const filteredOptions = expenseTypes.filter(type => type.toLowerCase().includes(searchTerm));
-    expenseTypeSelect.innerHTML = '';
-    filteredOptions.forEach(type => {
-        const option = document.createElement('option');
-        option.value = type;
-        option.textContent = type;
-        expenseTypeSelect.appendChild(option);
+        categoriesGrid.appendChild(categoryCard);
     });
-    toggleExtraField(); // Update extra field based on new selection
 }
 
-// Add Expense Function
+function showAddCategoryModal() {
+    document.getElementById('addCategoryForm').reset();
+    document.getElementById('addCategoryModal').classList.add('active');
+}
+
+async function addCategory() {
+    const code = document.getElementById('categoryCode').value.trim();
+    const name = document.getElementById('categoryName').value.trim();
+    const formType = document.getElementById('formType').value;
+
+    if (!code || !name || !formType) {
+        showWarningMessage('يرجى ملء جميع حقول التصنيف.');
+        return;
+    }
+
+    const result = await callAppScript('addCategory', {
+        code,
+        name,
+        formType,
+        createdBy: currentUserName
+    });
+
+    if (result.success) {
+        showSuccessMessage('تم إضافة التصنيف بنجاح.');
+        closeModal('addCategoryModal');
+        await loadCategories();
+        displayCategories('categoriesGridCashier'); // Refresh for cashier
+        displayCategories('categoriesGridAccountant'); // Refresh for accountant
+        populateExpenseCategoryFilter(); // Update filter dropdowns
+        populateReportFilters(); // Update report filter dropdowns
+    } else {
+        showErrorMessage(result.message || 'فشل إضافة التصنيف.');
+    }
+}
+
+function editCategory(code) {
+    showWarningMessage('وظيفة تعديل التصنيف غير متاحة حالياً.');
+    // Implement logic to load category data into modal and update
+}
+
+function deleteCategory(code) {
+    showWarningMessage('وظيفة حذف التصنيف غير متاحة حالياً.');
+    // Implement logic to confirm and delete category
+}
+
+// --- Expenses Management (Cashier) ---
+function showAddExpenseModal() {
+    document.getElementById('addExpenseForm').reset();
+    document.getElementById('expenseCategorySearch').value = '';
+    document.getElementById('expenseCategorySuggestions').innerHTML = '';
+    document.getElementById('selectedExpenseCategoryCode').value = '';
+    document.getElementById('selectedExpenseCategoryName').value = '';
+    document.getElementById('selectedExpenseCategoryFormType').value = '';
+    document.getElementById('dynamicExpenseForm').innerHTML = '';
+    document.getElementById('addExpenseModal').classList.add('active');
+}
+
+function searchExpenseCategories(searchTerm) {
+    const suggestionsDiv = document.getElementById('expenseCategorySuggestions');
+    suggestionsDiv.innerHTML = '';
+    if (searchTerm.length < 2) {
+        return;
+    }
+
+    const filtered = categories.filter(cat => 
+        cat.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        cat.code.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    filtered.forEach(cat => {
+        const item = document.createElement('div');
+        item.className = 'suggestion-item';
+        item.textContent = `${cat.name} (${cat.code})`;
+        item.onclick = () => selectExpenseCategory(cat);
+        suggestionsDiv.appendChild(item);
+    });
+}
+
+function selectExpenseCategory(category) {
+    document.getElementById('expenseCategorySearch').value = category.name;
+    document.getElementById('selectedExpenseCategoryCode').value = category.code;
+    document.getElementById('selectedExpenseCategoryName').value = category.name;
+    document.getElementById('selectedExpenseCategoryFormType').value = category.formType;
+    document.getElementById('expenseCategorySuggestions').innerHTML = '';
+    generateDynamicExpenseForm(category.formType);
+}
+
+function generateDynamicExpenseForm(formType) {
+    const dynamicFormDiv = document.getElementById('dynamicExpenseForm');
+    dynamicFormDiv.innerHTML = '';
+
+    let formHtml = `
+        <div class="form-group">
+            <label for="expenseAmount">القيمة:</label>
+            <input type="number" id="expenseAmount" step="0.01" required placeholder="أدخل القيمة">
+        </div>
+        <div class="form-group">
+            <label for="expenseNotes">الملاحظات (اختياري):</label>
+            <input type="text" id="expenseNotes" placeholder="أدخل ملاحظات">
+        </div>
+    `;
+
+    if (formType === 'عادي' || formType === 'اجل' || formType === 'فيزا' || formType === 'اونلاين' || formType === 'مرتجع' || formType === 'خصم عميل' || formType === 'إنستا') {
+        formHtml = `
+            <div class="form-group">
+                <label for="expenseInvoiceNumber">رقم الفاتورة:</label>
+                <input type="text" id="expenseInvoiceNumber" ${formType !== 'اجل' ? 'required' : ''} placeholder="أدخل رقم الفاتورة">
+            </div>
+            ${formHtml}
+        `;
+    }
+
+    if (formType === 'فيزا') {
+        formHtml += `
+            <div class="form-group">
+                <label for="visaReferenceNumber">الرقم المرجعي للفيزا (آخر 4 أرقام):</label>
+                <input type="text" id="visaReferenceNumber" pattern="\\d{4}" maxlength="4" placeholder="أدخل آخر 4 أرقام من الفيزا">
+            </div>
+        `;
+    } else if (formType === 'شحن_تاب') {
+        formHtml += `
+            <div class="form-group">
+                <label for="tabName">اسم التاب (اختياري):</label>
+                <input type="text" id="tabName" placeholder="أدخل اسم التاب">
+            </div>
+            <div class="form-group">
+                <label for="tabPhone">رقم تليفون التاب:</label>
+                <input type="tel" id="tabPhone" required placeholder="أدخل رقم تليفون التاب">
+            </div>
+        `;
+    } else if (formType === 'شحن_كهربا') {
+        formHtml += `
+            <div class="form-group">
+                <label for="electricityLocation">مكان الشحن:</label>
+                <input type="text" id="electricityLocation" required placeholder="أدخل مكان الشحن">
+            </div>
+        `;
+    } else if (formType === 'بنزين' || formType === 'سلف' || formType === 'عجوزات') {
+        formHtml += `
+            <div class="form-group">
+                <label for="personName">اسم الشخص:</label>
+                <input type="text" id="personName" required placeholder="أدخل اسم الشخص">
+            </div>
+        `;
+    } else if (formType === 'دفعة_شركة') {
+        formHtml += `
+            <div class="form-group">
+                <label for="companyName">اسم الشركة:</label>
+                <input type="text" id="companyName" required placeholder="أدخل اسم الشركة">
+            </div>
+            <div class="form-group">
+                <label for="companyCode">كود الشركة:</label>
+                <input type="text" id="companyCode" placeholder="أدخل كود الشركة">
+            </div>
+        `;
+    } else if (formType === 'اجل') {
+        formHtml += `
+            <div class="form-group">
+                <label for="customerSearch">البحث عن العميل:</label>
+                <input type="text" id="customerSearch" placeholder="ابحث بالاسم أو الرقم" onkeyup="searchCustomersForExpense(this.value)">
+                <div id="customerSuggestions" class="suggestions"></div>
+                <input type="hidden" id="selectedCustomerId">
+                <input type="hidden" id="selectedCustomerName">
+            </div>
+            <button type="button" class="add-btn" onclick="showAddCustomerModal(true)">
+                <i class="fas fa-plus"></i> عميل جديد
+            </button>
+        `;
+    }
+
+    dynamicFormDiv.innerHTML = formHtml;
+}
+
+function searchCustomersForExpense(searchTerm) {
+    const suggestionsDiv = document.getElementById('customerSuggestions');
+    suggestionsDiv.innerHTML = '';
+    if (searchTerm.length < 2) {
+        return;
+    }
+
+    const filtered = customers.filter(cust => 
+        cust.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        cust.phone.includes(searchTerm)
+    );
+
+    filtered.forEach(cust => {
+        const item = document.createElement('div');
+        item.className = 'suggestion-item';
+        item.textContent = `${cust.name} (${cust.phone})`;
+        item.onclick = () => selectCustomerForExpense(cust);
+        suggestionsDiv.appendChild(item);
+    });
+}
+
+function selectCustomerForExpense(customer) {
+    document.getElementById('customerSearch').value = customer.name;
+    document.getElementById('selectedCustomerId').value = customer.id;
+    document.getElementById('selectedCustomerName').value = customer.name;
+    document.getElementById('customerSuggestions').innerHTML = '';
+}
+
 async function addExpense() {
-    const expenseType = document.getElementById('expenseType').value;
-    const expenseInvoice = document.getElementById('expenseInvoice').value.trim();
-    const expenseAmount = parseFloat(document.getElementById('expenseAmount').value);
-    const expenseNotes = document.getElementById('expenseNotes').value.trim();
-    let extraFieldValue = '';
+    const categoryCode = document.getElementById('selectedExpenseCategoryCode').value;
+    const categoryName = document.getElementById('selectedExpenseCategoryName').value;
+    const formType = document.getElementById('selectedExpenseCategoryFormType').value;
+    const amount = parseFloat(document.getElementById('expenseAmount').value);
+    const notes = document.getElementById('expenseNotes').value.trim();
 
-    if (isNaN(expenseAmount) || expenseAmount <= 0) {
-        alert('يرجى إدخال قيمة صحيحة للمصروف.');
+    if (!categoryCode || isNaN(amount) || amount <= 0) {
+        showWarningMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة.');
         return;
     }
 
-    if (expenseType === 'أجل') {
-        extraFieldValue = document.getElementById('extraFieldCustomerSelect').value;
-        if (!extraFieldValue) {
-            alert('يرجى اختيار العميل الآجل.');
+    let expenseData = {
+        category: categoryName,
+        categoryCode: categoryCode,
+        amount: amount,
+        notes: notes,
+        cashier: currentUserName,
+    };
+
+    // Collect specific fields based on formType
+    if (formType === 'عادي' || formType === 'اجل' || formType === 'فيزا' || formType === 'اونلاين' || formType === 'مرتجع' || formType === 'خصم عميل' || formType === 'إنستا') {
+        const invoiceNumber = document.getElementById('expenseInvoiceNumber').value.trim();
+        if (formType !== 'اجل' && !invoiceNumber) { // Invoice is optional for 'اجل' if customer is selected
+            showWarningMessage('يرجى إدخال رقم الفاتورة.');
             return;
         }
-        if (!expenseInvoice) {
-            alert('يرجى إدخال رقم الفاتورة للمبيعات الآجلة.');
-            return;
-        }
-    } else if (expenseType === 'شحن تاب' || expenseType === 'شحن كهربا' || expenseType === 'بنزين' || expenseType === 'عجوزات') {
-        extraFieldValue = document.getElementById('extraField').value.trim();
-        if (!extraFieldValue) {
-            alert(`يرجى إدخال ${expenseType === 'شحن تاب' ? 'رقم التاب/الفون' : expenseType === 'شحن كهربا' ? 'مكان الشحن' : expenseType === 'بنزين' ? 'اسم المستلم' : 'المسؤول عن العجز'}.`);
-            return;
-        }
-    } else if (!expenseInvoice && expenseType !== 'فيزا') { // Visa might not always have an invoice number
-        alert('يرجى إدخال رقم الفاتورة.');
-        return;
+        expenseData.invoiceNumber = invoiceNumber;
     }
 
-    // Prepare data for Google Sheets based on expense type
-    let sheetName = 'Expenses';
-    let dataToSave = [
-        new Date().toLocaleDateString('ar-EG'),
-        new Date().toLocaleTimeString('ar-EG'),
-        currentUser,
-        expenseType,
-        expenseInvoice,
-        expenseAmount,
-        expenseNotes,
-        extraFieldValue // This column will hold the specific detail
-    ];
-
-    if (expenseType === 'فيزا') {
-        sheetName = 'Visa';
-        const visaNumber = prompt('يرجى إدخال آخر 4 أرقام من الفيزا:');
-        if (!visaNumber || visaNumber.length !== 4 || !/^\d+$/.test(visaNumber)) {
-            alert('يرجى إدخال آخر 4 أرقام من الفيزا بشكل صحيح (4 أرقام فقط).');
+    if (formType === 'فيزا') {
+        const visaRef = document.getElementById('visaReferenceNumber').value.trim();
+        if (visaRef && !/^\d{4}$/.test(visaRef)) {
+            showWarningMessage('الرقم المرجعي للفيزا يجب أن يكون 4 أرقام.');
             return;
         }
-        if (usedVisaNumbers.has(visaNumber)) {
-            alert(`رقم الفيزا ${visaNumber} مستخدم بالفعل اليوم!`);
+        expenseData.referenceNumber = visaRef;
+    } else if (formType === 'شحن_تاب') {
+        const tabName = document.getElementById('tabName').value.trim();
+        const tabPhone = document.getElementById('tabPhone').value.trim();
+        if (!tabPhone) {
+            showWarningMessage('يرجى إدخال رقم تليفون التاب.');
             return;
         }
-        dataToSave = [
-            new Date().toLocaleDateString('ar-EG'),
-            new Date().toLocaleTimeString('ar-EG'),
-            currentUser,
-            expenseInvoice, // Invoice number for visa
-            expenseAmount,
-            visaNumber,
-            expenseNotes
-        ];
-    } else if (expenseType === 'أجل') {
-        sheetName = 'Credit';
-        dataToSave = [
-            new Date().toLocaleDateString('ar-EG'),
-            new Date().toLocaleTimeString('ar-EG'),
-            currentUser,
-            expenseInvoice, // Invoice number for credit
-            expenseAmount,
-            extraFieldValue, // Customer name
-            expenseNotes
-        ];
+        expenseData.tabName = tabName;
+        expenseData.tabPhone = tabPhone;
+    } else if (formType === 'شحن_كهربا') {
+        const location = document.getElementById('electricityLocation').value.trim();
+        if (!location) {
+            showWarningMessage('يرجى إدخال مكان الشحن.');
+            return;
+        }
+        expenseData.location = location;
+    } else if (formType === 'بنزين' || formType === 'سلف' || formType === 'عجوزات') {
+        const personName = document.getElementById('personName').value.trim();
+        if (!personName) {
+            showWarningMessage('يرجى إدخال اسم الشخص.');
+            return;
+        }
+        expenseData.personName = personName;
+    } else if (formType === 'دفعة_شركة') {
+        const companyName = document.getElementById('companyName').value.trim();
+        const companyCode = document.getElementById('companyCode').value.trim();
+        if (!companyName) {
+            showWarningMessage('يرجى إدخال اسم الشركة.');
+            return;
+        }
+        expenseData.companyName = companyName;
+        expenseData.companyCode = companyCode;
+    } else if (formType === 'اجل') {
+        const customerId = document.getElementById('selectedCustomerId').value;
+        const customerName = document.getElementById('selectedCustomerName').value;
+        if (!customerId) {
+            showWarningMessage('يرجى اختيار العميل الآجل.');
+            return;
+        }
+        expenseData.customer = customerId; // Send customer ID to App Script
+        expenseData.customerName = customerName; // For local display
     }
-    // 'مرتجع' is treated as a regular expense for now, as per previous discussion.
 
-    const success = await saveToGoogleSheets(dataToSave, sheetName);
+    const result = await callAppScript('addExpense', expenseData);
 
-    if (success) {
+    if (result.success) {
+        showSuccessMessage(`تم إضافة ${categoryName} بنجاح.`);
+        closeModal('addExpenseModal');
+        // Update local cashierDailyData
         const newEntry = {
-            id: Date.now(),
-            type: expenseType,
-            invoiceNumber: expenseInvoice,
-            amount: expenseAmount,
-            notes: expenseNotes,
-            extraField: extraFieldValue,
-            timestamp: new Date().toLocaleString('ar-EG')
+            id: result.id, // ID from App Script
+            category: categoryName,
+            categoryCode: categoryCode,
+            invoiceNumber: expenseData.invoiceNumber || '',
+            amount: amount,
+            notes: notes,
+            timestamp: new Date().toLocaleString('ar-EG'),
+            ...expenseData // Include all specific fields for local tracking
         };
 
-        if (expenseType === 'فيزا') {
-            dailyData.visa.push(newEntry);
-            dailyData.visaAmount += expenseAmount;
-            usedVisaNumbers.add(dataToSave[5]); // Add visa number to used set
-        } else if (expenseType === 'أجل') {
-            dailyData.credit.push(newEntry);
-            dailyData.creditAmount += expenseAmount;
-            // Update local customer credit
-            const customerIndex = customers.findIndex(c => c.name === extraFieldValue);
-            if (customerIndex > -1) {
-                customers[customerIndex].totalCredit += expenseAmount;
-            }
+        if (formType === 'إنستا') {
+            cashierDailyData.insta.push(newEntry);
+            cashierDailyData.totalInsta += amount;
+        } else if (formType === 'فيزا') {
+            cashierDailyData.visa.push(newEntry);
+            cashierDailyData.totalVisa += amount;
+        } else if (formType === 'اونلاين') {
+            cashierDailyData.online.push(newEntry);
+            cashierDailyData.totalOnline += amount;
         } else {
-            dailyData.expenses.push(newEntry);
-            dailyData.totalExpenses += expenseAmount;
+            cashierDailyData.expenses.push(newEntry);
+            cashierDailyData.totalExpenses += amount;
         }
         
-        updateExpensesList();
-        updateStats();
-        clearExpenseForm();
-        showSuccessMessage(`تم إضافة ${expenseType} بنجاح`);
-        if (expenseType === 'أجل') {
-            updateCustomerCredits(); // Refresh customer credits display
+        if (formType === 'اجل') {
+            await loadCustomers(); // Reload customers to get updated credit
+            displayCustomers('customersTableBodyCashier');
         }
+        loadCashierExpenses(); // Refresh expenses table
+        updateCashierShiftSummary(); // Update shift summary
+    } else {
+        showErrorMessage(result.message || 'فشل إضافة المصروف.');
     }
 }
 
-// Update Expenses List (for expenses tab)
-function updateExpensesList() {
-    const expensesListContainer = document.getElementById('expensesListContainer');
-    expensesListContainer.innerHTML = '';
+async function loadCashierExpenses() {
+    const result = await callAppScript('getExpenses', { cashier: currentUser.username });
+    if (result.success) {
+        // Clear previous data and populate from fresh load
+        cashierDailyData.expenses = [];
+        cashierDailyData.insta = [];
+        cashierDailyData.visa = [];
+        cashierDailyData.online = [];
+        cashierDailyData.totalExpenses = 0;
+        cashierDailyData.totalInsta = 0;
+        cashierDailyData.totalVisa = 0;
+        cashierDailyData.totalOnline = 0;
 
-    if (dailyData.expenses.length === 0 && dailyData.visa.length === 0 && dailyData.credit.length === 0) {
-        expensesListContainer.innerHTML = '<p>لا توجد مصروفات أو مبيعات خاصة مسجلة اليوم.</p>';
-        return;
-    }
+        result.data.forEach(row => {
+            const categoryName = row[1];
+            const formType = categories.find(c => c.name === categoryName || c.code === row[2])?.formType || 'عادي';
+            const expense = {
+                id: row[0],
+                category: categoryName,
+                categoryCode: row[2],
+                invoiceNumber: row[3],
+                amount: parseFloat(row[4]),
+                notes: row[5],
+                date: row[6],
+                time: row[7],
+                cashier: row[8],
+                year: row[9],
+                referenceNumber: row[10],
+                tabName: row[11],
+                tabPhone: row[12],
+                location: row[13],
+                personName: row[14],
+                companyName: row[15],
+                companyCode: row[16],
+                customer: row[17],
+                formType: formType // Add formType for local processing
+            };
 
-    // Combine all relevant entries for display
-    const allEntries = [
-        ...dailyData.expenses.map(e => ({ ...e, category: e.type, displayType: 'مصروف' })),
-        ...dailyData.visa.map(v => ({ ...v, category: 'فيزا', displayType: 'فيزا', invoiceNumber: v.invoiceNumber, notes: `رقم الفيزا: ${v.visaNumber}, ${v.notes}` })),
-        ...dailyData.credit.map(c => ({ ...c, category: 'آجل', displayType: 'آجل', invoiceNumber: c.invoiceNumber, notes: `العميل: ${c.extraField}, ${c.notes}` }))
-    ].sort((a, b) => b.id - a.id); // Sort by latest first
-
-    allEntries.forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'invoice-item';
-        itemElement.innerHTML = `
-            <div>
-                <strong>${item.displayType}: ${item.category}</strong>
-                ${item.invoiceNumber ? ` (#${item.invoiceNumber})` : ''}: ${item.amount.toFixed(2)} جنيه
-                ${item.notes ? `<br><small>ملاحظات: ${item.notes}</small>` : ''}
-                <br><small>${item.timestamp}</small>
-            </div>
-            <button class="btn-danger btn-small" onclick="deleteEntryFromDailyData('${item.displayType}', ${item.id})">حذف</button>
-        `;
-        expensesListContainer.appendChild(itemElement);
-    });
-}
-
-// Delete Entry from dailyData (client-side only)
-function deleteEntryFromDailyData(displayType, id) {
-    if (!confirm('هل أنت متأكد من حذف هذا الإدخال؟ (سيتم حذفه من الواجهة فقط، وليس من Google Sheets تلقائيًا)')) return;
-
-    let itemIndex;
-    let amountToRemove = 0;
-
-    if (displayType === 'مصروف') {
-        itemIndex = dailyData.expenses.findIndex(item => item.id === id);
-        if (itemIndex > -1) {
-            amountToRemove = dailyData.expenses[itemIndex].amount;
-            dailyData.expenses.splice(itemIndex, 1);
-            dailyData.totalExpenses -= amountToRemove;
-        }
-    } else if (displayType === 'فيزا') {
-        itemIndex = dailyData.visa.findIndex(item => item.id === id);
-        if (itemIndex > -1) {
-            amountToRemove = dailyData.visa[itemIndex].amount;
-            const visaNum = dailyData.visa[itemIndex].visaNumber;
-            dailyData.visa.splice(itemIndex, 1);
-            dailyData.visaAmount -= amountToRemove;
-            usedVisaNumbers.delete(visaNum);
-        }
-    } else if (displayType === 'آجل') {
-        itemIndex = dailyData.credit.findIndex(item => item.id === id);
-        if (itemIndex > -1) {
-            amountToRemove = dailyData.credit[itemIndex].amount;
-            const customerName = dailyData.credit[itemIndex].extraField;
-            dailyData.credit.splice(itemIndex, 1);
-            dailyData.creditAmount -= amountToRemove;
-            // Update local customer credit
-            const customerIndex = customers.findIndex(c => c.name === customerName);
-            if (customerIndex > -1) {
-                customers[customerIndex].totalCredit -= amountToRemove;
+            if (formType === 'إنستا') {
+                cashierDailyData.insta.push(expense);
+                cashierDailyData.totalInsta += expense.amount;
+            } else if (formType === 'فيزا') {
+                cashierDailyData.visa.push(expense);
+                cashierDailyData.totalVisa += expense.amount;
+            } else if (formType === 'اونلاين') {
+                cashierDailyData.online.push(expense);
+                cashierDailyData.totalOnline += expense.amount;
+            } else {
+                cashierDailyData.expenses.push(expense);
+                cashierDailyData.totalExpenses += expense.amount;
             }
-        }
-    }
-    updateExpensesList();
-    updateStats();
-    showSuccessMessage('تم حذف الإدخال بنجاح من القائمة المحلية.');
-    if (displayType === 'آجل') {
-        updateCustomerCredits(); // Refresh customer credits display
-    }
-}
-
-
-// Load Sales Sections into Dashboard
-function loadSalesSectionsForCashier() {
-    const salesContainer = document.getElementById('salesSectionsContainer');
-    salesContainer.innerHTML = '';
-    salesSections.forEach(section => createSalesSectionUI(section));
-}
-
-// Create Sales Section UI
-function createSalesSectionUI(section) {
-    const container = document.getElementById('salesSectionsContainer');
-    const sectionCard = document.createElement('div');
-    sectionCard.className = 'section-card';
-    sectionCard.innerHTML = `
-        <h4>${section}</h4>
-        <div class="section-stats">
-            <small>عدد الفواتير: <span id="${section}-count">0</span></small>
-            <small>الإجمالي: <span id="${section}-total">0</span> جنيه</small>
-        </div>
-        <div class="invoice-form">
-            <input type="text" placeholder="رقم الفاتورة" id="${section}-invoice" required>
-            <input type="number" placeholder="القيمة" id="${section}-amount" step="0.01" required>
-            <input type="text" placeholder="ملاحظات (اختياري)" id="${section}-notes">
-            <button onclick="addSale('${section}')">إضافة فاتورة</button>
-        </div>
-        <div class="invoice-list" id="${section}-list"></div>
-    `;
-    container.appendChild(sectionCard);
-    updateSaleDisplay(section);
-}
-
-// Add Sale Function
-async function addSale(section) {
-    const invoiceNumber = document.getElementById(section + '-invoice').value.trim();
-    const amount = parseFloat(document.getElementById(section + '-amount').value);
-    const notes = document.getElementById(section + '-notes').value.trim();
-    
-    if (!invoiceNumber || isNaN(amount) || amount <= 0) {
-        alert('يرجى إدخال رقم الفاتورة وقيمة صحيحة');
-        return;
-    }
-    
-    const success = await saveToGoogleSheets([
-        new Date().toLocaleDateString('ar-EG'),
-        new Date().toLocaleTimeString('ar-EG'),
-        currentUser,
-        section,
-        invoiceNumber,
-        amount,
-        notes
-    ], 'Sales');
-
-    if (success) {
-        let sale = { id: Date.now(), invoiceNumber, amount, notes, timestamp: new Date().toLocaleString('ar-EG') };
-        dailyData.sales[section].push(sale);
-        dailyData.totalSales += amount;
-        updateSaleDisplay(section);
-        updateStats();
-        clearSaleForm(section);
-        showSuccessMessage(`تم إضافة فاتورة ${section} بنجاح`);
-    }
-}
-
-// Update Sale Display
-function updateSaleDisplay(section) {
-    const listElement = document.getElementById(section + '-list');
-    const countElement = document.getElementById(section + '-count');
-    const totalElement = document.getElementById(section + '-total');
-    
-    listElement.innerHTML = '';
-    const count = dailyData.sales[section].length;
-    const total = dailyData.sales[section].reduce((sum, item) => sum + item.amount, 0);
-    
-    countElement.textContent = count;
-    totalElement.textContent = total.toFixed(2);
-    
-    dailyData.sales[section].forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'invoice-item';
-        itemElement.innerHTML = `
-            <div>
-                <strong>فاتورة #${item.invoiceNumber}</strong>: ${item.amount.toFixed(2)} جنيه
-                ${item.notes ? `<br><small>ملاحظات: ${item.notes}</small>` : ''}
-                <br><small>${item.timestamp}</small>
-            </div>
-            <button class="btn-danger btn-small" onclick="deleteSaleEntry('${section}', ${item.id})">حذف</button>
-        `;
-        listElement.appendChild(itemElement);
-    });
-}
-
-// Delete Sale Entry (client-side only)
-function deleteSaleEntry(section, id) {
-    if (!confirm('هل أنت متأكد من حذف فاتورة المبيعات هذه؟ (سيتم حذفها من الواجهة فقط)')) return;
-
-    const itemIndex = dailyData.sales[section].findIndex(item => item.id === id);
-    if (itemIndex > -1) {
-        const amountToRemove = dailyData.sales[section][itemIndex].amount;
-        dailyData.sales[section].splice(itemIndex, 1);
-        dailyData.totalSales -= amountToRemove;
-        updateSaleDisplay(section);
-        updateStats();
-        showSuccessMessage('تم حذف فاتورة المبيعات بنجاح من القائمة المحلية.');
-    }
-}
-
-// Clear Sale Form
-function clearSaleForm(section) {
-    document.getElementById(section + '-invoice').value = '';
-    document.getElementById(section + '-amount').value = '';
-    document.getElementById(section + '-notes').value = '';
-}
-
-// Customer Management Functions (for Customers Tab)
-function loadCustomersForCashier() {
-    const customersListContainer = document.getElementById('customersListContainer');
-    customersListContainer.innerHTML = '';
-    
-    if (customers.length === 0) {
-        customersListContainer.innerHTML = '<p>لا توجد عملاء آجلين مسجلين.</p>';
-        return;
-    }
-
-    customers.forEach(customer => {
-        const customerElement = document.createElement('div');
-        customerElement.className = 'customer-item';
-        customerElement.innerHTML = `
-            <span>${customer.name}</span>
-            <!-- Add actions like view credit, etc. -->
-        `;
-        customersListContainer.appendChild(customerElement);
-    });
-}
-
-// Add New Customer (Updated to save initial credit)
-async function addNewCustomer(customerNameFromPrompt = null) {
-    const newCustomerNameInput = document.getElementById('newCustomerName');
-    const newCustomerName = customerNameFromPrompt || newCustomerNameInput.value.trim();
-    
-    if (!newCustomerName) {
-        alert('يرجى إدخال اسم العميل');
-        return;
-    }
-    
-    // Check if customer exists by name (case-insensitive for better UX)
-    if (customers.some(c => c.name.toLowerCase() === newCustomerName.toLowerCase())) {
-        alert('هذا العميل موجود بالفعل');
-        return;
-    }
-    
-    // Send [Customer Name, Initial Total Credit (0)] to Google Sheets
-    const success = await saveToGoogleSheets([newCustomerName, 0], 'Customers'); 
-    if (success) {
-        customers.push({ name: newCustomerName, totalCredit: 0 }); // Add to local array
-        loadCustomersForCashier(); // Refresh customer list
-        populateCustomerSelectForExpense(); // Update customer select in expense tab
-        updateCustomerCredits(); // Update credit display
-        if (newCustomerNameInput) newCustomerNameInput.value = '';
-        showSuccessMessage(`تم إضافة العميل ${newCustomerName} بنجاح`);
-    }
-}
-
-// Update Customer Credits (Updated to show actual credits)
-function updateCustomerCredits() {
-    const customerCreditsContainer = document.getElementById('customerCreditsContainer');
-    customerCreditsContainer.innerHTML = '';
-
-    if (customers.length === 0) {
-        customerCreditsContainer.innerHTML = '<p>لا توجد عملاء آجلين مسجلين.</p>';
-        return;
-    }
-
-    const customerCreditList = document.createElement('ul');
-    customerCreditList.className = 'users-list'; // Reusing users-list style
-    customers.forEach(customer => {
-        const listItem = document.createElement('li');
-        listItem.className = 'customer-item';
-        listItem.innerHTML = `
-            <span>${customer.name}</span>
-            <span>الرصيد: ${customer.totalCredit.toFixed(2)} جنيه</span>
-        `;
-        customerCreditList.appendChild(listItem);
-    });
-    customerCreditsContainer.appendChild(customerCreditList);
-}
-
-// Update Statistics (Summary Tab)
-function updateStats() {
-    // Recalculate totals from dailyData
-    dailyData.totalSales = 0;
-    for (const section in dailyData.sales) {
-        dailyData.totalSales += dailyData.sales[section].reduce((sum, item) => sum + item.amount, 0);
-    }
-    dailyData.totalExpenses = dailyData.expenses.reduce((sum, item) => sum + item.amount, 0);
-    dailyData.visaAmount = dailyData.visa.reduce((sum, item) => sum + item.amount, 0);
-    dailyData.creditAmount = dailyData.credit.reduce((sum, item) => sum + item.amount, 0);
-    
-    // *** التعديل هنا: حساب "إجمالي اليوم" بالمعنى الجديد ***
-    // إجمالي اليوم = إجمالي إيرادات المبيعات من الأقسام + إجمالي المصروفات المدفوعة + الكاش الفعلي في الدرج
-    // ملاحظة: الكاش الفعلي في الدرج (dailyData.drawerAmount) يتم تحديثه فقط عند الضغط على "حساب التقفيلة"
-    // لذا، هذا الرقم سيكون دقيقًا فقط بعد تلك الخطوة.
-    const totalDayAmountForComparison = dailyData.totalSales + dailyData.totalExpenses + dailyData.drawerAmount;
-    
-    // Update UI elements
-    document.getElementById('totalSales').textContent = dailyData.totalSales.toFixed(2);
-    document.getElementById('totalExpenses').textContent = dailyData.totalExpenses.toFixed(2);
-    document.getElementById('visaAmount').textContent = dailyData.visaAmount.toFixed(2);
-    document.getElementById('creditAmount').textContent = dailyData.creditAmount.toFixed(2);
-    
-    document.getElementById('summaryTotalSales').textContent = dailyData.totalSales.toFixed(2);
-    document.getElementById('summaryTotalExpenses').textContent = dailyData.totalExpenses.toFixed(2);
-    // تحديث عرض "الكاش المتوقع" ليعرض "إجمالي اليوم" بالمعنى الجديد
-    document.getElementById('summaryExpectedCash').textContent = totalDayAmountForComparison.toFixed(2); 
-    document.getElementById('summaryActualCash').textContent = dailyData.drawerAmount.toFixed(2); // الكاش الفعلي في الدرج
-}
-
-// Calculate Drawer Function
-function calculateDrawer() {
-    const drawerAmountInput = document.getElementById('drawerAmount');
-    const drawerAmount = parseFloat(drawerAmountInput.value);
-    
-    if (isNaN(drawerAmount) || drawerAmount < 0) {
-        alert('يرجى إدخال مبلغ صحيح للكاش الفعلي في الدرج.');
-        return;
-    }
-    
-    dailyData.drawerAmount = drawerAmount;
-    
-    // إعادة حساب الإحصائيات لتحديث "إجمالي اليوم" بعد إدخال الكاش الفعلي
-    updateStats(); 
-
-    // لعرض الفرق، سنحتاج إلى "تقفيلة نيو مايند" التي لا تتوفر هنا.
-    // لذا، يمكننا عرض "إجمالي اليوم" الذي سيتم مقارنته.
-    const totalDayAmountForComparison = dailyData.totalSales + dailyData.totalExpenses + dailyData.drawerAmount;
-
-    let resultMessage = `
-        <div class="drawer-result">
-            <p><strong>إجمالي إيرادات الأقسام:</strong> ${dailyData.totalSales.toFixed(2)} جنيه</p>
-            <p><strong>إجمالي المصروفات المدفوعة:</strong> ${dailyData.totalExpenses.toFixed(2)} جنيه</p>
-            <p><strong>الكاش الفعلي في الدرج:</strong> ${drawerAmount.toFixed(2)} جنيه</p>
-            <p><strong>إجمالي اليوم للمقارنة مع نيو مايند:</strong> ${totalDayAmountForComparison.toFixed(2)} جنيه</p>
-        </div>
-    `;
-    
-    document.getElementById('drawerResult').innerHTML = resultMessage;
-}
-
-// Finalize Day Closeout Function (Cashier's side)
-async function finalizeDayCloseout() {
-    if (!confirm('هل أنت متأكد من تقفيل اليوم نهائياً؟ لا يمكن التراجع بعد التقفيل.')) {
-        return;
-    }
-    
-    const drawerAmount = parseFloat(document.getElementById('drawerAmount').value);
-    if (isNaN(drawerAmount)) {
-        alert('يرجى حساب جرد الدرج أولاً.');
-        return;
-    }
-
-    const ourTotalSales = dailyData.totalSales; // إجمالي إيرادات المبيعات من الأقسام
-    const ourTotalExpenses = dailyData.totalExpenses; // إجمالي المصروفات المدفوعة
-    
-    // *** التعديل هنا: حساب تقفيلة الكاشير للمقارنة مع نيو مايند ***
-    // تقفيلة الكاشير = إجمالي إيرادات المبيعات من الأقسام + إجمالي المصروفات المدفوعة + الكاش الفعلي في الدرج
-    const ourTotalCloseout = ourTotalSales + ourTotalExpenses + drawerAmount; 
-
-    // الكاش المتوقع بالمعنى التقليدي (صافي الكاش في الدرج) لا يزال يُحسب للعرض في التقرير
-    const expectedCashTraditional = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount;
-
-    const finalData = [
-        new Date().toLocaleDateString('ar-EG'),
-        currentUser,
-        ourTotalSales.toFixed(2), // إجمالي المبيعات (الأقسام)
-        ourTotalExpenses.toFixed(2), // إجمالي المصروفات المدفوعة
-        dailyData.visaAmount.toFixed(2), // مبيعات الفيزا
-        dailyData.creditAmount.toFixed(2), // المبيعات الآجلة
-        0, // Exchange Expenses (تم إزالته، لذا نضع 0)
-        expectedCashTraditional.toFixed(2), // الكاش المتوقع بالمعنى التقليدي (للعرض فقط)
-        drawerAmount.toFixed(2), // الكاش الفعلي في الدرج
-        ourTotalCloseout.toFixed(2), // تقفيلة الكاشير الجديدة للمقارنة (إجمالي اليوم بالمعنى الجديد)
-        'N/A', // NewMind Total (to be filled by accountant)
-        'N/A', // Difference with NewMind
-        'بانتظار المحاسب', // Status
-        new Date().toLocaleString('ar-EG') // Timestamp of cashier closeout
-    ];
-    
-    const success = await saveToGoogleSheets(finalData, 'DailyCloseout');
-    
-    if (success) {
-        showSuccessMessage('تم تقفيل اليوم بنجاح! يمكنك الآن الخروج من النظام.');
-        resetDailyData();
-        logout(); // Log out after successful closeout
-    }
-}
-
-// Clear Expense Form
-function clearExpenseForm() {
-    document.getElementById('expenseInvoice').value = '';
-    document.getElementById('expenseAmount').value = '';
-    document.getElementById('expenseNotes').value = '';
-    const extraFieldInput = document.getElementById('extraField');
-    if (extraFieldInput) extraFieldInput.value = '';
-    const extraFieldCustomerSelect = document.getElementById('extraFieldCustomerSelect');
-    if (extraFieldCustomerSelect) extraFieldCustomerSelect.value = '';
-    selectedCustomer = '';
-    toggleExtraField(); // Reset extra field visibility
-}
-
-// Reset Daily Data Function
-function resetDailyData() {
-    dailyData = {
-        sales: {}, expenses: [], visa: [], credit: [],
-        totalSales: 0, totalExpenses: 0, visaAmount: 0, creditAmount: 0,
-        drawerAmount: 0,
-    };
-    usedVisaNumbers.clear();
-    selectedCustomer = '';
-    initializeDataStructures();
-    loadSalesSectionsForCashier();
-    loadCustomersForCashier();
-    updateExpensesList();
-    updateStats();
-    document.getElementById('drawerAmount').value = '';
-    document.getElementById('drawerResult').innerHTML = '';
-}
-
-// --- Accountant Dashboard Functions ---
-
-async function showAccountantDashboard() {
-    document.getElementById('loginSection').style.display = 'none';
-    document.getElementById('cashierDashboardSection').style.display = 'none';
-    document.getElementById('accountantDashboardSection').style.display = 'block';
-    document.getElementById('currentUserAccountant').textContent = currentUser;
-    document.getElementById('currentDateAccountant').textContent = new Date().toLocaleDateString('ar-EG');
-
-    populateCashierSelects();
-    loadUsersListForAccountant(); // Load users for management tab
-    openAccountantTab('usersTab'); // Default to users tab
-}
-
-// Function to open specific accountant tab
-function openAccountantTab(tabName) {
-    const tabContents = document.querySelectorAll('#accountantDashboardSection .tab-content');
-    tabContents.forEach(content => content.style.display = 'none');
-
-    const tabButtons = document.querySelectorAll('#accountantDashboardSection .tab-btn');
-    tabButtons.forEach(btn => btn.classList.remove('active'));
-
-    document.getElementById(tabName).style.display = 'block';
-    document.querySelector(`#accountantDashboardSection .tab-btn[onclick="openAccountantTab('${tabName}')"]`).classList.add('active');
-
-    if (tabName === 'usersTab') {
-        loadUsersListForAccountant();
-    } else if (tabName === 'reportsTab') {
-        populateCashierSelects();
-    } else if (tabName === 'closeoutTab') {
-        populateCashierSelects();
-    }
-}
-
-// Populate cashier dropdowns for reports and closeout
-function populateCashierSelects() {
-    const selectCashierForReport = document.getElementById('selectCashierForReport');
-    const selectCashierForCloseout = document.getElementById('selectCashierForCloseout');
-    
-    selectCashierForReport.innerHTML = '<option value="">اختر كاشير</option>';
-    selectCashierForCloseout.innerHTML = '<option value="">اختر كاشير</option>';
-
-    users.filter(u => u.role === 'Cashier').forEach(cashier => {
-        const optionReport = document.createElement('option');
-        optionReport.value = cashier.username;
-        optionReport.textContent = cashier.username;
-        selectCashierForReport.appendChild(optionReport);
-
-        const optionCloseout = document.createElement('option');
-        optionCloseout.value = cashier.username;
-        optionCloseout.textContent = cashier.username;
-        selectCashierForCloseout.appendChild(optionCloseout);
-    });
-}
-
-// Load Users List for Accountant Management Tab
-function loadUsersListForAccountant() {
-    const usersListContainer = document.getElementById('usersListContainer');
-    usersListContainer.innerHTML = '';
-
-    if (users.length === 0) {
-        usersListContainer.innerHTML = '<p>لا توجد مستخدمون مسجلون.</p>';
-        return;
-    }
-
-    const userList = document.createElement('ul');
-    userList.className = 'users-list';
-    users.forEach(user => {
-        const listItem = document.createElement('li');
-        listItem.className = 'user-item';
-        listItem.innerHTML = `
-            <span>${user.username} (${user.role})</span>
-            <!-- Add edit/delete functionality here if needed -->
-        `;
-        userList.appendChild(listItem);
-    });
-    usersListContainer.appendChild(userList);
-}
-
-// Create New User
-async function createNewUser() {
-    const newUsername = document.getElementById('newUsername').value.trim();
-    const newUserPassword = document.getElementById('newUserPassword').value.trim();
-    const newUserRole = document.getElementById('newUserRole').value;
-
-    if (!newUsername || !newUserPassword) {
-        alert('يرجى إدخال اسم المستخدم وكلمة المرور');
-        return;
-    }
-
-    if (users.some(u => u.username === newUsername)) {
-        alert('اسم المستخدم هذا موجود بالفعل.');
-        return;
-    }
-
-    const success = await saveToGoogleSheets([newUsername, newUserPassword, newUserRole], 'Users');
-    if (success) {
-        users.push({ username: newUsername, password: newUserPassword, role: newUserRole });
-        populateUserDropdown(); // Update login dropdown
-        populateCashierSelects(); // Update accountant dropdowns
-        loadUsersListForAccountant(); // Refresh users list
-        showSuccessMessage(`تم إنشاء المستخدم ${newUsername} بنجاح.`);
-        document.getElementById('newUsername').value = '';
-        document.getElementById('newUserPassword').value = '';
-    }
-}
-
-// Generate Cashier Report
-async function generateCashierReport() {
-    const cashierUsername = document.getElementById('selectCashierForReport').value;
-    const startDate = document.getElementById('reportStartDate').value;
-    const endDate = document.getElementById('reportEndDate').value;
-    const reportResultDiv = document.getElementById('cashierReportResult');
-    reportResultDiv.innerHTML = '';
-
-    if (!cashierUsername || !startDate || !endDate) {
-        alert('يرجى اختيار الكاشير وتحديد نطاق التاريخ.');
-        return;
-    }
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setDate(end.getDate() + 1); // Include end date fully
-
-    let report = {
-        sales: [], expenses: [], visa: [], credit: [],
-        totalSales: 0, totalExpenses: 0, visaAmount: 0, creditAmount: 0
-    };
-
-    // Helper to filter data by cashier and date
-    const filterData = (data, cashierColIndex, dateColIndex) => {
-        return data.filter(row => {
-            const rowDate = new Date(row[dateColIndex]);
-            const rowCashier = row[cashierColIndex];
-            return rowCashier === cashierUsername && rowDate >= start && rowDate < end;
         });
-    };
-
-    const allSales = await loadDataFromSheet('Sales');
-    report.sales = filterData(allSales.slice(1), 2, 0); // Cashier is col 2, Date is col 0
-    report.totalSales = report.sales.reduce((s,r)=> s + parseFloat(r[5] || 0), 0); // Amount is col 5
-
-    const allExpenses = await loadDataFromSheet('Expenses');
-    report.expenses = filterData(allExpenses.slice(1), 2, 0); // Cashier is col 2, Date is col 0
-    report.totalExpenses = report.expenses.reduce((s,r)=> s + parseFloat(r[5] || 0), 0); // Amount is col 5
-
-    const allVisa = await loadDataFromSheet('Visa');
-    report.visa = filterData(allVisa.slice(1), 2, 0); // Cashier is col 2, Date is col 0
-    report.visaAmount = report.visa.reduce((s,r)=> s + parseFloat(r[4] || 0), 0); // Amount is col 4
-
-    const allCredit = await loadDataFromSheet('Credit');
-    report.credit = filterData(allCredit.slice(1), 2, 0); // Cashier is col 2, Date is col 0
-    report.creditAmount = report.credit.reduce((s,r)=> s + parseFloat(r[4] || 0), 0); // Amount is col 4
-
-    // Exchanges are removed, so no need to calculate exchangeExpenses
-
-    // الكاش المتوقع بالمعنى التقليدي (صافي الكاش في الدرج)
-    const expectedCashTraditional = report.totalSales - report.totalExpenses - report.visaAmount - report.creditAmount;
-
-    let reportHtml = `
-        <h4>تقرير الكاشير: ${cashierUsername} (${startDate} - ${endDate})</h4>
-        <p><strong>إجمالي المبيعات (الأقسام):</strong> ${report.totalSales.toFixed(2)} جنيه</p>
-        <p><strong>إجمالي المصروفات المدفوعة:</strong> ${report.totalExpenses.toFixed(2)} جنيه</p>
-        <p><strong>مبيعات الفيزا:</strong> ${report.visaAmount.toFixed(2)} جنيه</p>
-        <p><strong>المبيعات الآجلة:</strong> ${report.creditAmount.toFixed(2)} جنيه</p>
-        <p><strong>الكاش المتوقع (صافي الدرج):</strong> ${expectedCashTraditional.toFixed(2)} جنيه</p>
-        <hr>
-        <h5>تفاصيل المبيعات:</h5>
-        ${report.sales.length > 0 ? report.sales.map(s => `<div class="report-item">فاتورة #${s[4]} (${s[3]}): ${s[5]} جنيه</div>`).join('') : '<p>لا توجد مبيعات.</p>'}
-        <h5>تفاصيل المصروفات:</h5>
-        ${report.expenses.length > 0 ? report.expenses.map(e => `<div class="report-item">${e[3]} (${e[4]}): ${e[5]} جنيه</div>`).join('') : '<p>لا توجد مصروفات.</p>'}
-        <h5>تفاصيل الفيزا:</h5>
-        ${report.visa.length > 0 ? report.visa.map(v => `<div class="report-item">فاتورة #${v[3]}: ${v[4]} جنيه (فيزا: ${v[5]})</div>`).join('') : '<p>لا توجد عمليات فيزا.</p>'}
-        <h5>تفاصيل الآجل:</h5>
-        ${report.credit.length > 0 ? report.credit.map(c => `<div class="report-item">فاتورة #${c[3]}: ${c[4]} جنيه (عميل: ${c[5]})</div>`).join('') : '<p>لا توجد مبيعات آجلة.</p>'}
-    `;
-    reportResultDiv.innerHTML = reportHtml;
+        filterCashierExpenses(); // Display all loaded expenses initially
+        updateCashierShiftSummary();
+    } else {
+        showErrorMessage('فشل تحميل المصروفات.');
+    }
 }
 
-// Perform Accountant Closeout
-async function performAccountantCloseout() {
-    const cashierUsername = document.getElementById('selectCashierForCloseout').value;
-    const closeoutDateStr = document.getElementById('closeoutDate').value;
-    const accountantNewMindTotal = parseFloat(document.getElementById('accountantNewMindTotal').value);
-    const closeoutResultDiv = document.getElementById('accountantCloseoutResult');
-    closeoutResultDiv.innerHTML = '';
-
-    if (!cashierUsername || !closeoutDateStr || isNaN(accountantNewMindTotal) || accountantNewMindTotal < 0) {
-        alert('يرجى اختيار الكاشير، تحديد تاريخ التقفيل، وإدخال تقفيلة نيو مايند صحيحة.');
-        return;
-    }
-
-    const closeoutDate = new Date(closeoutDateStr);
-    closeoutDate.setHours(0, 0, 0, 0); // Normalize date to start of day
-
-    // Find the cashier's closeout entry for this specific date
-    const allDailyCloseouts = await loadDataFromSheet('DailyCloseout');
-    let rowIndexToUpdate = -1;
-    const cashierCloseout = allDailyCloseouts.slice(1).find((row, index) => {
-        const entryDate = new Date(row[0]); // Assuming date is in the first column
-        entryDate.setHours(0, 0, 0, 0);
-        const entryCashier = row[1]; // Assuming cashier is in the second column
-        if (entryCashier === cashierUsername && entryDate.getTime() === closeoutDate.getTime()) {
-            rowIndexToUpdate = index + 2; // +1 for header, +1 for 0-based index
-            return true;
-        }
-        return false;
+function populateExpenseCategoryFilter() {
+    const filterSelect = document.getElementById('expenseCategoryFilterCashier');
+    filterSelect.innerHTML = '<option value="">جميع التصنيفات</option>';
+    categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.name;
+        option.textContent = cat.name;
+        filterSelect.appendChild(option);
     });
+}
 
-    if (!cashierCloseout) {
-        alert(`لم يتم العثور على تقفيلة للكاشير ${cashierUsername} بتاريخ ${closeoutDateStr}. يرجى التأكد من أن الكاشير قام بتقفيل يومه.`);
+function filterCashierExpenses() {
+    const categoryFilter = document.getElementById('expenseCategoryFilterCashier').value;
+    const dateFromFilter = document.getElementById('expenseDateFromFilterCashier').value;
+    const dateToFilter = document.getElementById('expenseDateToFilterCashier').value;
+    const tableBody = document.getElementById('expensesTableBodyCashier');
+    tableBody.innerHTML = '';
+
+    let filtered = [...cashierDailyData.expenses, ...cashierDailyData.insta, ...cashierDailyData.visa, ...cashierDailyData.online];
+
+    if (categoryFilter) {
+        filtered = filtered.filter(exp => exp.category === categoryFilter);
+    }
+    if (dateFromFilter) {
+        const fromDate = new Date(dateFromFilter);
+        filtered = filtered.filter(exp => new Date(exp.date) >= fromDate);
+    }
+    if (dateToFilter) {
+        const toDate = new Date(dateToFilter);
+        filtered = filtered.filter(exp => new Date(exp.date) <= toDate);
+    }
+
+    if (filtered.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7">لا توجد مصروفات مطابقة للمعايير.</td></tr>';
         return;
     }
 
-    const cashierTotalSales = parseFloat(cashierCloseout[2]); // إجمالي المبيعات (الأقسام)
-    const cashierTotalExpenses = parseFloat(cashierCloseout[3]); // إجمالي المصروفات المدفوعة
-    const cashierVisaAmount = parseFloat(cashierCloseout[4]);
-    const cashierCreditAmount = parseFloat(cashierCloseout[5]);
-    // const cashierExchangeExpenses = parseFloat(cashierCloseout[6]); // تم إزالة سكشن البدل
-    const cashierExpectedCashTraditional = parseFloat(cashierCloseout[7]); // الكاش المتوقع بالمعنى التقليدي
-    const cashierActualDrawerAmount = parseFloat(cashierCloseout[8]); // الكاش الفعلي في الدرج
-    
-    // *** التعديل هنا: استخدام ourTotalCloseout الجديد من صف الكاشير ***
-    // هذا هو الحقل الذي يحتوي على (إجمالي إيرادات المبيعات من الأقسام + إجمالي المصروفات المدفوعة + الكاش الفعلي في الدرج)
-    const cashierOurTotalCloseout = parseFloat(cashierCloseout[9]); 
+    filtered.sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.time}`));
 
-    const differenceWithNewMind = cashierOurTotalCloseout - accountantNewMindTotal;
-    let status = 'مطابق';
-    if (differenceWithNewMind > 0) status = 'زيادة';
-    else if (differenceWithNewMind < 0) status = 'نقص';
+    filtered.forEach(exp => {
+        const row = tableBody.insertRow();
+        row.insertCell().textContent = exp.category;
+        row.insertCell().textContent = exp.invoiceNumber || '--';
+        row.insertCell().textContent = exp.amount.toFixed(2);
+        row.insertCell().textContent = exp.date;
+        row.insertCell().textContent = exp.time;
+        row.insertCell().textContent = exp.notes || '--';
+        const actionsCell = row.insertCell();
+        actionsCell.innerHTML = `<button class="delete-btn" onclick="deleteExpense('${exp.id}', '${exp.formType}', ${exp.amount})"><i class="fas fa-trash"></i> حذف</button>`;
+    });
+}
 
-    let resultHtml = `
-        <h4>نتائج تقفيل حساب الكاشير: ${cashierUsername} (${closeoutDateStr})</h4>
-        <p><strong>إجمالي المبيعات (الأقسام):</strong> ${cashierTotalSales.toFixed(2)} جنيه</p>
-        <p><strong>إجمالي المصروفات المدفوعة:</strong> ${cashierTotalExpenses.toFixed(2)} جنيه</p>
-        <p><strong>مبيعات الفيزا:</strong> ${cashierVisaAmount.toFixed(2)} جنيه</p>
-        <p><strong>المبيعات الآجلة:</strong> ${cashierCreditAmount.toFixed(2)} جنيه</p>
-        <p><strong>الكاش المتوقع (صافي الدرج):</strong> ${cashierExpectedCashTraditional.toFixed(2)} جنيه</p>
-        <p><strong>الكاش الفعلي في الدرج:</strong> ${cashierActualDrawerAmount.toFixed(2)} جنيه</p>
-        <p><strong>إجمالي اليوم للمقارنة مع نيو مايند:</strong> ${cashierOurTotalCloseout.toFixed(2)} جنيه</p>
-        <p><strong>تقفيلة نيو مايند (المحاسب):</strong> ${accountantNewMindTotal.toFixed(2)} جنيه</p>
-        <p><strong>الفرق:</strong> <span style="color: ${differenceWithNewMind >= 0 ? 'green' : 'red'};">${Math.abs(differenceWithNewMind).toFixed(2)} جنيه ${differenceWithNewMind >= 0 ? 'زيادة' : 'نقص'}</span></p>
-        <p><strong>الحالة:</strong> ${status}</p>
-    `;
-    closeoutResultDiv.innerHTML = resultHtml;
+function clearCashierExpenseFilters() {
+    document.getElementById('expenseCategoryFilterCashier').value = '';
+    document.getElementById('expenseDateFromFilterCashier').value = '';
+    document.getElementById('expenseDateToFilterCashier').value = '';
+    filterCashierExpenses();
+}
 
-    // Update the existing row in DailyCloseout sheet with accountant's data
-    if (rowIndexToUpdate !== -1) {
-        const updatedRowData = [...cashierCloseout]; // Copy existing data
-        updatedRowData[10] = accountantNewMindTotal.toFixed(2); // Update NewMind Total
-        updatedRowData[11] = differenceWithNewMind.toFixed(2); // Update Difference
-        updatedRowData[12] = status; // Update Status
-        updatedRowData[13] = currentUser; // Accountant who closed it
-        updatedRowData[14] = new Date().toLocaleString('ar-EG'); // Timestamp of accountant closeout
+async function deleteExpense(id, formType, amount) {
+    showWarningMessage('وظيفة حذف المصروفات غير متاحة حالياً.');
+    // Implement logic to delete from Google Sheets and update local data
+    // if (confirm('هل أنت متأكد من حذف هذا المصروف؟')) {
+    //     const result = await callAppScript('deleteExpense', { id });
+    //     if (result.success) {
+    //         showSuccessMessage('تم حذف المصروف بنجاح.');
+    //         // Update local data
+    //         if (formType === 'إنستا') {
+    //             cashierDailyData.insta = cashierDailyData.insta.filter(exp => exp.id !== id);
+    //             cashierDailyData.totalInsta -= amount;
+    //         } else if (formType === 'فيزا') {
+    //             cashierDailyData.visa = cashierDailyData.visa.filter(exp => exp.id !== id);
+    //             cashierDailyData.totalVisa -= amount;
+    //         } else if (formType === 'اونلاين') {
+    //             cashierDailyData.online = cashierDailyData.online.filter(exp => exp.id !== id);
+    //             cashierDailyData.totalOnline -= amount;
+    //         } else {
+    //             cashierDailyData.expenses = cashierDailyData.expenses.filter(exp => exp.id !== id);
+    //             cashierDailyData.totalExpenses -= amount;
+    //         }
+    //         loadCashierExpenses(); // Refresh table
+    //         updateCashierShiftSummary(); // Update summary
+    //     } else {
+    //         showErrorMessage(result.message || 'فشل حذف المصروف.');
+    //     }
+    // }
+}
 
-        try {
-            await gapi.client.sheets.spreadsheets.values.update({
-                spreadsheetId: SPREADSHEET_ID,
-                range: `DailyCloseout!A${rowIndexToUpdate}`,
-                valueInputOption: 'RAW',
-                resource: {
-                    values: [updatedRowData]
-                }
-            });
-            showSuccessMessage('تم تقفيل حساب الكاشير بنجاح في Google Sheets.');
-        } catch (err) {
-            console.error('خطأ في تحديث تقفيلة الكاشير:', err);
-            showErrorMessage('خطأ في تحديث تقفيلة الكاشير في Google Sheets.');
+// --- Customers Management (Cashier) ---
+function displayCustomers(tableBodyId) {
+    const tableBody = document.getElementById(tableBodyId);
+    tableBody.innerHTML = '';
+    if (customers.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="5">لا توجد عملاء مسجلين.</td></tr>';
+        return;
+    }
+
+    customers.forEach(cust => {
+        const row = tableBody.insertRow();
+        row.insertCell().textContent = cust.name;
+        row.insertCell().textContent = cust.phone;
+        row.insertCell().textContent = cust.totalCredit.toFixed(2);
+        row.insertCell().textContent = new Date(cust.creationDate).toLocaleDateString('ar-EG');
+        const actionsCell = row.insertCell();
+        actionsCell.innerHTML = `
+            <button class="edit-btn" onclick="editCustomer('${cust.id}')"><i class="fas fa-edit"></i> تعديل</button>
+            <button class="delete-btn" onclick="deleteCustomer('${cust.id}')"><i class="fas fa-trash"></i> حذف</button>
+            <button class="add-btn" onclick="showCustomerPaymentModal('${cust.id}', '${cust.name}')"><i class="fas fa-money-bill-wave"></i> سداد/أجل</button>
+        `;
+    });
+}
+
+function showAddCustomerModal(fromExpense = false) {
+    document.getElementById('addCustomerForm').reset();
+    document.getElementById('addCustomerModal').classList.add('active');
+    // You might want to pass a flag to know if it's opened from expense modal
+    // to refresh the customer select in expense modal after adding
+    document.getElementById('addCustomerModal').dataset.fromExpense = fromExpense;
+}
+
+async function addCustomer() {
+    const name = document.getElementById('customerName').value.trim();
+    const phone = document.getElementById('customerPhone').value.trim();
+
+    if (!name || !phone) {
+        showWarningMessage('يرجى ملء جميع حقول العميل.');
+        return;
+    }
+
+    const result = await callAppScript('addCustomer', { name, phone });
+
+    if (result.success) {
+        showSuccessMessage('تم إضافة العميل بنجاح.');
+        closeModal('addCustomerModal');
+        await loadCustomers(); // Reload customers
+        displayCustomers('customersTableBodyCashier'); // Refresh table
+        // If opened from expense modal, refresh customer select
+        if (document.getElementById('addCustomerModal').dataset.fromExpense === 'true') {
+            generateDynamicExpenseForm('اجل'); // Re-generate to refresh customer list
         }
     } else {
-        showErrorMessage('لم يتم العثور على الصف لتحديثه.');
+        showErrorMessage(result.message || 'فشل إضافة العميل.');
     }
 }
 
-// Search Invoice
-async function searchInvoice() {
-    const invoiceNumber = document.getElementById('searchInvoiceNumber').value.trim();
-    const searchResultDiv = document.getElementById('invoiceSearchResult');
-    searchResultDiv.innerHTML = '';
+function editCustomer(id) {
+    showWarningMessage('وظيفة تعديل العميل غير متاحة حالياً.');
+}
 
-    if (!invoiceNumber) {
-        alert('يرجى إدخال رقم الفاتورة للبحث.');
+function deleteCustomer(id) {
+    showWarningMessage('وظيفة حذف العميل غير متاحة حالياً.');
+}
+
+function showCustomerPaymentModal(customerId, customerName) {
+    showWarningMessage('وظيفة سداد/أجل العميل غير متاحة حالياً.');
+}
+
+// --- Cashier Shift Closeout ---
+async function calculateCashierShift() {
+    const shiftDateFrom = document.getElementById('shiftDateFromCashier').value;
+    const shiftDateTo = document.getElementById('shiftDateToCashier').value;
+    const shiftTimeFrom = document.getElementById('shiftTimeFromCashier').value;
+    const shiftTimeTo = document.getElementById('shiftTimeToCashier').value;
+
+    if (!shiftDateFrom || !shiftDateTo || !shiftTimeFrom || !shiftTimeTo) {
+        showWarningMessage('يرجى تحديد فترة الشيفت كاملة.');
         return;
     }
 
-    let found = false;
-    let resultHtml = '<h4>نتائج البحث عن فاتورة:</h4>';
+    cashierDailyData.shiftStartDate = shiftDateFrom;
+    cashierDailyData.shiftEndDate = shiftDateTo;
+    cashierDailyData.shiftStartTime = shiftTimeFrom;
+    cashierDailyData.shiftEndTime = shiftTimeTo;
 
-    const searchInSheet = async (sheetName, invoiceColIndex, otherCols = []) => {
-        const data = await loadDataFromSheet(sheetName);
-        const rows = data.slice(1); // Skip header
-        rows.forEach(row => {
-            if (row[invoiceColIndex] === invoiceNumber) {
-                found = true;
-                resultHtml += `<div class="report-item"><strong>الورقة:</strong> ${sheetName}<br>`;
-                resultHtml += `<strong>التاريخ:</strong> ${row[0]}، <strong>الوقت:</strong> ${row[1]}، <strong>الكاشير:</strong> ${row[2]}<br>`;
-                resultHtml += `<strong>رقم الفاتورة:</strong> ${row[invoiceColIndex]}، <strong>القيمة:</strong> ${row[invoiceColIndex + 1]} جنيه<br>`;
-                otherCols.forEach(col => {
-                    if (row[col.index]) resultHtml += `<strong>${col.label}:</strong> ${row[col.index]}<br>`;
-                });
-                resultHtml += `<strong>ملاحظات:</strong> ${row[row.length - 1] || 'لا توجد'}</div>`;
-            }
-        });
+    // Filter local data based on selected shift period
+    const fromDateTime = new Date(`${shiftDateFrom}T${shiftTimeFrom}`);
+    const toDateTime = new Date(`${shiftDateTo}T${shiftTimeTo}`);
+
+    let filteredExpenses = [];
+    let filteredInsta = [];
+    let filteredVisa = [];
+    let filteredOnline = [];
+
+    const filterByDateTime = (item) => {
+        const itemDateTime = new Date(`${item.date}T${item.time}`);
+        return itemDateTime >= fromDateTime && itemDateTime <= toDateTime;
     };
 
-    // Define column indices based on your Google Sheet structure
-    // Sales: Date, Time, Cashier, Section, Invoice, Amount, Notes
-    await searchInSheet('Sales', 4); 
-    // Expenses: Date, Time, Cashier, Type, Invoice, Amount, Notes, ExtraField
-    await searchInSheet('Expenses', 4, [{label: 'النوع', index: 3}, {label: 'تفاصيل إضافية', index: 7}]);
-    // Visa: Date, Time, Cashier, Invoice, Amount, VisaNumber, Notes
-    await searchInSheet('Visa', 3, [{label: 'رقم الفيزا', index: 5}]); 
-    // Credit: Date, Time, Cashier, Invoice, Amount, Customer, Notes
-    await searchInSheet('Credit', 3, [{label: 'العميل', index: 5}]); 
-    // Exchanges: Removed from search
-    // await searchInSheet('Exchanges', 3, [ 
-    //     {label: 'قيمة أصلية', index: 4},
-    //     {label: 'فاتورة بدل', index: 5},
-    //     {label: 'قيمة بدل', index: 6},
-    //     {label: 'الفرق', index: 7}
-    // ]);
+    filteredExpenses = cashierDailyData.expenses.filter(filterByDateTime);
+    filteredInsta = cashierDailyData.insta.filter(filterByDateTime);
+    filteredVisa = cashierDailyData.visa.filter(filterByDateTime);
+    filteredOnline = cashierDailyData.online.filter(filterByDateTime);
 
-    if (!found) {
-        resultHtml += '<p>لم يتم العثور على فاتورة بهذا الرقم.</p>';
-    }
-    searchResultDiv.innerHTML = resultHtml;
+    // Recalculate totals for the filtered period
+    cashierDailyData.totalExpenses = filteredExpenses.reduce((sum, item) => sum + item.amount, 0);
+    cashierDailyData.totalInsta = filteredInsta.reduce((sum, item) => sum + item.amount, 0);
+    cashierDailyData.totalVisa = filteredVisa.reduce((sum, item) => sum + item.amount, 0);
+    cashierDailyData.totalOnline = filteredOnline.reduce((sum, item) => sum + item.amount, 0);
+
+    document.getElementById('shiftSummaryCashier').style.display = 'block';
+    updateCashierShiftSummary();
+    showSuccessMessage('تم حساب الشيفت بنجاح.');
 }
 
+function updateCashierShiftSummary() {
+    const totalExpenses = cashierDailyData.totalExpenses;
+    const totalInsta = cashierDailyData.totalInsta;
+    const totalVisa = cashierDailyData.totalVisa;
+    const totalOnline = cashierDailyData.totalOnline;
+    const drawerCash = parseFloat(document.getElementById('drawerCashCashier').value) || 0;
+
+    // الإجمالي الكلي للمقارنة مع نيو مايند = إجمالي المصروفات + إجمالي الإنستا + إجمالي الفيزا + إجمالي الأونلاين + نقدية الدرج
+    const grandTotal = totalExpenses + totalInsta + totalVisa + totalOnline + drawerCash;
+
+    document.getElementById('totalExpensesCashier').textContent = totalExpenses.toFixed(2);
+    document.getElementById('expenseCountCashier').textContent = cashierDailyData.expenses.length;
+    document.getElementById('totalInstaCashier').textContent = totalInsta.toFixed(2);
+    document.getElementById('instaCountCashier').textContent = cashierDailyData.insta.length;
+    document.getElementById('totalVisaCashier').textContent = totalVisa.toFixed(2);
+    document.getElementById('visaCountCashier').textContent = cashierDailyData.visa.length;
+    document.getElementById('totalOnlineCashier').textContent = totalOnline.toFixed(2);
+    document.getElementById('onlineCountCashier').textContent = cashierDailyData.online.length;
+    document.getElementById('grandTotalCashier').textContent = grandTotal.toFixed(2);
+
+    cashierDailyData.drawerCash = drawerCash; // Update drawer cash in daily data
+}
+
+async function finalizeCashierShiftCloseout() {
+    if (!confirm('هل أنت متأكد من تقفيل الشيفت نهائياً؟ لا يمكن التراجع بعد التقفيل.')) {
+        return;
+    }
+
+    const drawerCash = parseFloat(document.getElementById('drawerCashCashier').value);
+    if (isNaN(drawerCash) || drawerCash < 0) {
+        showWarningMessage('يرجى إدخال مبلغ صحيح لنقدية الدرج.');
+        return;
+    }
+
+    // Recalculate grand total with final drawer cash
+    const grandTotal = cashierDailyData.totalExpenses + cashierDailyData.totalInsta + cashierDailyData.totalVisa + cashierDailyData.totalOnline + drawerCash;
+
+    const closeoutData = {
+        cashier: currentUser.username,
+        dateFrom: cashierDailyData.shiftStartDate,
+        dateTo: cashierDailyData.shiftEndDate,
+        timeFrom: cashierDailyData.shiftStartTime,
+        timeTo: cashierDailyData.shiftEndTime,
+        totalExpenses: cashierDailyData.totalExpenses,
+        expenseCount: cashierDailyData.expenses.length,
+        totalInsta: cashierDailyData.totalInsta,
+        instaCount: cashierDailyData.insta.length,
+        totalVisa: cashierDailyData.totalVisa,
+        visaCount: cashierDailyData.visa.length,
+        totalOnline: cashierDailyData.totalOnline,
+        onlineCount: cashierDailyData.online.length,
+        grandTotal: grandTotal,
+        drawerCash: drawerCash,
+        finalResult: 'بانتظار المحاسب' // Status for accountant
+    };
+
+    const result = await callAppScript('closeShift', closeoutData);
+
+    if (result.success) {
+        showSuccessMessage('تم تقفيل الشيفت بنجاح! يمكنك الآن الخروج من النظام.');
+        logout(); // Log out after successful closeout
+    } else {
+        showErrorMessage(result.message || 'فشل تقفيل الشيفت.');
+    }
+}
+
+// --- Accountant Page Functions ---
+async function showAccountantPage() {
+    document.getElementById('loginPage').classList.remove('active');
+    document.getElementById('cashierPage').classList.remove('active');
+    document.getElementById('accountantPage').classList.add('active');
+    document.getElementById('accountantNameDisplay').textContent = currentUserName;
+    document.getElementById('currentDateAccountant').textContent = new Date().toLocaleDateString('ar-EG');
+
+    await loadUsers(); // Ensure users are up-to-date for filters
+    await loadCategories(); // Ensure categories are up-to-date for filters
+    populateAccountantFilters();
+    showTab('dashboardTabAccountant'); // Default to dashboard
+}
+
+function populateAccountantFilters() {
+    const cashierFilter = document.getElementById('cashierFilterAccountant');
+    const reportCashierFilter = document.getElementById('reportCashierAccountant');
+    const reportCategoryFilter = document.getElementById('reportCategoryAccountant');
+
+    // Populate Cashier filters
+    const cashierOptions = users.filter(u => u.role === 'كاشير');
+    [cashierFilter, reportCashierFilter].forEach(select => {
+        select.innerHTML = '<option value="">جميع الكاشيرز</option>';
+        cashierOptions.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.username;
+            option.textContent = user.name;
+            select.appendChild(option);
+        });
+    });
+
+    // Populate Category filter for reports
+    reportCategoryFilter.innerHTML = '<option value="">جميع التصنيفات</option>';
+    categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.name;
+        option.textContent = cat.name;
+        reportCategoryFilter.appendChild(option);
+    });
+}
+
+async function updateAccountantDashboard() {
+    const dateFrom = document.getElementById('dashboardDateFromAccountant').value;
+    const dateTo = document.getElementById('dashboardDateToAccountant').value;
+    const cashierUsername = document.getElementById('cashierFilterAccountant').value;
+
+    // Fetch all expenses for the given period and cashier
+    const expensesResult = await callAppScript('getExpenses', {
+        cashier: cashierUsername,
+        dateFrom: dateFrom,
+        dateTo: dateTo
+    });
+
+    let totalExpenses = 0;
+    let totalSales = 0; // Assuming 'عادي' categories are sales
+    let totalInvoices = 0;
+    let cashiersOverview = {}; // { cashierUsername: { totalSales: 0, totalInvoices: 0, lastActivity: '' } }
+
+    if (expensesResult.success) {
+        expensesResult.data.forEach(row => {
+            const amount = parseFloat(row[4] || 0);
+            const categoryName = row[1];
+            const cashier = row[8];
+            const date = row[6];
+            const time = row[7];
+
+            const category = categories.find(c => c.name === categoryName);
+            if (category) {
+                if (category.formType === 'عادي' || category.formType === 'إنستا' || category.formType === 'فيزا' || category.formType === 'اونلاين' || category.formType === 'اجل') {
+                    totalSales += amount;
+                }
+                totalExpenses += amount; // All expenses contribute to total expenses
+            } else {
+                totalExpenses += amount; // If category not found, still count as expense
+            }
+            totalInvoices++;
+
+            if (!cashiersOverview[cashier]) {
+                cashiersOverview[cashier] = { totalSales: 0, totalInvoices: 0, lastActivity: '' };
+            }
+            if (category && (category.formType === 'عادي' || category.formType === 'إنستا' || category.formType === 'فيزا' || category.formType === 'اونلاين' || category.formType === 'اجل')) {
+                cashiersOverview[cashier].totalSales += amount;
+            }
+            cashiersOverview[cashier].totalInvoices++;
+            const currentActivity = new Date(`${date}T${time}`);
+            if (!cashiersOverview[cashier].lastActivity || currentActivity > new Date(cashiersOverview[cashier].lastActivity)) {
+                cashiersOverview[cashier].lastActivity = currentActivity.toLocaleString('ar-EG');
+            }
+        });
+    }
+
+    document.getElementById('totalExpensesAccountant').textContent = totalExpenses.toFixed(2);
+    document.getElementById('totalSalesAccountant').textContent = totalSales.toFixed(2);
+    document.getElementById('totalCashiersAccountant').textContent = users.filter(u => u.role === 'كاشير').length;
+    document.getElementById('totalCustomersAccountant').textContent = customers.length;
+
+    const cashiersOverviewBody = document.getElementById('cashiersOverviewBodyAccountant');
+    cashiersOverviewBody.innerHTML = '';
+    for (const cashier in cashiersOverview) {
+        const row = cashiersOverviewBody.insertRow();
+        row.insertCell().textContent = users.find(u => u.username === cashier)?.name || cashier;
+        row.insertCell().textContent = cashiersOverview[cashier].totalInvoices;
+        row.insertCell().textContent = cashiersOverview[cashier].totalSales.toFixed(2);
+        row.insertCell().textContent = cashiersOverview[cashier].lastActivity || '--';
+        row.insertCell().textContent = 'نشط'; // Placeholder for status
+    }
+    if (Object.keys(cashiersOverview).length === 0) {
+        cashiersOverviewBody.innerHTML = '<tr><td colspan="5">لا توجد بيانات للكاشيرز في الفترة المحددة.</td></tr>';
+    }
+}
+
+async function searchInvoiceAccountant() {
+    const invoiceNumber = document.getElementById('searchInputAccountant').value.trim();
+    const searchResultDiv = document.getElementById('invoiceSearchResultAccountant');
+    searchResultDiv.innerHTML = '';
+    searchResultDiv.style.display = 'none';
+
+    if (!invoiceNumber) {
+        showWarningMessage('يرجى إدخال رقم الفاتورة للبحث.');
+        return;
+    }
+
+    const result = await callAppScript('searchInvoice', { invoiceNumber });
+
+    if (result.success && result.data.length > 0) {
+        searchResultDiv.style.display = 'block';
+        let html = '<h4>نتائج البحث عن فاتورة:</h4>';
+        result.data.forEach(item => {
+            html += `<div class="report-item">
+                <strong>الورقة:</strong> ${item.sheetName}<br>
+                <strong>التاريخ:</strong> ${item.date}، <strong>الوقت:</strong> ${item.time}، <strong>الكاشير:</strong> ${item.cashier}<br>
+                <strong>التصنيف:</strong> ${item.category}، <strong>رقم الفاتورة:</strong> ${item.invoiceNumber}<br>
+                <strong>القيمة:</strong> ${item.amount} جنيه، <strong>الملاحظات:</strong> ${item.notes || 'لا توجد'}<br>
+                ${item.extraDetails ? `<strong>تفاصيل إضافية:</strong> ${item.extraDetails}<br>` : ''}
+            </div><hr>`;
+        });
+        searchResultDiv.innerHTML = html;
+    } else {
+        searchResultDiv.style.display = 'block';
+        searchResultDiv.innerHTML = '<p>لم يتم العثور على فاتورة بهذا الرقم.</p>';
+    }
+}
+
+// --- Users Management (Accountant) ---
+function displayUsers() {
+    const usersTableBody = document.getElementById('usersTableBodyAccountant');
+    usersTableBody.innerHTML = '';
+    if (users.length === 0) {
+        usersTableBody.innerHTML = '<tr><td colspan="7">لا توجد مستخدمون مسجلون.</td></tr>';
+        return;
+    }
+
+    users.forEach(user => {
+        const row = usersTableBody.insertRow();
+        row.insertCell().textContent = user.name;
+        row.insertCell().textContent = user.phone;
+        row.insertCell().textContent = user.username;
+        row.insertCell().textContent = user.role;
+        row.insertCell().textContent = user.status;
+        row.insertCell().textContent = new Date(user.creationDate).toLocaleDateString('ar-EG');
+        const actionsCell = row.insertCell();
+        actionsCell.innerHTML = `
+            <button class="edit-btn" onclick="editUser('${user.id}')"><i class="fas fa-edit"></i> تعديل</button>
+            <button class="delete-btn" onclick="deleteUser('${user.id}')"><i class="fas fa-trash"></i> حذف</button>
+        `;
+    });
+}
+
+function showAddUserModal() {
+    document.getElementById('addUserForm').reset();
+    document.getElementById('addUserModal').classList.add('active');
+}
+
+async function addUser() {
+    const name = document.getElementById('userName').value.trim();
+    const phone = document.getElementById('userPhone').value.trim();
+    const username = document.getElementById('userUsername').value.trim();
+    const password = document.getElementById('userPassword').value.trim();
+    const role = document.getElementById('userRole').value;
+
+    if (!name || !phone || !username || !password || !role) {
+        showWarningMessage('يرجى ملء جميع حقول المستخدم.');
+        return;
+    }
+
+    const result = await callAppScript('addUser', { name, phone, username, password, role });
+
+    if (result.success) {
+        showSuccessMessage('تم إضافة المستخدم بنجاح.');
+        closeModal('addUserModal');
+        await loadUsers(); // Reload users
+        displayUsers(); // Refresh table
+        populateAccountantFilters(); // Update filters
+        populateUserDropdown(); // Update login dropdown
+    } else {
+        showErrorMessage(result.message || 'فشل إضافة المستخدم.');
+    }
+}
+
+function editUser(id) {
+    showWarningMessage('وظيفة تعديل المستخدم غير متاحة حالياً.');
+}
+
+function deleteUser(id) {
+    showWarningMessage('وظيفة حذف المستخدم غير متاحة حالياً.');
+}
+
+// --- Reports (Accountant) ---
+function populateReportFilters() {
+    // Already handled by populateAccountantFilters()
+}
+
+async function generateAccountantReport() {
+    const dateFrom = document.getElementById('reportDateFromAccountant').value;
+    const dateTo = document.getElementById('reportDateToAccountant').value;
+    const cashierUsername = document.getElementById('reportCashierAccountant').value;
+    const categoryName = document.getElementById('reportCategoryAccountant').value;
+    const reportContentDiv = document.getElementById('reportContentAccountant');
+    reportContentDiv.innerHTML = '';
+
+    if (!dateFrom || !dateTo) {
+        showWarningMessage('يرجى تحديد نطاق التاريخ للتقرير.');
+        return;
+    }
+
+    const result = await callAppScript('getExpenses', {
+        cashier: cashierUsername,
+        dateFrom: dateFrom,
+        dateTo: dateTo
+    });
+
+    if (result.success) {
+        let filteredExpenses = result.data;
+
+        if (categoryName) {
+            filteredExpenses = filteredExpenses.filter(row => row[1] === categoryName);
+        }
+
+        if (filteredExpenses.length === 0) {
+            reportContentDiv.innerHTML = '<p>لا توجد بيانات مطابقة لمعايير التقرير.</p>';
+            return;
+        }
+
+        let reportHtml = `<h4>تقرير المصروفات والمبيعات (${dateFrom} - ${dateTo})</h4>`;
+        if (cashierUsername) reportHtml += `<p><strong>الكاشير:</strong> ${users.find(u => u.username === cashierUsername)?.name || cashierUsername}</p>`;
+        if (categoryName) reportHtml += `<p><strong>التصنيف:</strong> ${categoryName}</p>`;
+        reportHtml += `<hr><table><thead><tr>
+            <th>التاريخ</th><th>الوقت</th><th>الكاشير</th><th>التصنيف</th><th>رقم الفاتورة</th><th>القيمة</th><th>الملاحظات</th>
+        </tr></thead><tbody>`;
+
+        let totalReportAmount = 0;
+        filteredExpenses.forEach(row => {
+            const amount = parseFloat(row[4] || 0);
+            totalReportAmount += amount;
+            reportHtml += `<tr>
+                <td>${row[6]}</td>
+                <td>${row[7]}</td>
+                <td>${users.find(u => u.username === row[8])?.name || row[8]}</td>
+                <td>${row[1]}</td>
+                <td>${row[3] || '--'}</td>
+                <td>${amount.toFixed(2)}</td>
+                <td>${row[5] || '--'}</td>
+            </tr>`;
+        });
+        reportHtml += `</tbody></table><p><strong>الإجمالي الكلي للتقرير:</strong> ${totalReportAmount.toFixed(2)} جنيه</p>`;
+        reportContentDiv.innerHTML = reportHtml;
+        showSuccessMessage('تم إنشاء التقرير بنجاح.');
+    } else {
+        showErrorMessage(result.message || 'فشل إنشاء التقرير.');
+    }
+}
+
+function printReport() {
+    const reportContent = document.getElementById('reportContentAccountant').innerHTML;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write('<html><head><title>تقرير</title>');
+    printWindow.document.write('<link rel="stylesheet" href="styles.css">'); // Link to your CSS for styling
+    printWindow.document.write('</head><body dir="rtl">');
+    printWindow.document.write(reportContent);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.print();
+}
+
+function showWhatsAppModal() {
+    document.getElementById('whatsappForm').reset();
+    document.getElementById('whatsappModal').classList.add('active');
+}
+
+function sendReportViaWhatsApp() {
+    const whatsappNumber = document.getElementById('whatsappNumber').value.trim();
+    const reportContent = document.getElementById('reportContentAccountant').innerText; // Get plain text content
+
+    if (!whatsappNumber || !reportContent) {
+        showWarningMessage('يرجى إدخال رقم الواتساب وإنشاء التقرير أولاً.');
+        return;
+    }
+
+    const message = encodeURIComponent(`*تقرير نظام إدارة الكاشير*\n\n${reportContent}`);
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${message}`;
+    window.open(whatsappUrl, '_blank');
+    closeModal('whatsappModal');
+    showSuccessMessage('تم فتح نافذة الواتساب لإرسال التقرير.');
+}
+
+// --- Accountant Shift Closeout ---
+async function loadAccountantShiftClosuresHistory() {
+    const tableBody = document.getElementById('closuresHistoryBodyAccountant');
+    tableBody.innerHTML = '';
+
+    const result = await callAppScript('getShiftClosures');
+    if (result.success) {
+        if (result.data.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="8">لا توجد تقفيلات سابقة.</td></tr>';
+            return;
+        }
+
+        result.data.forEach(closure => {
+            const row = tableBody.insertRow();
+            row.insertCell().textContent = users.find(u => u.username === closure.cashier)?.name || closure.cashier;
+            row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
+            row.insertCell().textContent = parseFloat(closure.grandTotal).toFixed(2);
+            row.insertCell().textContent = parseFloat(closure.newMindTotal || 0).toFixed(2);
+            row.insertCell().textContent = parseFloat(closure.difference || 0).toFixed(2);
+            row.insertCell().textContent = closure.status;
+            row.insertCell().textContent = new Date(`${closure.closureDate} ${closure.closureTime}`).toLocaleString('ar-EG');
+            const actionsCell = row.insertCell();
+            actionsCell.innerHTML = `
+                <button class="edit-btn" onclick="viewClosureDetails('${closure.id}')"><i class="fas fa-eye"></i> عرض</button>
+                <button class="delete-btn" onclick="deleteClosure('${closure.id}')"><i class="fas fa-trash"></i> حذف</button>
+            `;
+        });
+    } else {
+        showErrorMessage(result.message || 'فشل تحميل سجل التقفيلات.');
+    }
+}
+
+async function searchCashierClosuresAccountant() {
+    const selectedCashier = document.getElementById('selectedCashierAccountant').value.trim();
+    const dateFrom = document.getElementById('accountantShiftDateFrom').value;
+    const dateTo = document.getElementById('accountantShiftDateTo').value;
+    const timeFrom = document.getElementById('accountantShiftTimeFrom').value;
+    const timeTo = document.getElementById('accountantShiftTimeTo').value;
+    const closureResultsDiv = document.getElementById('closureResultsAccountant');
+    const closureSummaryDiv = document.getElementById('closureSummaryAccountant');
+    closureSummaryDiv.innerHTML = '';
+    closureResultsDiv.style.display = 'none';
+    document.getElementById('differenceResultAccountant').style.display = 'none';
+    document.getElementById('closeCashierByAccountantBtn').style.display = 'none';
+
+    if (!selectedCashier || !dateFrom || !dateTo || !timeFrom || !timeTo) {
+        showWarningMessage('يرجى إدخال اسم الكاشير وتحديد فترة البحث كاملة.');
+        return;
+    }
+
+    // Find cashier username from name/phone/code
+    const targetCashier = users.find(u => 
+        u.name.includes(selectedCashier) || 
+        u.phone.includes(selectedCashier) || 
+        u.username === selectedCashier
+    );
+
+    if (!targetCashier) {
+        showErrorMessage('لم يتم العثور على كاشير بهذا الاسم/الرقم/الكود.');
+        return;
+    }
+
+    const result = await callAppScript('getShiftClosures', {
+        cashier: targetCashier.username,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+        timeFrom: timeFrom,
+        timeTo: timeTo
+    });
+
+    if (result.success && result.data.length > 0) {
+        const closure = result.data[0]; // Assuming one closure per cashier per period
+        closureResultsDiv.style.display = 'block';
+        closureSummaryDiv.innerHTML = `
+            <p><strong>الكاشير:</strong> ${users.find(u => u.username === closure.cashier)?.name || closure.cashier}</p>
+            <p><strong>الفترة:</strong> ${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}</p>
+            <p><strong>إجمالي المصروفات:</strong> ${parseFloat(closure.totalExpenses).toFixed(2)} جنيه</p>
+            <p><strong>إجمالي الإنستا:</strong> ${parseFloat(closure.totalInsta).toFixed(2)} جنيه</p>
+            <p><strong>إجمالي الفيزا:</strong> ${parseFloat(closure.totalVisa).toFixed(2)} جنيه</p>
+            <p><strong>إجمالي الأونلاين:</strong> ${parseFloat(closure.totalOnline).toFixed(2)} جنيه</p>
+            <p><strong>نقدية الدرج (الكاشير):</strong> ${parseFloat(closure.drawerCash).toFixed(2)} جنيه</p>
+            <p><strong>الإجمالي الكلي (الكاشير):</strong> ${parseFloat(closure.grandTotal).toFixed(2)} جنيه</p>
+            <input type="hidden" id="currentClosureId" value="${closure.id}">
+            <input type="hidden" id="currentCashierGrandTotal" value="${closure.grandTotal}">
+        `;
+        document.getElementById('newmindTotalAccountant').value = closure.newMindTotal !== 'N/A' ? parseFloat(closure.newMindTotal).toFixed(2) : '';
+        document.getElementById('closeCashierByAccountantBtn').style.display = 'block';
+        showSuccessMessage('تم العثور على تقفيلة الكاشير.');
+    } else {
+        closureResultsDiv.style.display = 'block';
+        closureSummaryDiv.innerHTML = '<p>لم يتم العثور على تقفيلة للكاشير في الفترة المحددة.</p>';
+        showWarningMessage('لم يتم العثور على تقفيلة للكاشير في الفترة المحددة.');
+    }
+}
+
+function calculateDifferenceAccountant() {
+    const cashierGrandTotal = parseFloat(document.getElementById('currentCashierGrandTotal').value);
+    const newmindTotal = parseFloat(document.getElementById('newmindTotalAccountant').value);
+    const differenceResultDiv = document.getElementById('differenceResultAccountant');
+    differenceResultDiv.style.display = 'none';
+
+    if (isNaN(cashierGrandTotal) || isNaN(newmindTotal)) {
+        showWarningMessage('يرجى حساب تقفيلة الكاشير وإدخال إجمالي نيو مايند.');
+        return;
+    }
+
+    const difference = cashierGrandTotal - newmindTotal;
+    let status = 'مطابق';
+    let className = 'balanced';
+    if (difference > 0) {
+        status = 'زيادة';
+        className = 'surplus';
+    } else if (difference < 0) {
+        status = 'عجز';
+        className = 'deficit';
+    }
+
+    differenceResultDiv.className = `difference-result ${className}`;
+    differenceResultDiv.innerHTML = `
+        <p><strong>الفرق:</strong> ${Math.abs(difference).toFixed(2)} جنيه</p>
+        <p><strong>الحالة:</strong> ${status}</p>
+    `;
+    differenceResultDiv.style.display = 'block';
+    showSuccessMessage('تم حساب الفرق.');
+}
+
+async function closeCashierByAccountant() {
+    if (!confirm('هل أنت متأكد من تقفيل حساب الكاشير؟ سيتم تسجيل النتيجة النهائية.')) {
+        return;
+    }
+
+    const closureId = document.getElementById('currentClosureId').value;
+    const cashierGrandTotal = parseFloat(document.getElementById('currentCashierGrandTotal').value);
+    const newmindTotal = parseFloat(document.getElementById('newmindTotalAccountant').value);
+
+    if (!closureId || isNaN(cashierGrandTotal) || isNaN(newmindTotal)) {
+        showWarningMessage('يرجى التأكد من حساب الفرق أولاً.');
+        return;
+    }
+
+    const difference = cashierGrandTotal - newmindTotal;
+    let status = 'مطابق';
+    if (difference > 0) status = 'زيادة';
+    else if (difference < 0) status = 'عجز';
+
+    const result = await callAppScript('updateAccountantClosure', {
+        id: closureId,
+        newMindTotal: newmindTotal,
+        difference: difference,
+        status: status,
+        accountant: currentUser.username
+    });
+
+    if (result.success) {
+        showSuccessMessage('تم تقفيل حساب الكاشير بنجاح.');
+        document.getElementById('closureResultsAccountant').style.display = 'none';
+        document.getElementById('differenceResultAccountant').style.display = 'none';
+        document.getElementById('closeCashierByAccountantBtn').style.display = 'none';
+        loadAccountantShiftClosuresHistory(); // Refresh history table
+    } else {
+        showErrorMessage(result.message || 'فشل تقفيل حساب الكاشير.');
+    }
+}
+
+function viewClosureDetails(id) {
+    showWarningMessage('وظيفة عرض تفاصيل التقفيل غير متاحة حالياً.');
+}
+
+function deleteClosure(id) {
+    showWarningMessage('وظيفة حذف التقفيل غير متاحة حالياً.');
+}
 
 // --- Utility Functions ---
+function showLoadingOverlay() {
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+
+function hideLoadingOverlay() {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+function showMessage(message, type = 'info') {
+    const alertContainer = document.getElementById('alertContainer');
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert ${type}`;
+    alertDiv.innerHTML = `
+        <span>${message}</span>
+        <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+    `;
+    alertContainer.appendChild(alertDiv);
+
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000); // Remove after 5 seconds
+}
 
 function showSuccessMessage(message) {
-    console.log('Success:', message);
-    alert(message); // For a more visible notification
+    showMessage(message, 'success');
 }
 
 function showErrorMessage(message) {
-    console.error('Error:', message);
-    alert(message); // For a more visible notification
+    showMessage(message, 'error');
+}
+
+function showWarningMessage(message) {
+    showMessage(message, 'warning');
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
 }
 
 // --- Initialize on Page Load ---
@@ -1277,21 +1503,22 @@ window.onload = async function() {
     gisLoaded();
 
     // Check for existing login session
-    currentUser = localStorage.getItem('currentUser');
-    currentUserRole = localStorage.getItem('currentUserRole');
-
-    if (currentUser && currentUserRole) {
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+        currentUser = JSON.parse(storedUser);
+        currentUserName = currentUser.name;
+        currentUserRole = currentUser.role;
+        
         // Attempt to re-authenticate silently
         try {
             await handleAuthClick(); // This will try to get a token without prompt if possible
-            if (currentUserRole === 'Cashier') {
-                showCashierDashboard();
-            } else if (currentUserRole === 'Accountant') {
-                showAccountantDashboard();
+            if (currentUserRole === 'كاشير') {
+                showCashierPage();
+            } else if (currentUserRole === 'محاسب') {
+                showAccountantPage();
             }
         } catch (error) {
             console.warn('Failed to re-authenticate, showing login page.', error);
-            // If silent re-auth fails, clear session and show login
             logout();
         }
     }
