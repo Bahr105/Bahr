@@ -1396,6 +1396,7 @@ button:disabled {
     overflow-y: auto;
     z-index: 1000;
     display: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .suggestion-item {
@@ -1420,8 +1421,22 @@ button:disabled {
     background: #f8f9fa;
     border-radius: 8px;
     border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
 }
 
 #dynamicExpenseForm .form-group {
     margin-bottom: 15px;
+}
+
+/* تحسينات للبحث */
+.input-group {
+    position: relative;
+}
+
+.input-group .suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
 }
