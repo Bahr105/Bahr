@@ -1,6 +1,6 @@
 // --- Google Sheets API Configuration ---
 const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q';
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz6qJ8R6f3QYJ8Q7Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q3Q/exec';
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyzZ34qCiYbWo8wOn52Kx-ws7H51ObGv2pFZ45oTSueNdzx74HnrYn99U1RUA3XvKrddg/exec';
 
 // --- Global Application State ---
 let users = [];
@@ -1197,3 +1197,4 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+
