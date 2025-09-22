@@ -1,14 +1,17 @@
 // --- Google Sheets API Configuration ---
-const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU'; // 
-const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com'; // 
-const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; // 
-// تصحيح رابط Apps Script
-const APP_SCRIPT_URL = 'https://docs.google.com/spreadsheets/d/16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q/edit?usp=sharing';
-const SCOPES = 'https://www.googleapis.com/auth/spreadsheets'; // Full read/write access
+// هذه المتغيرات لم تعد ضرورية لأن Apps Script سيتعامل مع Google Sheets API
+// const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU';
+// const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com';
+const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; // لا يزال مفيدًا كمرجع، ولكن Apps Script يستخدمه مباشرة
+// تصحيح رابط Apps Script - استبدل هذا بالرابط الذي حصلت عليه بعد نشر Apps Script كتطبيق ويب
+const APP_SCRIPT_URL = 'YOUR_DEPLOYED_APPS_SCRIPT_WEB_APP_URL_HERE'; // <--- هام جداً: استبدل هذا الرابط
 
-let gapiInited = false;
-let gisInited = false;
-let tokenClient;
+// SCOPES لم تعد ضرورية في الواجهة الأمامية لأن Apps Script هو من سيقوم بالمصادقة
+// const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+
+// let gapiInited = false; // لم تعد ضرورية
+// let gisInited = false;  // لم تعد ضرورية
+// let tokenClient;        // لم تعد ضرورية
 
 // --- Global Application State ---
 let users = []; // Loaded from Google Sheets (ID, Name, Phone, Username, Password, Role, Status, CreationDate)
@@ -34,69 +37,39 @@ let cashierDailyData = {
     shiftEndTime: null,
 };
 
-function doGet(e) {
-  return doPost(e);
-}
+// --- Google API Initialization (هذه الوظائف لم تعد ضرورية) ---
+// function gapiLoaded() {
+//     gapi.load('client', initializeGapiClient);
+// }
 
-function doPost(e) {
-  // الكود الحالي الذي لديك...
-}
-function doGet(e) {
-  return ContentService.createTextOutput(
-    JSON.stringify({ success: false, message: "Use POST instead" })
-  ).setMimeType(ContentService.MimeType.JSON);
-}
+// async function initializeGapiClient() {
+//     await gapi.client.init({
+//         apiKey: API_KEY,
+//         discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+//     });
+//     gapiInited = true;
+//     maybeEnableButtons();
+// }
 
-// --- Google API Initialization ---
-function gapiLoaded() {
-    gapi.load('client', initializeGapiClient);
-}
+// function gisLoaded() {
+//     tokenClient = google.accounts.oauth2.initTokenClient({
+//         client_id: CLIENT_ID,
+//         scope: SCOPES,
+//         callback: '', // defined later
+//     });
+//     gisInited = true;
+//     maybeEnableButtons();
+// }
 
-async function initializeGapiClient() {
-    await gapi.client.init({
-        apiKey: API_KEY,
-        discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-    });
-    gapiInited = true;
-    maybeEnableButtons();
-}
+// function maybeEnableButtons() {
+//     // لم تعد هناك حاجة لانتظار تهيئة gapi و gis
+//     loadInitialData();
+// }
 
-function gisLoaded() {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: '', // defined later
-    });
-    gisInited = true;
-    maybeEnableButtons();
-}
-
-function maybeEnableButtons() {
-    if (gapiInited && gisInited) {
-        loadInitialData();
-    }
-}
-
-async function handleAuthClick() {
-    return new Promise((resolve, reject) => {
-        tokenClient.callback = async (resp) => {
-            if (resp.error !== undefined) {
-                console.error('Authentication failed:', resp);
-                showErrorMessage('فشل المصادقة مع Google Sheets. يرجى التحقق من الأذونات.');
-                reject(resp);
-            } else {
-                console.log('Authentication successful.');
-                resolve();
-            }
-        };
-
-        if (gapi.client.getToken() === null) {
-            tokenClient.requestAccessToken({prompt: 'consent'});
-        } else {
-            tokenClient.requestAccessToken({prompt: ''});
-        }
-    });
-}
+// async function handleAuthClick() {
+//     // لم تعد ضرورية لأن Apps Script هو من سيتعامل مع المصادقة
+//     return Promise.resolve();
+// }
 
 // --- Google Apps Script Interaction ---
 async function callAppScript(action, data = {}) {
@@ -680,7 +653,10 @@ async function loadCashierExpenses() {
 
         result.data.forEach(row => {
             const categoryName = row[1];
-            const formType = categories.find(c => c.name === categoryName || c.code === row[2])?.formType || 'عادي';
+            // البحث عن formType بناءً على categoryName أو categoryCode
+            const categoryObj = categories.find(c => c.name === categoryName || c.code === row[2]);
+            const formType = categoryObj ? categoryObj.formType : 'عادي'; // افتراضي 'عادي' إذا لم يتم العثور على التصنيف
+            
             const expense = {
                 id: row[0],
                 category: categoryName,
@@ -753,6 +729,8 @@ function filterCashierExpenses() {
     }
     if (dateToFilter) {
         const toDate = new Date(dateToFilter);
+        // لضمان تضمين اليوم الأخير بالكامل، أضف 23 ساعة و 59 دقيقة و 59 ثانية
+        toDate.setHours(23, 59, 59, 999); 
         filtered = filtered.filter(exp => new Date(exp.date) <= toDate);
     }
 
@@ -901,6 +879,9 @@ async function calculateCashierShift() {
     // Filter local data based on selected shift period
     const fromDateTime = new Date(`${shiftDateFrom}T${shiftTimeFrom}`);
     const toDateTime = new Date(`${shiftDateTo}T${shiftTimeTo}`);
+    // لضمان تضمين اليوم الأخير بالكامل، أضف 23 ساعة و 59 دقيقة و 59 ثانية
+    toDateTime.setHours(toDateTime.getHours() + 23, toDateTime.getMinutes() + 59, toDateTime.getSeconds() + 59, toDateTime.getMilliseconds() + 999);
+
 
     let filteredExpenses = [];
     let filteredInsta = [];
@@ -1513,8 +1494,12 @@ function closeModal(modalId) {
 
 // --- Initialize on Page Load ---
 window.onload = async function() {
-    gapiLoaded();
-    gisLoaded();
+    // لم تعد هناك حاجة لـ gapiLoaded() و gisLoaded()
+    // gapiLoaded();
+    // gisLoaded();
+
+    // بما أننا لا نستخدم gapi/gis مباشرة في الواجهة الأمامية، يمكننا استدعاء loadInitialData مباشرة
+    await loadInitialData();
 
     // Check for existing login session
     const storedUser = localStorage.getItem('currentUser');
@@ -1523,17 +1508,17 @@ window.onload = async function() {
         currentUserName = currentUser.name;
         currentUserRole = currentUser.role;
         
-        // Attempt to re-authenticate silently
-        try {
-            await handleAuthClick(); // This will try to get a token without prompt if possible
+        // بما أننا لا نستخدم gapi/gis، لا نحتاج إلى handleAuthClick هنا
+        // try {
+        //     await handleAuthClick();
             if (currentUserRole === 'كاشير') {
                 showCashierPage();
             } else if (currentUserRole === 'محاسب') {
                 showAccountantPage();
             }
-        } catch (error) {
-            console.warn('Failed to re-authenticate, showing login page.', error);
-            logout();
-        }
+        // } catch (error) {
+        //     console.warn('Failed to re-authenticate, showing login page.', error);
+        //     logout();
+        // }
     }
 };
