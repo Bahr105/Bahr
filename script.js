@@ -169,7 +169,7 @@ function populateUserDropdown() {
 
 // Load Sales Sections and Expense Types from Google Sheets
 async function loadSectionsAndExpenseTypesFromSheets() {
-    const sectionsData = await loadDataFromSheet('Categories'); // Assuming a 'Categories' sheet
+    const sectionsData = await loadDataFromSheet('Sections'); // Assuming a 'Categories' sheet
     salesSections = [];
     expenseTypes = [];
 
@@ -1258,3 +1258,4 @@ window.onload = async function() {
         }
     }
 };
+
