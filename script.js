@@ -167,7 +167,7 @@ function populateUserDropdown() {
 
 // Load Sales Sections and Expense Types from Google Sheets
 async function loadSectionsAndExpenseTypesFromSheets() {
-    const sectionsData = await loadDataFromSheet('Sections'); // Assuming a 'Sections' sheet
+    const sectionsData = await loadDataFromSheet('Categories'); // Assuming a 'Categories' sheet
     salesSections = [];
     expenseTypes = [];
 
@@ -184,7 +184,7 @@ async function loadSectionsAndExpenseTypesFromSheets() {
             }
         });
     } else {
-        console.warn('No category data found in Google Sheet "Sections".');
+        console.warn('No category data found in Google Sheet "Categories".');
     }
     initializeDataStructures(); // Re-initialize dailyData with loaded sections/types
     populateExpenseTypeDropdown();
@@ -1296,4 +1296,3 @@ window.onload = async function() {
         }
     }
 };
-
