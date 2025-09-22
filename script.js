@@ -11,17 +11,15 @@ let tokenClient;
 
 // --- Global Application State ---
 let dailyData = {
-    sales: {}, // المبيعات (هيكل: { "اسم القسم": [{id, invoiceNumber, amount, notes, timestamp}] })
-    expenses: [], // المصروفات (هيكل: [{id, type, invoiceNumber, amount, notes, extraField, timestamp}])
+    sales: {}, // إيرادات المبيعات من الأقسام (هيكل: { "اسم القسم": [{id, invoiceNumber, amount, notes, timestamp}] })
+    expenses: [], // المصروفات المدفوعة (هيكل: [{id, type, invoiceNumber, amount, notes, extraField, timestamp}])
     visa: [], // فواتير الفيزا (هيكل: [{id, invoiceNumber, amount, visaNumber, notes, timestamp}])
     credit: [], // المبيعات الآجلة (هيكل: [{id, invoiceNumber, amount, customer, notes, timestamp}])
-    // exchanges: [], // تم إزالة سكشن البدل
-    totalSales: 0,
-    totalExpenses: 0,
+    totalSales: 0, // إجمالي إيرادات المبيعات من الأقسام
+    totalExpenses: 0, // إجمالي المصروفات المدفوعة
     visaAmount: 0,
     creditAmount: 0,
-    drawerAmount: 0,
-    // exchangeExpenses: 0 // تم إزالة سكشن البدل
+    drawerAmount: 0, // الكاش الفعلي في الدرج
 };
 
 let users = []; // Loaded from Google Sheets (username, password, role)
@@ -233,13 +231,11 @@ function initializeDataStructures() {
     dailyData.expenses = []; // Expenses are now a flat array
     dailyData.visa = [];
     dailyData.credit = [];
-    // dailyData.exchanges = []; // تم إزالة سكشن البدل
     dailyData.totalSales = 0;
     dailyData.totalExpenses = 0;
     dailyData.visaAmount = 0;
     dailyData.creditAmount = 0;
     dailyData.drawerAmount = 0;
-    // dailyData.exchangeExpenses = 0; // تم إزالة سكشن البدل
 }
 
 // Login Function
@@ -796,9 +792,6 @@ function updateCustomerCredits() {
 
 // Update Statistics (Summary Tab)
 function updateStats() {
-    let totalOperations = dailyData.expenses.length + dailyData.visa.length + dailyData.credit.length;
-    for (const section in dailyData.sales) { totalOperations += dailyData.sales[section].length; }
-    
     // Recalculate totals from dailyData
     dailyData.totalSales = 0;
     for (const section in dailyData.sales) {
@@ -808,9 +801,11 @@ function updateStats() {
     dailyData.visaAmount = dailyData.visa.reduce((sum, item) => sum + item.amount, 0);
     dailyData.creditAmount = dailyData.credit.reduce((sum, item) => sum + item.amount, 0);
     
-    // Removed dailyData.exchangeExpenses from expectedCash calculation
-    // هذا الكاش المتوقع هو صافي الكاش الذي يجب أن يكون في الدرج (للعرض فقط للكاشير)
-    const expectedCash = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount;
+    // *** التعديل هنا: حساب "إجمالي اليوم" بالمعنى الجديد ***
+    // إجمالي اليوم = إجمالي إيرادات المبيعات من الأقسام + إجمالي المصروفات المدفوعة + الكاش الفعلي في الدرج
+    // ملاحظة: الكاش الفعلي في الدرج (dailyData.drawerAmount) يتم تحديثه فقط عند الضغط على "حساب التقفيلة"
+    // لذا، هذا الرقم سيكون دقيقًا فقط بعد تلك الخطوة.
+    const totalDayAmountForComparison = dailyData.totalSales + dailyData.totalExpenses + dailyData.drawerAmount;
     
     // Update UI elements
     document.getElementById('totalSales').textContent = dailyData.totalSales.toFixed(2);
@@ -820,8 +815,9 @@ function updateStats() {
     
     document.getElementById('summaryTotalSales').textContent = dailyData.totalSales.toFixed(2);
     document.getElementById('summaryTotalExpenses').textContent = dailyData.totalExpenses.toFixed(2);
-    document.getElementById('summaryExpectedCash').textContent = expectedCash.toFixed(2);
-    document.getElementById('summaryActualCash').textContent = dailyData.drawerAmount.toFixed(2); // Will be updated by calculateDrawer
+    // تحديث عرض "الكاش المتوقع" ليعرض "إجمالي اليوم" بالمعنى الجديد
+    document.getElementById('summaryExpectedCash').textContent = totalDayAmountForComparison.toFixed(2); 
+    document.getElementById('summaryActualCash').textContent = dailyData.drawerAmount.toFixed(2); // الكاش الفعلي في الدرج
 }
 
 // Calculate Drawer Function
@@ -836,20 +832,23 @@ function calculateDrawer() {
     
     dailyData.drawerAmount = drawerAmount;
     
-    // هذا الكاش المتوقع هو صافي الكاش الذي يجب أن يكون في الدرج (للعرض فقط للكاشير)
-    const expectedCash = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount;
-    const difference = drawerAmount - expectedCash;
-    
+    // إعادة حساب الإحصائيات لتحديث "إجمالي اليوم" بعد إدخال الكاش الفعلي
+    updateStats(); 
+
+    // لعرض الفرق، سنحتاج إلى "تقفيلة نيو مايند" التي لا تتوفر هنا.
+    // لذا، يمكننا عرض "إجمالي اليوم" الذي سيتم مقارنته.
+    const totalDayAmountForComparison = dailyData.totalSales + dailyData.totalExpenses + dailyData.drawerAmount;
+
     let resultMessage = `
         <div class="drawer-result">
-            <p><strong>الكاش المتوقع:</strong> ${expectedCash.toFixed(2)} جنيه</p>
+            <p><strong>إجمالي إيرادات الأقسام:</strong> ${dailyData.totalSales.toFixed(2)} جنيه</p>
+            <p><strong>إجمالي المصروفات المدفوعة:</strong> ${dailyData.totalExpenses.toFixed(2)} جنيه</p>
             <p><strong>الكاش الفعلي في الدرج:</strong> ${drawerAmount.toFixed(2)} جنيه</p>
-            <p><strong>الفرق:</strong> <span style="color: ${difference >= 0 ? 'green' : 'red'};">${Math.abs(difference).toFixed(2)} جنيه ${difference >= 0 ? 'زيادة' : 'نقص'}</span></p>
+            <p><strong>إجمالي اليوم للمقارنة مع نيو مايند:</strong> ${totalDayAmountForComparison.toFixed(2)} جنيه</p>
         </div>
     `;
     
     document.getElementById('drawerResult').innerHTML = resultMessage;
-    updateStats(); // Update summary actual cash
 }
 
 // Finalize Day Closeout Function (Cashier's side)
@@ -864,27 +863,27 @@ async function finalizeDayCloseout() {
         return;
     }
 
-    // هذا الكاش المتوقع هو صافي الكاش الذي يجب أن يكون في الدرج (للعرض فقط للكاشير)
-    const expectedCash = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount;
-    
-    const ourTotalSales = dailyData.totalSales; // إجمالي المبيعات من الأقسام
+    const ourTotalSales = dailyData.totalSales; // إجمالي إيرادات المبيعات من الأقسام
+    const ourTotalExpenses = dailyData.totalExpenses; // إجمالي المصروفات المدفوعة
     
     // *** التعديل هنا: حساب تقفيلة الكاشير للمقارنة مع نيو مايند ***
-    // تقفيلة الكاشير = إجمالي المبيعات (الأقسام) + الكاش الفعلي في الدرج
-    const ourTotalCloseout = ourTotalSales + drawerAmount; 
+    // تقفيلة الكاشير = إجمالي إيرادات المبيعات من الأقسام + إجمالي المصروفات المدفوعة + الكاش الفعلي في الدرج
+    const ourTotalCloseout = ourTotalSales + ourTotalExpenses + drawerAmount; 
 
-    // For cashier, we don't have NewMind total yet, so we'll leave it for accountant
+    // الكاش المتوقع بالمعنى التقليدي (صافي الكاش في الدرج) لا يزال يُحسب للعرض في التقرير
+    const expectedCashTraditional = dailyData.totalSales - dailyData.totalExpenses - dailyData.visaAmount - dailyData.creditAmount;
+
     const finalData = [
         new Date().toLocaleDateString('ar-EG'),
         currentUser,
-        ourTotalSales.toFixed(2), // إجمالي المبيعات
-        dailyData.totalExpenses.toFixed(2), // إجمالي المصروفات
+        ourTotalSales.toFixed(2), // إجمالي المبيعات (الأقسام)
+        ourTotalExpenses.toFixed(2), // إجمالي المصروفات المدفوعة
         dailyData.visaAmount.toFixed(2), // مبيعات الفيزا
         dailyData.creditAmount.toFixed(2), // المبيعات الآجلة
         0, // Exchange Expenses (تم إزالته، لذا نضع 0)
-        expectedCash.toFixed(2), // الكاش المتوقع (للعرض فقط للكاشير)
+        expectedCashTraditional.toFixed(2), // الكاش المتوقع بالمعنى التقليدي (للعرض فقط)
         drawerAmount.toFixed(2), // الكاش الفعلي في الدرج
-        ourTotalCloseout.toFixed(2), // تقفيلة الكاشير الجديدة للمقارنة (إجمالي المبيعات + الكاش الفعلي)
+        ourTotalCloseout.toFixed(2), // تقفيلة الكاشير الجديدة للمقارنة (إجمالي اليوم بالمعنى الجديد)
         'N/A', // NewMind Total (to be filled by accountant)
         'N/A', // Difference with NewMind
         'بانتظار المحاسب', // Status
@@ -919,7 +918,6 @@ function resetDailyData() {
         sales: {}, expenses: [], visa: [], credit: [],
         totalSales: 0, totalExpenses: 0, visaAmount: 0, creditAmount: 0,
         drawerAmount: 0,
-        // exchangeExpenses: 0 // تم إزالة سكشن البدل
     };
     usedVisaNumbers.clear();
     selectedCustomer = '';
@@ -1072,31 +1070,32 @@ async function generateCashierReport() {
 
     const allSales = await loadDataFromSheet('Sales');
     report.sales = filterData(allSales.slice(1), 2, 0); // Cashier is col 2, Date is col 0
-    report.totalSales = report.sales.reduce((sum, row) => sum + parseFloat(row[5] || 0), 0); // Amount is col 5
+    report.totalSales = report.sales.reduce((s,r)=> s + parseFloat(r[5] || 0), 0); // Amount is col 5
 
     const allExpenses = await loadDataFromSheet('Expenses');
     report.expenses = filterData(allExpenses.slice(1), 2, 0); // Cashier is col 2, Date is col 0
-    report.totalExpenses = report.expenses.reduce((sum, row) => sum + parseFloat(row[5] || 0), 0); // Amount is col 5
+    report.totalExpenses = report.expenses.reduce((s,r)=> s + parseFloat(r[5] || 0), 0); // Amount is col 5
 
     const allVisa = await loadDataFromSheet('Visa');
     report.visa = filterData(allVisa.slice(1), 2, 0); // Cashier is col 2, Date is col 0
-    report.visaAmount = report.visa.reduce((sum, row) => sum + parseFloat(row[4] || 0), 0); // Amount is col 4
+    report.visaAmount = report.visa.reduce((s,r)=> s + parseFloat(r[4] || 0), 0); // Amount is col 4
 
     const allCredit = await loadDataFromSheet('Credit');
     report.credit = filterData(allCredit.slice(1), 2, 0); // Cashier is col 2, Date is col 0
-    report.creditAmount = report.credit.reduce((sum, row) => sum + parseFloat(row[4] || 0), 0); // Amount is col 4
+    report.creditAmount = report.credit.reduce((s,r)=> s + parseFloat(r[4] || 0), 0); // Amount is col 4
 
     // Exchanges are removed, so no need to calculate exchangeExpenses
 
-    const expectedCash = report.totalSales - report.totalExpenses - report.visaAmount - report.creditAmount;
+    // الكاش المتوقع بالمعنى التقليدي (صافي الكاش في الدرج)
+    const expectedCashTraditional = report.totalSales - report.totalExpenses - report.visaAmount - report.creditAmount;
 
     let reportHtml = `
         <h4>تقرير الكاشير: ${cashierUsername} (${startDate} - ${endDate})</h4>
-        <p><strong>إجمالي المبيعات:</strong> ${report.totalSales.toFixed(2)} جنيه</p>
-        <p><strong>إجمالي المصروفات:</strong> ${report.totalExpenses.toFixed(2)} جنيه</p>
+        <p><strong>إجمالي المبيعات (الأقسام):</strong> ${report.totalSales.toFixed(2)} جنيه</p>
+        <p><strong>إجمالي المصروفات المدفوعة:</strong> ${report.totalExpenses.toFixed(2)} جنيه</p>
         <p><strong>مبيعات الفيزا:</strong> ${report.visaAmount.toFixed(2)} جنيه</p>
         <p><strong>المبيعات الآجلة:</strong> ${report.creditAmount.toFixed(2)} جنيه</p>
-        <p><strong>الكاش المتوقع:</strong> ${expectedCash.toFixed(2)} جنيه</p>
+        <p><strong>الكاش المتوقع (صافي الدرج):</strong> ${expectedCashTraditional.toFixed(2)} جنيه</p>
         <hr>
         <h5>تفاصيل المبيعات:</h5>
         ${report.sales.length > 0 ? report.sales.map(s => `<div class="report-item">فاتورة #${s[4]} (${s[3]}): ${s[5]} جنيه</div>`).join('') : '<p>لا توجد مبيعات.</p>'}
@@ -1145,16 +1144,16 @@ async function performAccountantCloseout() {
         return;
     }
 
-    const cashierTotalSales = parseFloat(cashierCloseout[2]);
-    const cashierTotalExpenses = parseFloat(cashierCloseout[3]);
+    const cashierTotalSales = parseFloat(cashierCloseout[2]); // إجمالي المبيعات (الأقسام)
+    const cashierTotalExpenses = parseFloat(cashierCloseout[3]); // إجمالي المصروفات المدفوعة
     const cashierVisaAmount = parseFloat(cashierCloseout[4]);
     const cashierCreditAmount = parseFloat(cashierCloseout[5]);
     // const cashierExchangeExpenses = parseFloat(cashierCloseout[6]); // تم إزالة سكشن البدل
-    const cashierExpectedCash = parseFloat(cashierCloseout[7]); // الكاش المتوقع (للعرض فقط)
+    const cashierExpectedCashTraditional = parseFloat(cashierCloseout[7]); // الكاش المتوقع بالمعنى التقليدي
     const cashierActualDrawerAmount = parseFloat(cashierCloseout[8]); // الكاش الفعلي في الدرج
     
     // *** التعديل هنا: استخدام ourTotalCloseout الجديد من صف الكاشير ***
-    // هذا هو الحقل الذي يحتوي على (إجمالي المبيعات + الكاش الفعلي)
+    // هذا هو الحقل الذي يحتوي على (إجمالي إيرادات المبيعات من الأقسام + إجمالي المصروفات المدفوعة + الكاش الفعلي في الدرج)
     const cashierOurTotalCloseout = parseFloat(cashierCloseout[9]); 
 
     const differenceWithNewMind = cashierOurTotalCloseout - accountantNewMindTotal;
@@ -1164,13 +1163,13 @@ async function performAccountantCloseout() {
 
     let resultHtml = `
         <h4>نتائج تقفيل حساب الكاشير: ${cashierUsername} (${closeoutDateStr})</h4>
-        <p><strong>إجمالي مبيعات الكاشير (الأقسام):</strong> ${cashierTotalSales.toFixed(2)} جنيه</p>
-        <p><strong>إجمالي مصروفات الكاشير:</strong> ${cashierTotalExpenses.toFixed(2)} جنيه</p>
+        <p><strong>إجمالي المبيعات (الأقسام):</strong> ${cashierTotalSales.toFixed(2)} جنيه</p>
+        <p><strong>إجمالي المصروفات المدفوعة:</strong> ${cashierTotalExpenses.toFixed(2)} جنيه</p>
         <p><strong>مبيعات الفيزا:</strong> ${cashierVisaAmount.toFixed(2)} جنيه</p>
         <p><strong>المبيعات الآجلة:</strong> ${cashierCreditAmount.toFixed(2)} جنيه</p>
-        <p><strong>الكاش المتوقع (حسب الكاشير):</strong> ${cashierExpectedCash.toFixed(2)} جنيه</p>
+        <p><strong>الكاش المتوقع (صافي الدرج):</strong> ${cashierExpectedCashTraditional.toFixed(2)} جنيه</p>
         <p><strong>الكاش الفعلي في الدرج:</strong> ${cashierActualDrawerAmount.toFixed(2)} جنيه</p>
-        <p><strong>إجمالي تقفيلة الكاشير (مبيعات الأقسام + الكاش الفعلي):</strong> ${cashierOurTotalCloseout.toFixed(2)} جنيه</p>
+        <p><strong>إجمالي اليوم للمقارنة مع نيو مايند:</strong> ${cashierOurTotalCloseout.toFixed(2)} جنيه</p>
         <p><strong>تقفيلة نيو مايند (المحاسب):</strong> ${accountantNewMindTotal.toFixed(2)} جنيه</p>
         <p><strong>الفرق:</strong> <span style="color: ${differenceWithNewMind >= 0 ? 'green' : 'red'};">${Math.abs(differenceWithNewMind).toFixed(2)} جنيه ${differenceWithNewMind >= 0 ? 'زيادة' : 'نقص'}</span></p>
         <p><strong>الحالة:</strong> ${status}</p>
