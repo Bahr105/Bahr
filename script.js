@@ -2,7 +2,8 @@
 const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU'; // 
 const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com'; // 
 const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; // 
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwgY0fi6-Fh0edEmA1_lmJQn6fasMag6AJ5qpUmoTgGBlFy595rnCyoPDSQCEUmnHpThg/exec'; // 
+// تصحيح رابط Apps Script
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwgY0fi6-Fh0edEmA1_lmJQn6fasMag6AJ5qpUmoTgGBlFy595rnCyoPDSQCEUmnHpThg/exec';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets'; // Full read/write access
 
 let gapiInited = false;
@@ -32,6 +33,19 @@ let cashierDailyData = {
     shiftStartTime: null,
     shiftEndTime: null,
 };
+
+function doGet(e) {
+  return doPost(e);
+}
+
+function doPost(e) {
+  // الكود الحالي الذي لديك...
+}
+function doGet(e) {
+  return ContentService.createTextOutput(
+    JSON.stringify({ success: false, message: "Use POST instead" })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
 
 // --- Google API Initialization ---
 function gapiLoaded() {
@@ -88,16 +102,22 @@ async function handleAuthClick() {
 async function callAppScript(action, data = {}) {
     showLoadingOverlay();
     try {
-        const response = await fetch(APP_SCRIPT_URL, { // <--- This is where the URL is used
+        const response = await fetch(APP_SCRIPT_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ action, ...data }),
         });
-        // ... rest of the function
+        const result = await response.json();
+        if (!result.success) {
+            showErrorMessage(result.message || 'حدث خطأ غير معروف.');
+        }
+        return result;
     } catch (error) {
-        // ...
+        console.error('Error calling App Script:', error);
+        showErrorMessage('خطأ في الاتصال بالخادم. يرجى التحقق من الاتصال بالإنترنت.');
+        return { success: false, message: 'خطأ في الاتصال بالخادم.' };
     } finally {
         hideLoadingOverlay();
     }
