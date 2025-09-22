@@ -218,7 +218,10 @@ function populateDropdowns() {
         });
     }
 
-    toggleEntryForm();
+    // Ensure toggleEntryForm is called only if elements are present
+    if (document.getElementById('entryType') && document.getElementById('expenseForm') && document.getElementById('sectionForm')) {
+        toggleEntryForm();
+    }
 }
 
 async function loadCustomers() {
@@ -280,11 +283,18 @@ async function login() {
 
 // Logout Function
 function logout() {
-    document.getElementById('cashierDashboardSection').style.display = 'none';
-    document.getElementById('accountantDashboardSection').style.display = 'none';
-    document.getElementById('loginSection').style.display = 'block';
-    document.getElementById('username').value = '';
-    document.getElementById('password').value = '';
+    const cashierDashboard = document.getElementById('cashierDashboardSection');
+    const accountantDashboard = document.getElementById('accountantDashboardSection');
+    const loginSection = document.getElementById('loginSection');
+    const usernameSelect = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+
+    if (cashierDashboard) cashierDashboard.style.display = 'none';
+    if (accountantDashboard) accountantDashboard.style.display = 'none';
+    if (loginSection) loginSection.style.display = 'block';
+    if (usernameSelect) usernameSelect.value = '';
+    if (passwordInput) passwordInput.value = '';
+    
     currentUser = '';
     currentUserRole = '';
     localStorage.removeItem('currentUser');
@@ -294,16 +304,22 @@ function logout() {
 
 // --- Cashier Dashboard Functions ---
 async function showCashierDashboard() {
-    document.getElementById('loginSection').style.display = 'none';
-    document.getElementById('accountantDashboardSection').style.display = 'none';
-    document.getElementById('cashierDashboardSection').style.display = 'block';
-    document.getElementById('currentUserCashier').textContent = currentUser;
-    document.getElementById('currentDateCashier').textContent = new Date().toLocaleDateString('ar-EG');
+    const loginSection = document.getElementById('loginSection');
+    const accountantDashboard = document.getElementById('accountantDashboardSection');
+    const cashierDashboard = document.getElementById('cashierDashboardSection');
+    const currentUserCashier = document.getElementById('currentUserCashier');
+    const currentDateCashier = document.getElementById('currentDateCashier');
+
+    if (loginSection) loginSection.style.display = 'none';
+    if (accountantDashboard) accountantDashboard.style.display = 'none';
+    if (cashierDashboard) cashierDashboard.style.display = 'block';
+    if (currentUserCashier) currentUserCashier.textContent = currentUser;
+    if (currentDateCashier) currentDateCashier.textContent = new Date().toLocaleDateString('ar-EG');
     
     await loadSectionsAndExpenseTypes();
     await loadCustomers();
     initializeDataStructures();
-    loadCustomersForCashier();
+    loadCustomersForCashier(); // Corrected function name
     updateEntriesList();
     updateStats();
     openTab('expensesSectionsTab');
@@ -337,27 +353,30 @@ function openTab(tabName) {
 }
 
 function toggleEntryForm() {
-    const entryType = document.getElementById('entryType').value;
+    const entryTypeSelect = document.getElementById('entryType');
     const expenseForm = document.getElementById('expenseForm');
     const sectionForm = document.getElementById('sectionForm');
 
-    if (expenseForm) {
-        expenseForm.style.display = (entryType === 'expense') ? 'block' : 'none';
-    }
-    if (sectionForm) {
-        sectionForm.style.display = (entryType === 'section') ? 'block' : 'none';
-    }
+    if (!entryTypeSelect || !expenseForm || !sectionForm) return; // Ensure all elements exist
+
+    const entryType = entryTypeSelect.value;
+
+    expenseForm.style.display = (entryType === 'expense') ? 'block' : 'none';
+    sectionForm.style.display = (entryType === 'section') ? 'block' : 'none';
+    
     toggleExtraField();
 }
 
 function toggleExtraField() {
-    const entryType = document.getElementById('entryType').value;
+    const entryTypeSelect = document.getElementById('entryType');
     const expenseTypeSelect = document.getElementById('expenseType');
-    const expenseType = expenseTypeSelect ? expenseTypeSelect.value : '';
     const extraFieldContainer = document.getElementById('extraFieldContainer');
     const expenseInvoiceInput = document.getElementById('expenseInvoice');
 
-    if (!extraFieldContainer || !expenseInvoiceInput) return;
+    if (!entryTypeSelect || !expenseTypeSelect || !extraFieldContainer || !expenseInvoiceInput) return;
+
+    const entryType = entryTypeSelect.value;
+    const expenseType = expenseTypeSelect.value;
 
     extraFieldContainer.style.display = 'none';
     expenseInvoiceInput.required = true;
@@ -366,15 +385,18 @@ function toggleExtraField() {
     if (entryType === 'expense') {
         if (expenseType === 'شحن تاب') {
             extraFieldContainer.style.display = 'block';
-            document.getElementById('extraFieldLabel').textContent = 'رقم التاب/الفون:';
+            const extraFieldLabel = document.getElementById('extraFieldLabel');
+            if (extraFieldLabel) extraFieldLabel.textContent = 'رقم التاب/الفون:';
             expenseInvoiceInput.required = false;
         } else if (expenseType === 'شحن كهربا') {
             extraFieldContainer.style.display = 'block';
-            document.getElementById('extraFieldLabel').textContent = 'مكان الشحن:';
+            const extraFieldLabel = document.getElementById('extraFieldLabel');
+            if (extraFieldLabel) extraFieldLabel.textContent = 'مكان الشحن:';
             expenseInvoiceInput.required = false;
         } else if (expenseType === 'بنزين') {
             extraFieldContainer.style.display = 'block';
-            document.getElementById('extraFieldLabel').textContent = 'اسم المستلم:';
+            const extraFieldLabel = document.getElementById('extraFieldLabel');
+            if (extraFieldLabel) extraFieldLabel.textContent = 'اسم المستلم:';
             expenseInvoiceInput.required = false;
         } else if (expenseType === 'أجل') {
             extraFieldContainer.style.display = 'block';
@@ -386,7 +408,8 @@ function toggleExtraField() {
             expenseInvoiceInput.required = true;
         } else if (expenseType === 'عجوزات') {
             extraFieldContainer.style.display = 'block';
-            document.getElementById('extraFieldLabel').textContent = 'المسؤول عن العجز:';
+            const extraFieldLabel = document.getElementById('extraFieldLabel');
+            if (extraFieldLabel) extraFieldLabel.textContent = 'المسؤول عن العجز:';
             expenseInvoiceInput.required = false;
         }
     }
@@ -419,7 +442,10 @@ async function addExpense() {
     }
 
     if (expenseType === 'أجل') {
-        extraFieldValue = document.getElementById('extraFieldCustomerSelect').value;
+        const extraFieldCustomerSelect = document.getElementById('extraFieldCustomerSelect');
+        if (extraFieldCustomerSelect) {
+            extraFieldValue = extraFieldCustomerSelect.value;
+        }
         if (!extraFieldValue) {
             alert('يرجى اختيار العميل الآجل.');
             return;
@@ -973,8 +999,8 @@ function resetDailyData() {
     };
     usedVisaNumbers.clear();
     initializeDataStructures();
-    updateEntriesList();
-    updateStats();
+    updateEntriesList(); // This will clear the list if no entries
+    updateStats(); // This will reset all stats to 0
     const drawerAmountInput = document.getElementById('drawerAmount');
     if (drawerAmountInput) drawerAmountInput.value = '';
     const drawerResultElement = document.getElementById('drawerResult');
@@ -983,11 +1009,17 @@ function resetDailyData() {
 
 // --- Accountant Dashboard Functions ---
 async function showAccountantDashboard() {
-    document.getElementById('loginSection').style.display = 'none';
-    document.getElementById('cashierDashboardSection').style.display = 'none';
-    document.getElementById('accountantDashboardSection').style.display = 'block';
-    document.getElementById('currentUserAccountant').textContent = currentUser;
-    document.getElementById('currentDateAccountant').textContent = new Date().toLocaleDateString('ar-EG');
+    const loginSection = document.getElementById('loginSection');
+    const cashierDashboard = document.getElementById('cashierDashboardSection');
+    const accountantDashboard = document.getElementById('accountantDashboardSection');
+    const currentUserAccountant = document.getElementById('currentUserAccountant');
+    const currentDateAccountant = document.getElementById('currentDateAccountant');
+
+    if (loginSection) loginSection.style.display = 'none';
+    if (cashierDashboard) cashierDashboard.style.display = 'none';
+    if (accountantDashboard) accountantDashboard.style.display = 'block';
+    if (currentUserAccountant) currentUserAccountant.textContent = currentUser;
+    if (currentDateAccountant) currentDateAccountant.textContent = new Date().toLocaleDateString('ar-EG');
 
     populateCashierSelects();
     loadUsersListForAccountant();
@@ -1136,9 +1168,14 @@ async function deleteUser(username) {
 
 // New functions for generating specific reports
 async function generateExpensesReport() {
-    const startDate = document.getElementById('expensesReportStartDate').value;
-    const endDate = document.getElementById('expensesReportEndDate').value;
+    const startDateInput = document.getElementById('expensesReportStartDate');
+    const endDateInput = document.getElementById('expensesReportEndDate');
     const reportResultElement = document.getElementById('expensesReportResult');
+
+    if (!startDateInput || !endDateInput || !reportResultElement) return;
+
+    const startDate = startDateInput.value;
+    const endDate = endDateInput.value;
 
     if (!startDate || !endDate) {
         alert('يرجى تحديد تاريخ البداية والنهاية لتقرير المصروفات.');
@@ -1155,10 +1192,16 @@ async function generateExpensesReport() {
 }
 
 async function generateSectionsReport() {
-    const sectionName = document.getElementById('sectionForReport').value;
-    const startDate = document.getElementById('sectionsReportStartDate').value;
-    const endDate = document.getElementById('sectionsReportEndDate').value;
+    const sectionNameSelect = document.getElementById('sectionForReport');
+    const startDateInput = document.getElementById('sectionsReportStartDate');
+    const endDateInput = document.getElementById('sectionsReportEndDate');
     const reportResultElement = document.getElementById('sectionsReportResult');
+
+    if (!sectionNameSelect || !startDateInput || !endDateInput || !reportResultElement) return;
+
+    const sectionName = sectionNameSelect.value;
+    const startDate = startDateInput.value;
+    const endDate = endDateInput.value;
 
     if (!sectionName) {
         alert('يرجى اختيار القسم لتقرير الأقسام.');
@@ -1180,10 +1223,16 @@ async function generateSectionsReport() {
 }
 
 async function generateCashierReport() {
-    const cashierName = document.getElementById('selectCashierForReport').value;
-    const startDate = document.getElementById('reportStartDate').value;
-    const endDate = document.getElementById('reportEndDate').value;
+    const cashierNameSelect = document.getElementById('selectCashierForReport');
+    const startDateInput = document.getElementById('reportStartDate');
+    const endDateInput = document.getElementById('reportEndDate');
     const reportResultElement = document.getElementById('cashierReportResult');
+
+    if (!cashierNameSelect || !startDateInput || !endDateInput || !reportResultElement) return;
+
+    const cashierName = cashierNameSelect.value;
+    const startDate = startDateInput.value;
+    const endDate = endDateInput.value;
 
     if (!cashierName) {
         alert('يرجى اختيار الكاشير لتقرير الكاشير.');
@@ -1363,12 +1412,15 @@ function displayReport(title, data, type, resultElement) {
 }
 
 async function loadCloseoutData() {
-    const cashierName = document.getElementById('selectCashierForCloseout').value;
-    const closeoutDate = document.getElementById('closeoutDate').value;
+    const cashierNameSelect = document.getElementById('selectCashierForCloseout');
+    const closeoutDateInput = document.getElementById('closeoutDate');
     const closeoutResults = document.getElementById('closeoutResults');
     
-    if (!closeoutResults) return; // Handle null element
+    if (!cashierNameSelect || !closeoutDateInput || !closeoutResults) return; // Handle null elements
     closeoutResults.innerHTML = ''; // Clear previous results
+
+    const cashierName = cashierNameSelect.value;
+    const closeoutDate = closeoutDateInput.value;
 
     if (!cashierName || !closeoutDate) {
         alert('يرجى اختيار الكاشير والتاريخ');
@@ -1452,10 +1504,12 @@ async function performAccountantCloseout(date, cashier, cashierCalculatedTotal) 
 }
 
 async function searchInvoice() {
-    const searchInvoiceNumber = document.getElementById('searchInvoiceNumber').value.trim();
+    const searchInvoiceNumberInput = document.getElementById('searchInvoiceNumber');
     const invoiceSearchResult = document.getElementById('invoiceSearchResult');
-    if (!invoiceSearchResult) return; // Handle null element
+    if (!searchInvoiceNumberInput || !invoiceSearchResult) return; // Handle null elements
     invoiceSearchResult.innerHTML = '';
+
+    const searchInvoiceNumber = searchInvoiceNumberInput.value.trim();
 
     if (!searchInvoiceNumber) {
         alert('يرجى إدخال رقم الفاتورة للبحث.');
