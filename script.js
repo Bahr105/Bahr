@@ -10,11 +10,11 @@ let tokenClient;
 
 // --- Global Application State ---
 let dailyData = {
-    sections: {}, // إيرادات الأقسام
+    sections: {}, // إيرادات الأقسام (كاش)
     expenses: [], // المصروفات
     visa: [], // فواتير الفيزا
     credit: [], // المبيعات الآجلة
-    totalSections: 0,
+    totalSectionsCash: 0, // إجمالي إيرادات الأقسام الكاش
     totalExpenses: 0,
     visaAmount: 0,
     creditAmount: 0,
@@ -64,15 +64,20 @@ async function handleAuthClick() {
     return new Promise((resolve, reject) => {
         tokenClient.callback = async (resp) => {
             if (resp.error !== undefined) {
+                console.error('Authentication failed:', resp.error);
+                showErrorMessage('فشل المصادقة. يرجى المحاولة مرة أخرى.');
                 reject(resp);
             } else {
+                console.log('Authentication successful.');
                 resolve();
             }
         };
 
         if (gapi.client.getToken() === null) {
+            // Prompt for consent if no token exists
             tokenClient.requestAccessToken({prompt: 'consent'});
         } else {
+            // Attempt to refresh token silently
             tokenClient.requestAccessToken({prompt: ''});
         }
     });
@@ -81,7 +86,14 @@ async function handleAuthClick() {
 // --- Google Sheets Data Operations ---
 async function loadDataFromSheet(sheetName) {
     if (!gapi.client.getToken()) {
-        await handleAuthClick();
+        try {
+            await handleAuthClick();
+        } catch (error) {
+            console.error(`Failed to re-authenticate for ${sheetName}:`, error);
+            showErrorMessage(`فشل المصادقة لتحميل البيانات من ${sheetName}. يرجى تسجيل الدخول مرة أخرى.`);
+            logout(); // Force logout on auth failure
+            return [];
+        }
     }
     try {
         const response = await gapi.client.sheets.spreadsheets.values.get({
@@ -98,7 +110,14 @@ async function loadDataFromSheet(sheetName) {
 
 async function saveToGoogleSheets(data, sheetName) {
     if (!gapi.client.getToken()) {
-        await handleAuthClick();
+        try {
+            await handleAuthClick();
+        } catch (error) {
+            console.error(`Failed to re-authenticate for saving to ${sheetName}:`, error);
+            showErrorMessage(`فشل المصادقة لحفظ البيانات في ${sheetName}. يرجى تسجيل الدخول مرة أخرى.`);
+            logout(); // Force logout on auth failure
+            return false;
+        }
     }
 
     try {
@@ -109,7 +128,7 @@ async function saveToGoogleSheets(data, sheetName) {
             valueInputOption: 'RAW',
             resource: { values: [data] }
         });
-        console.log(`تم حفظ البيانات في ${sheetName}`);
+        console.log(`تم حفظ البيانات في Google Sheets بنجاح في ورقة ${sheetName}`);
         return true;
     } catch (err) {
         console.error('خطأ في حفظ البيانات:', err);
@@ -141,13 +160,15 @@ async function loadUsers() {
 
 function populateUserDropdown() {
     const usernameSelect = document.getElementById('username');
-    usernameSelect.innerHTML = '<option value="">اختر المستخدم</option>';
-    users.forEach(user => {
-        const option = document.createElement('option');
-        option.value = user.username;
-        option.textContent = user.username;
-        usernameSelect.appendChild(option);
-    });
+    if (usernameSelect) { // Check if element exists
+        usernameSelect.innerHTML = '<option value="">اختر المستخدم</option>';
+        users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.username;
+            option.textContent = user.username;
+            usernameSelect.appendChild(option);
+        });
+    }
 }
 
 async function loadSectionsAndExpenseTypes() {
@@ -175,23 +196,27 @@ async function loadSectionsAndExpenseTypes() {
 function populateDropdowns() {
     // populate expense type dropdown
     const expenseTypeSelect = document.getElementById('expenseType');
-    expenseTypeSelect.innerHTML = '';
-    expenseTypes.forEach(type => {
-        const option = document.createElement('option');
-        option.value = type;
-        option.textContent = type;
-        expenseTypeSelect.appendChild(option);
-    });
+    if (expenseTypeSelect) { // Check if element exists
+        expenseTypeSelect.innerHTML = '';
+        expenseTypes.forEach(type => {
+            const option = document.createElement('option');
+            option.value = type;
+            option.textContent = type;
+            expenseTypeSelect.appendChild(option);
+        });
+    }
 
     // populate section type dropdown
     const sectionTypeSelect = document.getElementById('sectionType');
-    sectionTypeSelect.innerHTML = '';
-    sections.forEach(section => {
-        const option = document.createElement('option');
-        option.value = section;
-        option.textContent = section;
-        sectionTypeSelect.appendChild(option);
-    });
+    if (sectionTypeSelect) { // Check if element exists
+        sectionTypeSelect.innerHTML = '';
+        sections.forEach(section => {
+            const option = document.createElement('option');
+            option.value = section;
+            option.textContent = section;
+            sectionTypeSelect.appendChild(option);
+        });
+    }
 
     toggleEntryForm();
 }
@@ -218,7 +243,7 @@ function initializeDataStructures() {
     dailyData.expenses = [];
     dailyData.visa = [];
     dailyData.credit = [];
-    dailyData.totalSections = 0;
+    dailyData.totalSectionsCash = 0;
     dailyData.totalExpenses = 0;
     dailyData.visaAmount = 0;
     dailyData.creditAmount = 0;
@@ -291,8 +316,15 @@ function openTab(tabName) {
     const tabButtons = document.querySelectorAll('.tab-btn');
     tabButtons.forEach(btn => btn.classList.remove('active'));
 
-    document.getElementById(tabName).style.display = 'block';
-    document.querySelector(`.tab-btn[onclick="openTab('${tabName}')"]`).classList.add('active');
+    const targetTab = document.getElementById(tabName);
+    const targetButton = document.querySelector(`.tab-btn[onclick="openTab('${tabName}')"]`);
+
+    if (targetTab) {
+        targetTab.style.display = 'block';
+    }
+    if (targetButton) {
+        targetButton.classList.add('active');
+    }
 
     if (tabName === 'customersTab') {
         loadCustomersForCashier();
@@ -309,54 +341,53 @@ function toggleEntryForm() {
     const expenseForm = document.getElementById('expenseForm');
     const sectionForm = document.getElementById('sectionForm');
 
-    if (entryType === 'expense') {
-        expenseForm.style.display = 'block';
-        sectionForm.style.display = 'none';
-    } else {
-        expenseForm.style.display = 'none';
-        sectionForm.style.display = 'block';
+    if (expenseForm) {
+        expenseForm.style.display = (entryType === 'expense') ? 'block' : 'none';
+    }
+    if (sectionForm) {
+        sectionForm.style.display = (entryType === 'section') ? 'block' : 'none';
     }
     toggleExtraField();
 }
 
 function toggleExtraField() {
     const entryType = document.getElementById('entryType').value;
-    const expenseType = document.getElementById('expenseType').value;
+    const expenseTypeSelect = document.getElementById('expenseType');
+    const expenseType = expenseTypeSelect ? expenseTypeSelect.value : '';
     const extraFieldContainer = document.getElementById('extraFieldContainer');
-    const extraFieldLabel = document.getElementById('extraFieldLabel');
     const expenseInvoiceInput = document.getElementById('expenseInvoice');
+
+    if (!extraFieldContainer || !expenseInvoiceInput) return;
 
     extraFieldContainer.style.display = 'none';
     expenseInvoiceInput.required = true;
+    extraFieldContainer.innerHTML = `<label id="extraFieldLabel"></label><input type="text" id="extraField">`; // Reset content
 
     if (entryType === 'expense') {
         if (expenseType === 'شحن تاب') {
             extraFieldContainer.style.display = 'block';
-            extraFieldLabel.textContent = 'رقم التاب/الفون:';
+            document.getElementById('extraFieldLabel').textContent = 'رقم التاب/الفون:';
             expenseInvoiceInput.required = false;
         } else if (expenseType === 'شحن كهربا') {
             extraFieldContainer.style.display = 'block';
-            extraFieldLabel.textContent = 'مكان الشحن:';
+            document.getElementById('extraFieldLabel').textContent = 'مكان الشحن:';
             expenseInvoiceInput.required = false;
         } else if (expenseType === 'بنزين') {
             extraFieldContainer.style.display = 'block';
-            extraFieldLabel.textContent = 'اسم المستلم:';
+            document.getElementById('extraFieldLabel').textContent = 'اسم المستلم:';
             expenseInvoiceInput.required = false;
         } else if (expenseType === 'أجل') {
             extraFieldContainer.style.display = 'block';
-            extraFieldLabel.textContent = 'اختر العميل:';
             extraFieldContainer.innerHTML = `
                 <label id="extraFieldLabel">اختر العميل:</label>
-                <select id="extraFieldCustomerSelect"></select>
+                <select id="extraFieldCustomerSelect" required></select>
             `;
             populateCustomerSelectForExpense();
             expenseInvoiceInput.required = true;
         } else if (expenseType === 'عجوزات') {
             extraFieldContainer.style.display = 'block';
-            extraFieldLabel.textContent = 'المسؤول عن العجز:';
+            document.getElementById('extraFieldLabel').textContent = 'المسؤول عن العجز:';
             expenseInvoiceInput.required = false;
-        } else {
-            extraFieldContainer.innerHTML = `<label id="extraFieldLabel"></label><input type="text" id="extraField">`;
         }
     }
 }
@@ -398,7 +429,10 @@ async function addExpense() {
             return;
         }
     } else if (expenseType === 'شحن تاب' || expenseType === 'شحن كهربا' || expenseType === 'بنزين' || expenseType === 'عجوزات') {
-        extraFieldValue = document.getElementById('extraField').value.trim();
+        const extraFieldInput = document.getElementById('extraField');
+        if (extraFieldInput) {
+            extraFieldValue = extraFieldInput.value.trim();
+        }
         if (!extraFieldValue) {
             alert(`يرجى إدخال ${expenseType === 'شحن تاب' ? 'رقم التاب/الفون' : expenseType === 'شحن كهربا' ? 'مكان الشحن' : expenseType === 'بنزين' ? 'اسم المستلم' : 'المسؤول عن العجز'}.`);
             return;
@@ -435,7 +469,7 @@ async function addExpense() {
             new Date().toLocaleDateString('ar-EG'),
             new Date().toLocaleTimeString('ar-EG'),
             currentUser,
-            expenseInvoice,
+            expenseInvoice, // Invoice number for visa
             expenseAmount,
             visaNumber,
             expenseNotes
@@ -448,7 +482,7 @@ async function addExpense() {
             currentUser,
             expenseInvoice,
             expenseAmount,
-            extraFieldValue,
+            extraFieldValue, // Customer Name
             expenseNotes
         ];
     }
@@ -469,7 +503,7 @@ async function addExpense() {
         if (expenseType === 'فيزا') {
             dailyData.visa.push(newEntry);
             dailyData.visaAmount += expenseAmount;
-            usedVisaNumbers.add(dataToSave[5]);
+            usedVisaNumbers.add(dataToSave[5]); // Store visa number
         } else if (expenseType === 'أجل') {
             dailyData.credit.push(newEntry);
             dailyData.creditAmount += expenseAmount;
@@ -524,8 +558,11 @@ async function addSectionEntry() {
             timestamp: new Date().toLocaleString('ar-EG')
         };
 
+        if (!dailyData.sections[sectionType]) {
+            dailyData.sections[sectionType] = [];
+        }
         dailyData.sections[sectionType].push(newEntry);
-        dailyData.totalSections += sectionAmount;
+        dailyData.totalSectionsCash += sectionAmount; // Assuming all sections are cash for now
         updateEntriesList();
         updateStats();
         clearSectionForm();
@@ -536,6 +573,8 @@ async function addSectionEntry() {
 // Update Entries List (for expenses & sections tab)
 function updateEntriesList() {
     const entriesListContainer = document.getElementById('entriesListContainer');
+    if (!entriesListContainer) return; // Handle null element
+
     entriesListContainer.innerHTML = '';
 
     // Combine all entries
@@ -599,14 +638,14 @@ function updateEntriesList() {
                 ${item.notes ? `<br><small>ملاحظات: ${item.notes}</small>` : ''}
                 <br><small>${item.timestamp}</small>
             </div>
-            <button class="btn-danger btn-small" onclick="deleteEntry('${item.displayType}', ${item.id}, '${item.category}')">حذف</button>
+            <button class="btn-danger btn-small" onclick="deleteEntry('${item.displayType}', ${item.id}, '${item.category}', '${item.extraField || ''}')">حذف</button>
         `;
         entriesListContainer.appendChild(itemElement);
     });
 }
 
 // Delete Entry Function
-function deleteEntry(displayType, id, category) {
+function deleteEntry(displayType, id, category, extraField) {
     if (!confirm('هل أنت متأكد من حذف هذا الإدخال؟')) return;
 
     let itemIndex;
@@ -617,7 +656,7 @@ function deleteEntry(displayType, id, category) {
         if (itemIndex > -1) {
             amountToRemove = dailyData.sections[category][itemIndex].amount;
             dailyData.sections[category].splice(itemIndex, 1);
-            dailyData.totalSections -= amountToRemove;
+            dailyData.totalSectionsCash -= amountToRemove;
         }
     } else if (displayType === 'مصروف') {
         itemIndex = dailyData.expenses.findIndex(item => item.id === id);
@@ -630,7 +669,7 @@ function deleteEntry(displayType, id, category) {
         itemIndex = dailyData.visa.findIndex(item => item.id === id);
         if (itemIndex > -1) {
             amountToRemove = dailyData.visa[itemIndex].amount;
-            const visaNum = dailyData.visa[itemIndex].extraField;
+            const visaNum = extraField; // extraField holds visa number
             dailyData.visa.splice(itemIndex, 1);
             dailyData.visaAmount -= amountToRemove;
             usedVisaNumbers.delete(visaNum);
@@ -639,7 +678,7 @@ function deleteEntry(displayType, id, category) {
         itemIndex = dailyData.credit.findIndex(item => item.id === id);
         if (itemIndex > -1) {
             amountToRemove = dailyData.credit[itemIndex].amount;
-            const customerName = dailyData.credit[itemIndex].extraField;
+            const customerName = extraField; // extraField holds customer name
             dailyData.credit.splice(itemIndex, 1);
             dailyData.creditAmount -= amountToRemove;
             const customerIndex = customers.findIndex(c => c.name === customerName);
@@ -660,18 +699,21 @@ function deleteEntry(displayType, id, category) {
 // Customer Management Functions
 function loadCustomersForCashier() {
     const customerForPaymentSelect = document.getElementById('customerForPayment');
-    customerForPaymentSelect.innerHTML = '<option value="">اختر العميل</option>';
-    
-    customers.forEach(customer => {
-        const option = document.createElement('option');
-        option.value = customer.name;
-        option.textContent = customer.name;
-        customerForPaymentSelect.appendChild(option);
-    });
+    if (customerForPaymentSelect) { // Check if element exists
+        customerForPaymentSelect.innerHTML = '<option value="">اختر العميل</option>';
+        
+        customers.forEach(customer => {
+            const option = document.createElement('option');
+            option.value = customer.name;
+            option.textContent = customer.name;
+            customerForPaymentSelect.appendChild(option);
+        });
+    }
 }
 
 async function addNewCustomer() {
     const newCustomerNameInput = document.getElementById('newCustomerName');
+    if (!newCustomerNameInput) return; // Handle null element
     const newCustomerName = newCustomerNameInput.value.trim();
     
     if (!newCustomerName) {
@@ -697,7 +739,9 @@ async function addNewCustomer() {
 
 async function processCustomerPayment() {
     const customerName = document.getElementById('customerForPayment').value;
-    const paymentAmount = parseFloat(document.getElementById('paymentAmount').value);
+    const paymentAmountInput = document.getElementById('paymentAmount');
+    if (!paymentAmountInput) return; // Handle null element
+    const paymentAmount = parseFloat(paymentAmountInput.value);
     
     if (!customerName || isNaN(paymentAmount) || paymentAmount <= 0) {
         alert('يرجى اختيار العميل وإدخال مبلغ صحيح');
@@ -727,13 +771,14 @@ async function processCustomerPayment() {
     if (success) {
         customers[customerIndex].totalCredit -= paymentAmount;
         updateCustomerCredits();
-        document.getElementById('paymentAmount').value = '';
+        paymentAmountInput.value = '';
         showSuccessMessage(`تم سداد ${paymentAmount} جنيه للعميل ${customerName}`);
     }
 }
 
 function updateCustomerCredits() {
     const customerCreditsContainer = document.getElementById('customerCreditsContainer');
+    if (!customerCreditsContainer) return; // Handle null element
     customerCreditsContainer.innerHTML = '';
 
     if (customers.length === 0) {
@@ -765,56 +810,71 @@ function updateCustomerCredits() {
 // Update Statistics
 function updateStats() {
     // Recalculate totals
-    dailyData.totalSections = 0;
+    dailyData.totalSectionsCash = 0;
     for (const section in dailyData.sections) {
-        dailyData.totalSections += dailyData.sections[section].reduce((sum, item) => sum + item.amount, 0);
+        dailyData.totalSectionsCash += dailyData.sections[section].reduce((sum, item) => sum + item.amount, 0);
     }
     dailyData.totalExpenses = dailyData.expenses.reduce((sum, item) => sum + item.amount, 0);
     dailyData.visaAmount = dailyData.visa.reduce((sum, item) => sum + item.amount, 0);
     dailyData.creditAmount = dailyData.credit.reduce((sum, item) => sum + item.amount, 0);
     
     // Update UI
-    document.getElementById('totalSections').textContent = dailyData.totalSections.toFixed(2);
-    document.getElementById('totalExpenses').textContent = dailyData.totalExpenses.toFixed(2);
-    document.getElementById('visaAmount').textContent = dailyData.visaAmount.toFixed(2);
-    document.getElementById('creditAmount').textContent = dailyData.creditAmount.toFixed(2);
+    const totalSectionsElement = document.getElementById('totalSections');
+    if (totalSectionsElement) totalSectionsElement.textContent = dailyData.totalSectionsCash.toFixed(2);
+    const totalExpensesElement = document.getElementById('totalExpenses');
+    if (totalExpensesElement) totalExpensesElement.textContent = dailyData.totalExpenses.toFixed(2);
+    const visaAmountElement = document.getElementById('visaAmount');
+    if (visaAmountElement) visaAmountElement.textContent = dailyData.visaAmount.toFixed(2);
+    const creditAmountElement = document.getElementById('creditAmount');
+    if (creditAmountElement) creditAmountElement.textContent = dailyData.creditAmount.toFixed(2);
     
-    document.getElementById('summaryTotalSections').textContent = dailyData.totalSections.toFixed(2);
-    document.getElementById('summaryTotalExpenses').textContent = dailyData.totalExpenses.toFixed(2);
-    document.getElementById('summaryVisa').textContent = dailyData.visaAmount.toFixed(2);
-    document.getElementById('summaryActualCash').textContent = dailyData.drawerAmount.toFixed(2);
+    const summaryTotalSectionsCashElement = document.getElementById('summaryTotalSectionsCash');
+    if (summaryTotalSectionsCashElement) summaryTotalSectionsCashElement.textContent = dailyData.totalSectionsCash.toFixed(2);
+    const summaryTotalExpensesElement = document.getElementById('summaryTotalExpenses');
+    if (summaryTotalExpensesElement) summaryTotalExpensesElement.textContent = dailyData.totalExpenses.toFixed(2);
+    const summaryVisaElement = document.getElementById('summaryVisa');
+    if (summaryVisaElement) summaryVisaElement.textContent = dailyData.visaAmount.toFixed(2);
+    const summaryActualCashElement = document.getElementById('summaryActualCash');
+    if (summaryActualCashElement) summaryActualCashElement.textContent = dailyData.drawerAmount.toFixed(2);
     
     // Calculate final total
-    const finalTotal = dailyData.totalSections + dailyData.totalExpenses + dailyData.drawerAmount;
-    document.getElementById('summaryFinalTotal').textContent = finalTotal.toFixed(2);
+    // The final total should be (Cash Sections + Drawer Amount) - Expenses
+    const finalTotal = (dailyData.totalSectionsCash + dailyData.drawerAmount) - dailyData.totalExpenses;
+    const summaryFinalTotalElement = document.getElementById('summaryFinalTotal');
+    if (summaryFinalTotalElement) summaryFinalTotalElement.textContent = finalTotal.toFixed(2);
     
-    // Update sections summary
+    // Update sections summary (Cash only)
     const sectionsSummary = document.getElementById('sectionsSummary');
-    sectionsSummary.innerHTML = '';
-    for (const section in dailyData.sections) {
-        const sectionTotal = dailyData.sections[section].reduce((sum, item) => sum + item.amount, 0);
-        if (sectionTotal > 0) {
-            const sectionElement = document.createElement('div');
-            sectionElement.className = 'summary-item';
-            sectionElement.innerHTML = `<span>${section}:</span> <span>${sectionTotal.toFixed(2)} جنيه</span>`;
-            sectionsSummary.appendChild(sectionElement);
+    if (sectionsSummary) {
+        sectionsSummary.innerHTML = '';
+        for (const section in dailyData.sections) {
+            const sectionTotal = dailyData.sections[section].reduce((sum, item) => sum + item.amount, 0);
+            if (sectionTotal > 0) {
+                const sectionElement = document.createElement('div');
+                sectionElement.className = 'summary-item';
+                sectionElement.innerHTML = `<span>${section}:</span> <span>${sectionTotal.toFixed(2)} جنيه</span>`;
+                sectionsSummary.appendChild(sectionElement);
+            }
         }
     }
     
     // Update visa summary
     const visaSummary = document.getElementById('visaSummary');
-    visaSummary.innerHTML = '';
-    if (dailyData.visaAmount > 0) {
-        const visaElement = document.createElement('div');
-        visaElement.className = 'summary-item';
-        visaElement.innerHTML = `<span>إجمالي الفيزا:</span> <span>${dailyData.visaAmount.toFixed(2)} جنيه</span>`;
-        visaSummary.appendChild(visaElement);
+    if (visaSummary) {
+        visaSummary.innerHTML = '';
+        if (dailyData.visaAmount > 0) {
+            const visaElement = document.createElement('div');
+            visaElement.className = 'summary-item';
+            visaElement.innerHTML = `<span>إجمالي الفيزا:</span> <span>${dailyData.visaAmount.toFixed(2)} جنيه</span>`;
+            visaSummary.appendChild(visaElement);
+        }
     }
 }
 
 // Calculate Drawer Function
 function calculateDrawer() {
     const drawerAmountInput = document.getElementById('drawerAmount');
+    if (!drawerAmountInput) return; // Handle null element
     const drawerAmount = parseFloat(drawerAmountInput.value);
     
     if (isNaN(drawerAmount) || drawerAmount < 0) {
@@ -827,14 +887,15 @@ function calculateDrawer() {
     
     const resultMessage = `
         <div class="drawer-result">
-            <p><strong>إجمالي إيرادات الأقسام:</strong> ${dailyData.totalSections.toFixed(2)} جنيه</p>
+            <p><strong>إجمالي إيرادات الأقسام (كاش):</strong> ${dailyData.totalSectionsCash.toFixed(2)} جنيه</p>
             <p><strong>إجمالي المصروفات المدفوعة:</strong> ${dailyData.totalExpenses.toFixed(2)} جنيه</p>
             <p><strong>الكاش الفعلي في الدرج:</strong> ${drawerAmount.toFixed(2)} جنيه</p>
-            <p><strong>الإجمالي النهائي:</strong> ${(dailyData.totalSections + dailyData.totalExpenses + drawerAmount).toFixed(2)} جنيه</p>
+            <p><strong>الإجمالي النهائي (كاش الأقسام + الدرج - المصروفات):</strong> ${(dailyData.totalSectionsCash + drawerAmount - dailyData.totalExpenses).toFixed(2)} جنيه</p>
         </div>
     `;
     
-    document.getElementById('drawerResult').innerHTML = resultMessage;
+    const drawerResultElement = document.getElementById('drawerResult');
+    if (drawerResultElement) drawerResultElement.innerHTML = resultMessage;
 }
 
 // Finalize Day Closeout
@@ -843,23 +904,28 @@ async function finalizeDayCloseout() {
         return;
     }
     
-    const drawerAmount = parseFloat(document.getElementById('drawerAmount').value);
+    const drawerAmountInput = document.getElementById('drawerAmount');
+    if (!drawerAmountInput) {
+        alert('يرجى حساب جرد الدرج أولاً.');
+        return;
+    }
+    const drawerAmount = parseFloat(drawerAmountInput.value);
     if (isNaN(drawerAmount)) {
         alert('يرجى حساب جرد الدرج أولاً.');
         return;
     }
 
-    const finalTotal = dailyData.totalSections + dailyData.totalExpenses + drawerAmount;
+    const finalCalculatedTotal = (dailyData.totalSectionsCash + drawerAmount) - dailyData.totalExpenses;
 
     const finalData = [
         new Date().toLocaleDateString('ar-EG'),
         currentUser,
-        dailyData.totalSections.toFixed(2),
+        dailyData.totalSectionsCash.toFixed(2), // Total Cash Sections
         dailyData.totalExpenses.toFixed(2),
         dailyData.visaAmount.toFixed(2),
         dailyData.creditAmount.toFixed(2),
-        drawerAmount.toFixed(2),
-        finalTotal.toFixed(2),
+        drawerAmount.toFixed(2), // Actual Drawer Cash
+        finalCalculatedTotal.toFixed(2), // Calculated Final Total
         'N/A', // NewMind Total (to be filled by accountant)
         'N/A', // Difference with NewMind
         'بانتظار المحاسب',
@@ -877,9 +943,12 @@ async function finalizeDayCloseout() {
 
 // Clear Forms
 function clearExpenseForm() {
-    document.getElementById('expenseInvoice').value = '';
-    document.getElementById('expenseAmount').value = '';
-    document.getElementById('expenseNotes').value = '';
+    const expenseInvoice = document.getElementById('expenseInvoice');
+    if (expenseInvoice) expenseInvoice.value = '';
+    const expenseAmount = document.getElementById('expenseAmount');
+    if (expenseAmount) expenseAmount.value = '';
+    const expenseNotes = document.getElementById('expenseNotes');
+    if (expenseNotes) expenseNotes.value = '';
     const extraFieldInput = document.getElementById('extraField');
     if (extraFieldInput) extraFieldInput.value = '';
     const extraFieldCustomerSelect = document.getElementById('extraFieldCustomerSelect');
@@ -887,24 +956,29 @@ function clearExpenseForm() {
 }
 
 function clearSectionForm() {
-    document.getElementById('sectionInvoice').value = '';
-    document.getElementById('sectionAmount').value = '';
-    document.getElementById('sectionNotes').value = '';
+    const sectionInvoice = document.getElementById('sectionInvoice');
+    if (sectionInvoice) sectionInvoice.value = '';
+    const sectionAmount = document.getElementById('sectionAmount');
+    if (sectionAmount) sectionAmount.value = '';
+    const sectionNotes = document.getElementById('sectionNotes');
+    if (sectionNotes) sectionNotes.value = '';
 }
 
 // Reset Daily Data
 function resetDailyData() {
     dailyData = {
         sections: {}, expenses: [], visa: [], credit: [],
-        totalSections: 0, totalExpenses: 0, visaAmount: 0, creditAmount: 0,
+        totalSectionsCash: 0, totalExpenses: 0, visaAmount: 0, creditAmount: 0,
         drawerAmount: 0,
     };
     usedVisaNumbers.clear();
     initializeDataStructures();
     updateEntriesList();
     updateStats();
-    document.getElementById('drawerAmount').value = '';
-    document.getElementById('drawerResult').innerHTML = '';
+    const drawerAmountInput = document.getElementById('drawerAmount');
+    if (drawerAmountInput) drawerAmountInput.value = '';
+    const drawerResultElement = document.getElementById('drawerResult');
+    if (drawerResultElement) drawerResultElement.innerHTML = '';
 }
 
 // --- Accountant Dashboard Functions ---
@@ -928,8 +1002,15 @@ function openAccountantTab(tabName) {
     const tabButtons = document.querySelectorAll('#accountantDashboardSection .tab-btn');
     tabButtons.forEach(btn => btn.classList.remove('active'));
 
-    document.getElementById(tabName).style.display = 'block';
-    document.querySelector(`#accountantDashboardSection .tab-btn[onclick="openAccountantTab('${tabName}')"]`).classList.add('active');
+    const targetTab = document.getElementById(tabName);
+    const targetButton = document.querySelector(`#accountantDashboardSection .tab-btn[onclick="openAccountantTab('${tabName}')"]`);
+
+    if (targetTab) {
+        targetTab.style.display = 'block';
+    }
+    if (targetButton) {
+        targetButton.classList.add('active');
+    }
 
     if (tabName === 'usersTab') {
         loadUsersListForAccountant();
@@ -938,6 +1019,8 @@ function openAccountantTab(tabName) {
         populateSectionsForReports();
     } else if (tabName === 'closeoutTab') {
         populateCashierSelects();
+        const closeoutResults = document.getElementById('closeoutResults');
+        if (closeoutResults) closeoutResults.innerHTML = ''; // Clear previous results
     }
 }
 
@@ -945,36 +1028,47 @@ function populateCashierSelects() {
     const selectCashierForReport = document.getElementById('selectCashierForReport');
     const selectCashierForCloseout = document.getElementById('selectCashierForCloseout');
     
-    selectCashierForReport.innerHTML = '<option value="">اختر كاشير</option>';
-    selectCashierForCloseout.innerHTML = '<option value="">اختر كاشير</option>';
+    if (selectCashierForReport) {
+        selectCashierForReport.innerHTML = '<option value="">اختر كاشير</option>';
+    }
+    if (selectCashierForCloseout) {
+        selectCashierForCloseout.innerHTML = '<option value="">اختر كاشير</option>';
+    }
 
     users.filter(u => u.role === 'Cashier').forEach(cashier => {
-        const optionReport = document.createElement('option');
-        optionReport.value = cashier.username;
-        optionReport.textContent = cashier.username;
-        selectCashierForReport.appendChild(optionReport);
+        if (selectCashierForReport) {
+            const optionReport = document.createElement('option');
+            optionReport.value = cashier.username;
+            optionReport.textContent = cashier.username;
+            selectCashierForReport.appendChild(optionReport);
+        }
 
-        const optionCloseout = document.createElement('option');
-        optionCloseout.value = cashier.username;
-        optionCloseout.textContent = cashier.username;
-        selectCashierForCloseout.appendChild(optionCloseout);
+        if (selectCashierForCloseout) {
+            const optionCloseout = document.createElement('option');
+            optionCloseout.value = cashier.username;
+            optionCloseout.textContent = cashier.username;
+            selectCashierForCloseout.appendChild(optionCloseout);
+        }
     });
 }
 
 function populateSectionsForReports() {
     const sectionForReport = document.getElementById('sectionForReport');
-    sectionForReport.innerHTML = '<option value="">اختر القسم</option>';
-    
-    sections.forEach(section => {
-        const option = document.createElement('option');
-        option.value = section;
-        option.textContent = section;
-        sectionForReport.appendChild(option);
-    });
+    if (sectionForReport) { // Check if element exists
+        sectionForReport.innerHTML = '<option value="">اختر القسم</option>';
+        
+        sections.forEach(section => {
+            const option = document.createElement('option');
+            option.value = section;
+            option.textContent = section;
+            sectionForReport.appendChild(option);
+        });
+    }
 }
 
 async function loadUsersListForAccountant() {
     const usersListContainer = document.getElementById('usersListContainer');
+    if (!usersListContainer) return; // Handle null element
     usersListContainer.innerHTML = '';
 
     const usersList = document.createElement('ul');
@@ -994,10 +1088,16 @@ async function loadUsersListForAccountant() {
     usersListContainer.appendChild(usersList);
 }
 
-async function addNewUser() {
-    const newUsername = document.getElementById('newUsername').value.trim();
-    const newPassword = document.getElementById('newPassword').value;
-    const newUserRole = document.getElementById('newUserRole').value;
+async function createNewUser() {
+    const newUsernameInput = document.getElementById('newUsername');
+    const newPasswordInput = document.getElementById('newUserPassword');
+    const newUserRoleSelect = document.getElementById('newUserRole');
+
+    if (!newUsernameInput || !newPasswordInput || !newUserRoleSelect) return; // Handle null elements
+
+    const newUsername = newUsernameInput.value.trim();
+    const newPassword = newPasswordInput.value;
+    const newUserRole = newUserRoleSelect.value;
     
     if (!newUsername || !newPassword || !newUserRole) {
         alert('يرجى إدخال جميع البيانات المطلوبة');
@@ -1014,8 +1114,8 @@ async function addNewUser() {
         users.push({ username: newUsername, password: newPassword, role: newUserRole });
         loadUsersListForAccountant();
         populateCashierSelects();
-        document.getElementById('newUsername').value = '';
-        document.getElementById('newPassword').value = '';
+        newUsernameInput.value = '';
+        newPasswordInput.value = '';
         showSuccessMessage(`تم إضافة المستخدم ${newUsername} بنجاح`);
     }
 }
@@ -1023,8 +1123,8 @@ async function addNewUser() {
 async function deleteUser(username) {
     if (!confirm(`هل أنت متأكد من حذف المستخدم ${username}؟`)) return;
     
-    // Note: This only removes from the current session, not from Google Sheets
     // In a real implementation, you would need to delete from the sheet
+    // This example only removes from the local 'users' array
     const userIndex = users.findIndex(u => u.username === username);
     if (userIndex > -1) {
         users.splice(userIndex, 1);
@@ -1034,56 +1134,198 @@ async function deleteUser(username) {
     }
 }
 
-async function generateReport() {
-    const reportType = document.getElementById('reportType').value;
-    const startDate = document.getElementById('startDate').value;
-    const endDate = document.getElementById('endDate').value;
-    const cashierName = document.getElementById('selectCashierForReport').value;
-    const sectionName = document.getElementById('sectionForReport').value;
-    
+// New functions for generating specific reports
+async function generateExpensesReport() {
+    const startDate = document.getElementById('expensesReportStartDate').value;
+    const endDate = document.getElementById('expensesReportEndDate').value;
+    const reportResultElement = document.getElementById('expensesReportResult');
+
     if (!startDate || !endDate) {
-        alert('يرجى تحديد تاريخ البداية والنهاية');
+        alert('يرجى تحديد تاريخ البداية والنهاية لتقرير المصروفات.');
         return;
     }
-    
-    let reportTitle = '';
-    let reportData = [];
-    
-    if (reportType === 'sections') {
-        if (!sectionName) {
-            alert('يرجى اختيار القسم');
-            return;
-        }
-        reportTitle = `تقرير قسم ${sectionName}`;
-        // Load section data from Google Sheets and filter by date and section
-        const sectionData = await loadDataFromSheet('Sections');
-        reportData = sectionData.slice(1).filter(row => {
-            const rowDate = row[0];
-            const rowSection = row[3];
-            const rowCashier = row[2];
-            return rowSection === sectionName && 
-                   rowDate >= startDate && 
-                   rowDate <= endDate &&
-                   (!cashierName || rowCashier === cashierName);
-        });
-    } else if (reportType === 'expenses') {
-        reportTitle = 'تقرير المصروفات';
-        // Load expense data from Google Sheets and filter by date
-        const expenseData = await loadDataFromSheet('Expenses');
-        reportData = expenseData.slice(1).filter(row => {
-            const rowDate = row[0];
-            const rowCashier = row[2];
-            return rowDate >= startDate && 
-                   rowDate <= endDate &&
-                   (!cashierName || rowCashier === cashierName);
-        });
-    }
-    
-    displayReport(reportTitle, reportData, reportType);
+
+    const expenseData = await loadDataFromSheet('Expenses');
+    const filteredData = expenseData.slice(1).filter(row => {
+        const rowDate = row[0];
+        return rowDate >= startDate && rowDate <= endDate;
+    });
+
+    displayReport('تقرير المصروفات', filteredData, 'expenses', reportResultElement);
 }
 
-function displayReport(title, data, type) {
-    const reportResults = document.getElementById('reportResults');
+async function generateSectionsReport() {
+    const sectionName = document.getElementById('sectionForReport').value;
+    const startDate = document.getElementById('sectionsReportStartDate').value;
+    const endDate = document.getElementById('sectionsReportEndDate').value;
+    const reportResultElement = document.getElementById('sectionsReportResult');
+
+    if (!sectionName) {
+        alert('يرجى اختيار القسم لتقرير الأقسام.');
+        return;
+    }
+    if (!startDate || !endDate) {
+        alert('يرجى تحديد تاريخ البداية والنهاية لتقرير الأقسام.');
+        return;
+    }
+
+    const sectionData = await loadDataFromSheet('Sections');
+    const filteredData = sectionData.slice(1).filter(row => {
+        const rowDate = row[0];
+        const rowSection = row[3];
+        return rowSection === sectionName && rowDate >= startDate && rowDate <= endDate;
+    });
+
+    displayReport(`تقرير قسم ${sectionName}`, filteredData, 'sections', reportResultElement);
+}
+
+async function generateCashierReport() {
+    const cashierName = document.getElementById('selectCashierForReport').value;
+    const startDate = document.getElementById('reportStartDate').value;
+    const endDate = document.getElementById('reportEndDate').value;
+    const reportResultElement = document.getElementById('cashierReportResult');
+
+    if (!cashierName) {
+        alert('يرجى اختيار الكاشير لتقرير الكاشير.');
+        return;
+    }
+    if (!startDate || !endDate) {
+        alert('يرجى تحديد تاريخ البداية والنهاية لتقرير الكاشير.');
+        return;
+    }
+
+    const allEntries = [];
+    const sectionsData = await loadDataFromSheet('Sections');
+    const expensesData = await loadDataFromSheet('Expenses');
+    const visaData = await loadDataFromSheet('Visa');
+    const creditData = await loadDataFromSheet('Credit');
+    const customerPaymentsData = await loadDataFromSheet('CustomerPayments');
+
+    // Filter and add sections
+    sectionsData.slice(1).filter(row => {
+        const rowDate = row[0];
+        const rowCashier = row[2];
+        return rowCashier === cashierName && rowDate >= startDate && rowDate <= endDate;
+    }).forEach(row => allEntries.push({
+        type: 'إيراد قسم',
+        category: row[3],
+        invoice: row[4],
+        amount: parseFloat(row[5]),
+        notes: row[6],
+        date: row[0],
+        time: row[1]
+    }));
+
+    // Filter and add expenses
+    expensesData.slice(1).filter(row => {
+        const rowDate = row[0];
+        const rowCashier = row[2];
+        return rowCashier === cashierName && rowDate >= startDate && rowDate <= endDate;
+    }).forEach(row => allEntries.push({
+        type: 'مصروف',
+        category: row[3],
+        invoice: row[4],
+        amount: parseFloat(row[5]),
+        notes: row[6],
+        extra: row[7],
+        date: row[0],
+        time: row[1]
+    }));
+
+    // Filter and add visa
+    visaData.slice(1).filter(row => {
+        const rowDate = row[0];
+        const rowCashier = row[2];
+        return rowCashier === cashierName && rowDate >= startDate && rowDate <= endDate;
+    }).forEach(row => allEntries.push({
+        type: 'فيزا',
+        category: 'فيزا',
+        invoice: row[3],
+        amount: parseFloat(row[4]),
+        notes: `رقم الفيزا: ${row[5]}, ${row[6]}`,
+        date: row[0],
+        time: row[1]
+    }));
+
+    // Filter and add credit sales
+    creditData.slice(1).filter(row => {
+        const rowDate = row[0];
+        const rowCashier = row[2];
+        return rowCashier === cashierName && rowDate >= startDate && rowDate <= endDate;
+    }).forEach(row => allEntries.push({
+        type: 'مبيعات آجلة',
+        category: 'آجل',
+        invoice: row[3],
+        amount: parseFloat(row[4]),
+        notes: `العميل: ${row[5]}, ${row[6]}`,
+        date: row[0],
+        time: row[1]
+    }));
+
+    // Filter and add customer payments
+    customerPaymentsData.slice(1).filter(row => {
+        const rowDate = row[0];
+        const rowCashier = row[2];
+        return rowCashier === cashierName && rowDate >= startDate && rowDate <= endDate;
+    }).forEach(row => allEntries.push({
+        type: 'سداد أجل عميل',
+        category: 'سداد أجل',
+        invoice: 'N/A',
+        amount: parseFloat(row[4]),
+        notes: `العميل: ${row[3]}, ${row[5]}`,
+        date: row[0],
+        time: row[1]
+    }));
+
+    let html = `<h3>تقرير الكاشير: ${cashierName} من ${startDate} إلى ${endDate}</h3>`;
+    if (allEntries.length === 0) {
+        html += '<p>لا توجد بيانات لهذا الكاشير في الفترة المحددة.</p>';
+    } else {
+        html += '<table class="report-table"><thead><tr>';
+        html += '<th>التاريخ</th><th>الوقت</th><th>النوع</th><th>القسم/المصروف</th><th>رقم الفاتورة</th><th>المبلغ</th><th>ملاحظات</th>';
+        html += '</tr></thead><tbody>';
+
+        let totalIncome = 0;
+        let totalExpenses = 0;
+        let totalVisa = 0;
+        let totalCreditSales = 0;
+        let totalCustomerPayments = 0;
+
+        allEntries.sort((a, b) => new Date(`${a.date} ${a.time}`) - new Date(`${b.date} ${b.time}`));
+
+        allEntries.forEach(entry => {
+            html += '<tr>';
+            html += `<td>${entry.date}</td><td>${entry.time}</td><td>${entry.type}</td><td>${entry.category}</td><td>${entry.invoice}</td><td>${entry.amount.toFixed(2)}</td><td>${entry.notes || ''}</td>`;
+            html += '</tr>';
+
+            if (entry.type === 'إيراد قسم') {
+                totalIncome += entry.amount;
+            } else if (entry.type === 'مصروف') {
+                totalExpenses += entry.amount;
+            } else if (entry.type === 'فيزا') {
+                totalVisa += entry.amount;
+            } else if (entry.type === 'مبيعات آجلة') {
+                totalCreditSales += entry.amount;
+            } else if (entry.type === 'سداد أجل عميل') {
+                totalCustomerPayments += entry.amount;
+            }
+        });
+        html += '</tbody></table>';
+
+        html += `<div class="report-summary mt-20">
+            <p><strong>إجمالي إيرادات الأقسام (كاش):</strong> ${totalIncome.toFixed(2)} جنيه</p>
+            <p><strong>إجمالي المصروفات:</strong> ${totalExpenses.toFixed(2)} جنيه</p>
+            <p><strong>إجمالي مبيعات الفيزا:</strong> ${totalVisa.toFixed(2)} جنيه</p>
+            <p><strong>إجمالي المبيعات الآجلة:</strong> ${totalCreditSales.toFixed(2)} جنيه</p>
+            <p><strong>إجمالي سداد العملاء الآجلين:</strong> ${totalCustomerPayments.toFixed(2)} جنيه</p>
+        </div>`;
+    }
+    if (reportResultElement) reportResultElement.innerHTML = html;
+}
+
+
+function displayReport(title, data, type, resultElement) {
+    if (!resultElement) return; // Handle null element
     let total = 0;
     
     let html = `<h3>${title}</h3>`;
@@ -1094,9 +1336,9 @@ function displayReport(title, data, type) {
         html += '<table class="report-table"><thead><tr>';
         
         if (type === 'sections') {
-            html += '<th>التاريخ</th><th>الكاشير</th><th>رقم الفاتورة</th><th>المبلغ</th><th>ملاحظات</th>';
+            html += '<th>التاريخ</th><th>الوقت</th><th>الكاشير</th><th>القسم</th><th>رقم الفاتورة</th><th>المبلغ</th><th>ملاحظات</th>';
         } else if (type === 'expenses') {
-            html += '<th>التاريخ</th><th>الكاشير</th><th>نوع المصروف</th><th>رقم الفاتورة</th><th>المبلغ</th><th>ملاحظات</th>';
+            html += '<th>التاريخ</th><th>الوقت</th><th>الكاشير</th><th>نوع المصروف</th><th>رقم الفاتورة</th><th>المبلغ</th><th>ملاحظات</th><th>حقل إضافي</th>';
         }
         
         html += '</tr></thead><tbody>';
@@ -1104,10 +1346,10 @@ function displayReport(title, data, type) {
         data.forEach(row => {
             html += '<tr>';
             if (type === 'sections') {
-                html += `<td>${row[0]}</td><td>${row[2]}</td><td>${row[4]}</td><td>${parseFloat(row[5]).toFixed(2)}</td><td>${row[6] || ''}</td>`;
+                html += `<td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]}</td><td>${parseFloat(row[5]).toFixed(2)}</td><td>${row[6] || ''}</td>`;
                 total += parseFloat(row[5]);
             } else if (type === 'expenses') {
-                html += `<td>${row[0]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]}</td><td>${parseFloat(row[5]).toFixed(2)}</td><td>${row[6] || ''}</td>`;
+                html += `<td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]}</td><td>${parseFloat(row[5]).toFixed(2)}</td><td>${row[6] || ''}</td><td>${row[7] || ''}</td>`;
                 total += parseFloat(row[5]);
             }
             html += '</tr>';
@@ -1117,13 +1359,17 @@ function displayReport(title, data, type) {
         html += `<p class="report-total"><strong>الإجمالي: ${total.toFixed(2)} جنيه</strong></p>`;
     }
     
-    reportResults.innerHTML = html;
+    resultElement.innerHTML = html;
 }
 
 async function loadCloseoutData() {
     const cashierName = document.getElementById('selectCashierForCloseout').value;
     const closeoutDate = document.getElementById('closeoutDate').value;
+    const closeoutResults = document.getElementById('closeoutResults');
     
+    if (!closeoutResults) return; // Handle null element
+    closeoutResults.innerHTML = ''; // Clear previous results
+
     if (!cashierName || !closeoutDate) {
         alert('يرجى اختيار الكاشير والتاريخ');
         return;
@@ -1139,6 +1385,7 @@ async function loadCloseoutData() {
 
 function displayCloseoutData(data) {
     const closeoutResults = document.getElementById('closeoutResults');
+    if (!closeoutResults) return; // Handle null element
     
     if (data.length === 0) {
         closeoutResults.innerHTML = '<p>لا توجد بيانات تقفيل للكاشير والتاريخ المحددين.</p>';
@@ -1149,12 +1396,12 @@ function displayCloseoutData(data) {
     let html = `
         <h3>بيانات تقفيل ${row[1]} بتاريخ ${row[0]}</h3>
         <div class="closeout-details">
-            <p><strong>إجمالي إيرادات الأقسام:</strong> ${parseFloat(row[2]).toFixed(2)} جنيه</p>
+            <p><strong>إجمالي إيرادات الأقسام (كاش):</strong> ${parseFloat(row[2]).toFixed(2)} جنيه</p>
             <p><strong>إجمالي المصروفات:</strong> ${parseFloat(row[3]).toFixed(2)} جنيه</p>
             <p><strong>إجمالي الفيزا:</strong> ${parseFloat(row[4]).toFixed(2)} جنيه</p>
             <p><strong>إجمالي المبيعات الآجلة:</strong> ${parseFloat(row[5]).toFixed(2)} جنيه</p>
             <p><strong>الكاش الفعلي في الدرج:</strong> ${parseFloat(row[6]).toFixed(2)} جنيه</p>
-            <p><strong>الإجمالي النهائي:</strong> ${parseFloat(row[7]).toFixed(2)} جنيه</p>
+            <p><strong>الإجمالي النهائي (محسوب):</strong> ${parseFloat(row[7]).toFixed(2)} جنيه</p>
             <p><strong>إجمالي نيو مايند:</strong> ${row[8]}</p>
             <p><strong>الفرق:</strong> ${row[9]}</p>
             <p><strong>حالة التقفيل:</strong> ${row[10]}</p>
@@ -1164,10 +1411,10 @@ function displayCloseoutData(data) {
     
     if (row[10] === 'بانتظار المحاسب') {
         html += `
-            <div class="closeout-actions">
-                <label for="newmindTotal">إجمالي نيو مايند:</label>
-                <input type="number" id="newmindTotal" step="0.01">
-                <button class="btn-primary" onclick="finalizeCloseout('${row[0]}', '${row[1]}')">إقفال نهائي</button>
+            <div class="closeout-actions mt-20">
+                <label for="accountantNewMindTotal">إجمالي نيو مايند:</label>
+                <input type="number" id="accountantNewMindTotal" step="0.01" placeholder="أدخل إجمالي التقفيلة من نيو مايند">
+                <button class="btn btn-success" onclick="performAccountantCloseout('${row[0]}', '${row[1]}', ${parseFloat(row[7])})">تقفيل الحساب</button>
             </div>
         `;
     }
@@ -1175,19 +1422,147 @@ function displayCloseoutData(data) {
     closeoutResults.innerHTML = html;
 }
 
-async function finalizeCloseout(date, cashier) {
-    const newmindTotal = parseFloat(document.getElementById('newmindTotal').value);
+async function performAccountantCloseout(date, cashier, cashierCalculatedTotal) {
+    const accountantNewMindTotalInput = document.getElementById('accountantNewMindTotal');
+    if (!accountantNewMindTotalInput) return; // Handle null element
+    const accountantNewMindTotal = parseFloat(accountantNewMindTotalInput.value);
     
-    if (isNaN(newmindTotal) || newmindTotal < 0) {
-        alert('يرجى إدخال إجمالي نيو مايند بشكل صحيح');
+    if (isNaN(accountantNewMindTotal) || accountantNewMindTotal < 0) {
+        alert('يرجى إدخال إجمالي نيو مايند بشكل صحيح.');
         return;
     }
+
+    const difference = accountantNewMindTotal - cashierCalculatedTotal;
+    const status = difference === 0 ? 'تم التقفيل' : (difference > 0 ? 'زيادة' : 'عجز');
+
+    // In a real application, you would need to find the specific row in 'DailyCloseout'
+    // and update it. This requires more advanced Google Sheets API operations (e.g., `update`).
+    // For this example, we'll simulate the update and show a success message.
     
-    // In a real implementation, you would update the specific row in Google Sheets
-    // For now, we'll just show a success message
-    showSuccessMessage(`تم إقفال تقفيل ${cashier} بتاريخ ${date} بنجاح`);
-    document.getElementById('closeoutResults').innerHTML += '<p class="success">تم الإقفال النهائي</p>';
+    // Simulate updating the sheet (this part needs actual implementation for real update)
+    console.log(`Updating closeout for ${cashier} on ${date}:`);
+    console.log(`NewMind Total: ${accountantNewMindTotal}`);
+    console.log(`Difference: ${difference}`);
+    console.log(`Status: ${status}`);
+
+    showSuccessMessage(`تم تقفيل حساب الكاشير ${cashier} بتاريخ ${date} بنجاح. الفرق: ${difference.toFixed(2)} (${status})`);
+    
+    // Refresh the closeout data to show the updated status (if implemented)
+    loadCloseoutData();
 }
+
+async function searchInvoice() {
+    const searchInvoiceNumber = document.getElementById('searchInvoiceNumber').value.trim();
+    const invoiceSearchResult = document.getElementById('invoiceSearchResult');
+    if (!invoiceSearchResult) return; // Handle null element
+    invoiceSearchResult.innerHTML = '';
+
+    if (!searchInvoiceNumber) {
+        alert('يرجى إدخال رقم الفاتورة للبحث.');
+        return;
+    }
+
+    let foundEntries = [];
+
+    // Search in Sections
+    const sectionsData = await loadDataFromSheet('Sections');
+    sectionsData.slice(1).forEach(row => {
+        if (row[4] === searchInvoiceNumber) { // Invoice number is at index 4
+            foundEntries.push({
+                sheet: 'Sections',
+                type: 'إيراد قسم',
+                date: row[0],
+                time: row[1],
+                cashier: row[2],
+                category: row[3],
+                invoice: row[4],
+                amount: parseFloat(row[5]),
+                notes: row[6]
+            });
+        }
+    });
+
+    // Search in Expenses
+    const expensesData = await loadDataFromSheet('Expenses');
+    expensesData.slice(1).forEach(row => {
+        if (row[4] === searchInvoiceNumber) { // Invoice number is at index 4
+            foundEntries.push({
+                sheet: 'Expenses',
+                type: 'مصروف',
+                date: row[0],
+                time: row[1],
+                cashier: row[2],
+                category: row[3],
+                invoice: row[4],
+                amount: parseFloat(row[5]),
+                notes: row[6],
+                extraField: row[7]
+            });
+        }
+    });
+
+    // Search in Visa
+    const visaData = await loadDataFromSheet('Visa');
+    visaData.slice(1).forEach(row => {
+        if (row[3] === searchInvoiceNumber) { // Invoice number is at index 3
+            foundEntries.push({
+                sheet: 'Visa',
+                type: 'فيزا',
+                date: row[0],
+                time: row[1],
+                cashier: row[2],
+                invoice: row[3],
+                amount: parseFloat(row[4]),
+                visaNumber: row[5],
+                notes: row[6]
+            });
+        }
+    });
+
+    // Search in Credit
+    const creditData = await loadDataFromSheet('Credit');
+    creditData.slice(1).forEach(row => {
+        if (row[3] === searchInvoiceNumber) { // Invoice number is at index 3
+            foundEntries.push({
+                sheet: 'Credit',
+                type: 'مبيعات آجلة',
+                date: row[0],
+                time: row[1],
+                cashier: row[2],
+                invoice: row[3],
+                amount: parseFloat(row[4]),
+                customer: row[5],
+                notes: row[6]
+            });
+        }
+    });
+
+    if (foundEntries.length === 0) {
+        invoiceSearchResult.innerHTML = '<p>لم يتم العثور على فاتورة بهذا الرقم.</p>';
+    } else {
+        let html = `<h3>نتائج البحث عن الفاتورة رقم: ${searchInvoiceNumber}</h3>`;
+        html += '<table class="report-table"><thead><tr>';
+        html += '<th>الورقة</th><th>النوع</th><th>التاريخ</th><th>الوقت</th><th>الكاشير</th><th>القسم/المصروف/العميل</th><th>رقم الفاتورة</th><th>المبلغ</th><th>ملاحظات</th>';
+        html += '</tr></thead><tbody>';
+
+        foundEntries.forEach(entry => {
+            html += '<tr>';
+            html += `<td>${entry.sheet}</td>`;
+            html += `<td>${entry.type}</td>`;
+            html += `<td>${entry.date}</td>`;
+            html += `<td>${entry.time}</td>`;
+            html += `<td>${entry.cashier}</td>`;
+            html += `<td>${entry.category || entry.customer || entry.visaNumber || ''}</td>`; // Display relevant info
+            html += `<td>${entry.invoice}</td>`;
+            html += `<td>${entry.amount.toFixed(2)}</td>`;
+            html += `<td>${entry.notes || ''}</td>`;
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        invoiceSearchResult.innerHTML = html;
+    }
+}
+
 
 // --- Utility Functions ---
 function showSuccessMessage(message) {
