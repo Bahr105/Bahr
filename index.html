@@ -47,21 +47,25 @@
             
             <!-- Navigation Tabs for Cashier -->
             <div class="tabs">
-                <button class="tab-btn active" onclick="openTab('expensesTab')">المصروفات</button>
-                <button class="tab-btn" onclick="openTab('sectionsTab')">أقسام المبيعات</button>
+                <button class="tab-btn active" onclick="openTab('expensesSectionsTab')">المصروفات والاقسام</button>
                 <button class="tab-btn" onclick="openTab('customersTab')">العملاء الآجلين</button>
                 <button class="tab-btn" onclick="openTab('summaryTab')">ملخص اليوم</button>
             </div>
             
-            <!-- Expenses Tab -->
-            <div id="expensesTab" class="tab-content active">
-                <h2>📊 إدخال المصروفات والفواتير</h2>
+            <!-- Expenses & Sections Tab -->
+            <div id="expensesSectionsTab" class="tab-content active">
+                <h2>📊 إدخال المصروفات والايرادات</h2>
                 
-                <div class="search-section">
-                    <input type="text" id="expenseSearch" placeholder="ابحث عن نوع المصروف..." onkeyup="searchExpenses()">
+                <div class="entry-type-selector">
+                    <label>نوع الإدخال:</label>
+                    <select id="entryType" onchange="toggleEntryForm()">
+                        <option value="expense">مصروف</option>
+                        <option value="section">ايراد قسم</option>
+                    </select>
                 </div>
                 
-                <div class="expense-form">
+                <!-- Expense Form -->
+                <div class="entry-form" id="expenseForm">
                     <div class="form-group">
                         <label>نوع المصروف:</label>
                         <select id="expenseType" onchange="toggleExtraField()">
@@ -92,18 +96,36 @@
                     <button class="btn" onclick="addExpense()">إضافة المصروف</button>
                 </div>
                 
-                <div class="expenses-list">
-                    <h3>المصروفات المضافة اليوم</h3>
-                    <div id="expensesListContainer"></div>
+                <!-- Section Form -->
+                <div class="entry-form" id="sectionForm" style="display: none;">
+                    <div class="form-group">
+                        <label>القسم:</label>
+                        <select id="sectionType">
+                            <!-- Options populated dynamically from Google Sheets -->
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>رقم الفاتورة:</label>
+                        <input type="text" id="sectionInvoice" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>قيمة الفاتورة:</label>
+                        <input type="number" id="sectionAmount" step="0.01" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>ملاحظات:</label>
+                        <textarea id="sectionNotes" rows="2"></textarea>
+                    </div>
+                    
+                    <button class="btn" onclick="addSectionEntry()">إضافة ايراد</button>
                 </div>
-            </div>
-            
-            <!-- Sections Tab -->
-            <div id="sectionsTab" class="tab-content">
-                <h2>🛒 أقسام المبيعات</h2>
                 
-                <div class="sections-container" id="salesSectionsContainer">
-                    <!-- سيتم إضافة الأقسام ديناميكياً هنا -->
+                <div class="entries-list">
+                    <h3>الإدخالات المضافة اليوم</h3>
+                    <div id="entriesListContainer"></div>
                 </div>
             </div>
             
@@ -115,6 +137,21 @@
                     <div class="form-group">
                         <input type="text" id="newCustomerName" placeholder="اسم العميل الجديد">
                         <button class="btn" onclick="addNewCustomer()">إضافة عميل</button>
+                    </div>
+                    
+                    <div class="customer-payment-section">
+                        <h3>سداد أجل عميل</h3>
+                        <div class="form-group">
+                            <label>اختر العميل:</label>
+                            <select id="customerForPayment">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>المبلغ المسدد:</label>
+                            <input type="number" id="paymentAmount" step="0.01" placeholder="أدخل المبلغ المسدد">
+                        </div>
+                        <button class="btn" onclick="processCustomerPayment()">تسديد</button>
                     </div>
                     
                     <div class="customers-list" id="customersListContainer">
@@ -134,8 +171,8 @@
                 
                 <div class="stats-grid">
                     <div class="stats-card">
-                        <h4>💰 إجمالي المبيعات</h4>
-                        <div class="stats-number" id="totalSales">0</div>
+                        <h4>💰 إجمالي إيرادات الأقسام</h4>
+                        <div class="stats-number" id="totalSections">0</div>
                     </div>
                     <div class="stats-card">
                         <h4>📉 إجمالي المصروفات</h4>
@@ -148,6 +185,18 @@
                     <div class="stats-card">
                         <h4>📝 المبيعات الآجلة</h4>
                         <div class="stats-number" id="creditAmount">0</div>
+                    </div>
+                </div>
+                
+                <div class="summary-details">
+                    <div class="summary-section">
+                        <h3>💰 إيرادات الأقسام</h3>
+                        <div id="sectionsSummary"></div>
+                    </div>
+                    
+                    <div class="summary-section">
+                        <h3>💳 الفيزا</h3>
+                        <div id="visaSummary"></div>
                     </div>
                 </div>
                 
@@ -165,20 +214,24 @@
                     <h3>📋 الملخص النهائي</h3>
                     <div class="summary-grid">
                         <div class="summary-card">
-                            <h4>💰 إجمالي المبيعات</h4>
-                            <p><strong><span id="summaryTotalSales">0</span> جنيه</strong></p>
+                            <h4>💰 إجمالي إيرادات الأقسام</h4>
+                            <p><strong><span id="summaryTotalSections">0</span> جنيه</strong></p>
                         </div>
                         <div class="summary-card">
                             <h4>📉 إجمالي المصروفات</h4>
                             <p><strong><span id="summaryTotalExpenses">0</span> جنيه</strong></p>
                         </div>
                         <div class="summary-card">
-                            <h4>💵 الكاش المتوقع</h4>
-                            <p><strong><span id="summaryExpectedCash">0</span> جنيه</strong></p>
+                            <h4>💳 إجمالي الفيزا</h4>
+                            <p><strong><span id="summaryVisa">0</span> جنيه</strong></p>
                         </div>
                         <div class="summary-card">
                             <h4>💵 الكاش الفعلي</h4>
                             <p><strong><span id="summaryActualCash">0</span> جنيه</strong></p>
+                        </div>
+                        <div class="summary-card total-card">
+                            <h4>🏦 الإجمالي النهائي</h4>
+                            <p><strong><span id="summaryFinalTotal">0</span> جنيه</strong></p>
                         </div>
                     </div>
                     
@@ -203,7 +256,7 @@
             <!-- Navigation Tabs for Accountant -->
             <div class="tabs">
                 <button class="tab-btn active" onclick="openAccountantTab('usersTab')">إدارة المستخدمين</button>
-                <button class="tab-btn" onclick="openAccountantTab('reportsTab')">تقارير الكاشير</button>
+                <button class="tab-btn" onclick="openAccountantTab('reportsTab')">التقارير</button>
                 <button class="tab-btn" onclick="openAccountantTab('closeoutTab')">تقفيل الحسابات</button>
                 <button class="tab-btn" onclick="openAccountantTab('searchTab')">بحث عن فاتورة</button>
             </div>
@@ -240,9 +293,44 @@
             
             <!-- Reports Tab -->
             <div id="reportsTab" class="tab-content">
-                <h2>📊 تقارير الكاشير</h2>
+                <h2>📊 التقارير</h2>
                 
                 <div class="action-card">
+                    <h3>تقرير المصروفات</h3>
+                    <div class="form-group">
+                        <label>من تاريخ:</label>
+                        <input type="date" id="expensesReportStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label>إلى تاريخ:</label>
+                        <input type="date" id="expensesReportEndDate">
+                    </div>
+                    <button class="btn" onclick="generateExpensesReport()">عرض تقرير المصروفات</button>
+                    <div id="expensesReportResult" class="report-result"></div>
+                </div>
+                
+                <div class="action-card">
+                    <h3>تقرير الأقسام</h3>
+                    <div class="form-group">
+                        <label>اختر القسم:</label>
+                        <select id="sectionForReport">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>من تاريخ:</label>
+                        <input type="date" id="sectionsReportStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label>إلى تاريخ:</label>
+                        <input type="date" id="sectionsReportEndDate">
+                    </div>
+                    <button class="btn" onclick="generateSectionsReport()">عرض تقرير القسم</button>
+                    <div id="sectionsReportResult" class="report-result"></div>
+                </div>
+                
+                <div class="action-card">
+                    <h3>تقرير الكاشير</h3>
                     <div class="form-group">
                         <label>اختر الكاشير:</label>
                         <select id="selectCashierForReport">
