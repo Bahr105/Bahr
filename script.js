@@ -1,3 +1,23 @@
+// في بداية script.js - حل بديل
+function loadGoogleScripts() {
+    return new Promise((resolve) => {
+        const script1 = document.createElement('script');
+        script1.src = 'https://apis.google.com/js/api.js';
+        script1.onload = gapiLoaded;
+        document.head.appendChild(script1);
+
+        const script2 = document.createElement('script');
+        script2.src = 'https://accounts.google.com/gsi/client';
+        script2.onload = function() {
+            gisLoaded();
+            resolve();
+        };
+        document.head.appendChild(script2);
+    });
+}
+
+// استبدال السكريبتات في HTML واستدعاء هذه الدالة بدلاً منها
+
 // --- Google Sheets API Configuration ---
 const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU'; // Replace with your actual API Key
 const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com'; // Replace with your actual Client ID
