@@ -1,7 +1,7 @@
 // --- Google Sheets API Configuration ---
-const API_KEY = 'YOUR_API_KEY_HERE'; // Replace with your actual API Key
-const CLIENT_ID = 'YOUR_CLIENT_ID_HERE'; // Replace with your actual Client ID
-const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE'; // Replace with your actual Spreadsheet ID
+const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU'; // Replace with your actual API Key
+const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com'; // Replace with your actual Client ID
+const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; // Replace with your actual Spreadsheet ID
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets'; // Full read/write access
 
 let gapiInited = false;
