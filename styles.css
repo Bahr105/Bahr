@@ -96,7 +96,7 @@ body {
     z-index: 2;
 }
 
-.input-group input {
+.input-group input, .input-group select {
     width: 100%;
     padding: 15px 45px 15px 15px;
     border: 2px solid #e1e5e9;
@@ -104,9 +104,12 @@ body {
     font-size: 1rem;
     transition: all 0.3s ease;
     background: #f8f9fa;
+    -webkit-appearance: none; /* Remove default arrow for select */
+    -moz-appearance: none;
+    appearance: none;
 }
 
-.input-group input:focus {
+.input-group input:focus, .input-group select:focus {
     outline: none;
     border-color: #4CAF50;
     background: white;
@@ -513,6 +516,9 @@ body {
     border-radius: 6px;
     font-size: 0.9rem;
     transition: all 0.3s ease;
+    -webkit-appearance: none; /* Remove default arrow for select */
+    -moz-appearance: none;
+    appearance: none;
 }
 
 .filter-group input:focus, .filter-group select:focus {
@@ -822,7 +828,7 @@ table tr:hover {
 }
 
 /* Dynamic Form */
-#dynamicForm {
+#dynamicExpenseForm {
     margin-top: 20px;
 }
 
