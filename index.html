@@ -22,7 +22,7 @@
                     <p>New Mind POS Management System</p>
                 </div>
                 
-                <form id="loginForm" class="login-form">
+                <form id="loginForm" class="login-form" onsubmit="event.preventDefault(); login();">
                     <div class="form-group">
                         <label for="username">اسم المستخدم</label>
                         <div class="input-group">
@@ -407,15 +407,15 @@
                     </div>
                     
                     <div class="filter-group">
-                        <label for="dashboardCashierFilter">الكاشير:</label>
-                        <select id="dashboardCashierFilter" onchange="updateAccountantDashboard()">
+                        <label for="cashierFilterAccountant">الكاشير:</label>
+                        <select id="cashierFilterAccountant" onchange="updateAccountantDashboard()">
                             <option value="">جميع الكاشيرز</option>
                         </select>
                     </div>
                     
                     <div class="filter-group">
                         <label for="searchInputAccountant">البحث عن فاتورة:</label>
-                        <input type="text" id="searchInputAccountant" placeholder="رقم فاتورة">
+                        <input type="text" id="searchInputAccountant" placeholder="رقم فاتورة" onchange="searchInvoiceAccountant()">
                     </div>
                     <button class="search-btn" onclick="searchInvoiceAccountant()">
                         <i class="fas fa-search"></i>
@@ -554,20 +554,20 @@
                     </div>
                     
                     <div class="filter-group">
-                        <label for="reportCashierFilter">الكاشير:</label>
-                        <select id="reportCashierFilter">
+                        <label for="reportCashierAccountant">الكاشير:</label>
+                        <select id="reportCashierAccountant">
                             <option value="">جميع الكاشيرز</option>
                         </select>
                     </div>
                     
                     <div class="filter-group">
-                        <label for="reportCategoryFilter">التصنيف:</label>
-                        <select id="reportCategoryFilter">
+                        <label for="reportCategoryAccountant">التصنيف:</label>
+                        <select id="reportCategoryAccountant">
                             <option value="">جميع التصنيفات</option>
                         </select>
                     </div>
                     
-                    <button class="generate-report-btn" onclick="generateReport()">
+                    <button class="generate-report-btn" onclick="generateAccountantReport()">
                         <i class="fas fa-chart-line"></i>
                         إنشاء التقرير
                     </button>
@@ -586,23 +586,7 @@
                 </div>
                 
                 <div class="report-content" id="reportContentAccountant">
-                    <table id="reportTableAccountant">
-                        <thead>
-                            <tr>
-                                <th>التصنيف</th>
-                                <th>رقم الفاتورة</th>
-                                <th>القيمة</th>
-                                <th>التاريخ</th>
-                                <th>الوقت</th>
-                                <th>الكاشير</th>
-                                <th>الملاحظات</th>
-                                <th>الإجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody id="reportTableBody">
-                            <!-- سيتم عرض التقرير هنا -->
-                        </tbody>
-                    </table>
+                    <!-- سيتم عرض التقرير هنا -->
                 </div>
             </div>
 
@@ -631,7 +615,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="selectedCashierAccountant">البحث عن الكاشير:</label>
-                    <select id="selectedCashierAccountant">
+                    <select id="selectedCashierAccountant" onchange="searchCashierClosuresAccountant()">
                         <option value="">اختر الكاشير</option>
                         <!-- Options will be populated by JavaScript -->
                     </select>
@@ -669,13 +653,9 @@
                 <h3>نتائج البحث</h3>
                 <div class="closure-summary" id="closureSummaryAccountant">
                     <p>إجمالي المصروفات (عادي): <span id="accTotalNormalExpenses">0</span></p>
-                    <p>عدد فواتير المصروفات (عادي): <span id="normalExpensesCountAccountant">0</span></p>
                     <p>إجمالي الفيزا: <span id="accTotalVisa">0</span></p>
-                    <p>عدد فواتير الفيزا: <span id="visaCountAccountant">0</span></p>
                     <p>إجمالي الإنستا: <span id="accTotalInsta">0</span></p>
-                    <p>عدد فواتير الإنستا: <span id="instaCountAccountant">0</span></p>
                     <p>إجمالي الأونلاين: <span id="accTotalOnline">0</span></p>
-                    <p>عدد فواتير الأونلاين: <span id="onlineCountAccountant">0</span></p>
                     <p>إجمالي الكاش في الدرج: <span id="accDrawerCash">0</span></p>
                     <p><strong>الإجمالي الكلي للكاشير: <span id="accGrandTotalCashier">0</span></strong></p>
                 </div>
@@ -683,7 +663,7 @@
                 <div class="newmind-input">
                     <div class="form-group">
                         <label for="newmindTotalAccountant">إجمالي نيو مايند:</label>
-                        <input type="number" id="newmindTotalAccountant" placeholder="أدخل إجمالي نظام نيو مايند" step="0.01" oninput="calculateDifferenceAccountant()">
+                        <input type="number" id="newmindTotalAccountant" placeholder="أدخل إجمالي نظام نيو مايند" step="0.01">
                     </div>
                     
                     <button class="calculate-difference-btn" onclick="calculateDifferenceAccountant()">
@@ -693,11 +673,10 @@
                 </div>
                 
                 <div class="difference-result" id="differenceResultAccountant" style="display: none;">
-                    <p>الفرق: <span id="calculatedDifference">0</span></p>
-                    <p>الحالة: <span id="differenceStatus"></span></p>
+                    <!-- سيتم عرض نتيجة المقارنة هنا -->
                 </div>
                 
-                <button class="close-cashier-btn" id="closeCashierByAccountant" onclick="closeCashierShiftByAccountant()" style="display: none;">
+                <button class="close-cashier-btn" onclick="closeCashierByAccountant()" style="display: none;">
                     <i class="fas fa-check"></i>
                     تقفيل الكاشير
                 </button>
@@ -717,12 +696,10 @@
                             <th>الفرق</th>
                             <th>الحالة</th>
                             <th>تاريخ التقفيل</th>
-                            <th>الوقت</th>
-                            <th>المحاسب</th>
                             <th>الإجراءات</th>
                         </tr>
                     </thead>
-                    <tbody id="shiftClosuresHistoryBody">
+                    <tbody id="closuresHistoryBodyAccountant">
                         <!-- سيتم ملء البيانات ديناميكياً -->
                     </tbody>
                 </table>
@@ -740,7 +717,7 @@
                 <h3><i class="fas fa-plus"></i> إضافة تصنيف جديد</h3>
                 <button class="close-btn" onclick="closeModal('addCategoryModal')">&times;</button>
             </div>
-            <form id="addCategoryForm">
+            <form id="addCategoryForm" onsubmit="event.preventDefault(); addCategory();">
                 <div class="form-group">
                     <label for="categoryCode">كود التصنيف:</label>
                     <input type="text" id="categoryCode" required placeholder="مثال: BG001">
@@ -790,7 +767,7 @@
                 <h3><i class="fas fa-plus"></i> إضافة مصروف جديد</h3>
                 <button class="close-btn" onclick="closeModal('addExpenseModal')">&times;</button>
             </div>
-            <form id="addExpenseForm">
+            <form id="addExpenseForm" onsubmit="event.preventDefault(); addExpense();">
                 <div class="form-group">
                     <label for="expenseCategorySearch">البحث عن التصنيف:</label>
                     <div class="input-group">
@@ -828,7 +805,7 @@
                 <h3><i class="fas fa-plus"></i> إضافة عميل جديد</h3>
                 <button class="close-btn" onclick="closeModal('addCustomerModal')">&times;</button>
             </div>
-            <form id="addCustomerForm">
+            <form id="addCustomerForm" onsubmit="event.preventDefault(); addCustomer();">
                 <div class="form-group">
                     <label for="customerName">اسم العميل:</label>
                     <input type="text" id="customerName" required placeholder="أدخل اسم العميل">
@@ -860,7 +837,7 @@
                 <h3><i class="fas fa-plus"></i> إضافة مستخدم جديد</h3>
                 <button class="close-btn" onclick="closeModal('addUserModal')">&times;</button>
             </div>
-            <form id="addUserForm">
+            <form id="addUserForm" onsubmit="event.preventDefault(); addUser();">
                 <div class="form-group">
                     <label for="userName">الاسم:</label>
                     <input type="text" id="userName" required placeholder="أدخل اسم المستخدم">
@@ -911,7 +888,7 @@
                 <h3><i class="fab fa-whatsapp"></i> إرسال التقرير عبر واتساب</h3>
                 <button class="close-btn" onclick="closeModal('whatsappModal')">&times;</button>
             </div>
-            <form id="whatsappForm">
+            <form id="whatsappForm" onsubmit="event.preventDefault(); sendReportViaWhatsApp();">
                 <div class="form-group">
                     <label for="whatsappNumber">رقم الواتساب:</label>
                     <input type="tel" id="whatsappNumber" required placeholder="أدخل رقم الواتساب">
@@ -939,10 +916,7 @@
         </div>
     </div>
 
-    <!-- تحميل ملفات Google API -->
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-    <!-- تحميل ملفات JavaScript الخاصة بك -->
+    <!-- تحميل الملفات -->
     <script src="script.js"></script>
 </body>
 </html>
