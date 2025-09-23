@@ -861,53 +861,41 @@ function showAddCustomerModalFromExpense() {
     }, 300);
 }
 
-  // --- Expenses Management ---
-// ... (previous code)
+    async function addExpense() {
+        const categoryCode = document.getElementById('selectedExpenseCategoryCode').value;
+        const categoryName = document.getElementById('selectedExpenseCategoryName').value;
+        const formType = document.getElementById('selectedExpenseCategoryFormType').value;
+        const amount = parseFloat(document.getElementById('expenseAmount').value);
+        const notes = document.getElementById('expenseNotes').value.trim();
+        const invoiceNumber = document.getElementById('expenseInvoiceNumber')?.value.trim() || ''; // Get invoice number for all relevant types
 
-   async function addExpense() {
-    const now = new Date(); // Ensure 'now' is the very first declaration
-    // جلب البيانات الأساسية
-    const categoryCode = document.getElementById('selectedExpenseCategoryCode').value;
-    const categoryName = document.getElementById('selectedExpenseCategoryName').value;
-    const formType = document.getElementById('selectedExpenseCategoryFormType').value;
-    const amount = parseFloat(document.getElementById('expenseAmount').value);
-    const notes = document.getElementById('expenseNotes') ? document.getElementById('expenseNotes').value.trim() : '';
-    
-    // جلب رقم الفاتورة إذا كان موجودًا (للأنواع التي تتطلبها)
-    const invoiceNumberInput = document.getElementById('expenseInvoiceNumber');
-    const invoiceNumber = invoiceNumberInput ? invoiceNumberInput.value.trim() : '';
-    
-    // التحقق الأساسي
-    if (!categoryCode || isNaN(amount) || amount <= 0) {
-        showWarningMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة.');
-        return;
-    }
-    
-    // التحقق من رقم الفاتورة للأنواع المطلوبة
-    const requiredInvoiceTypes = ['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل'];
-    if (requiredInvoiceTypes.includes(formType) && !invoiceNumber) {
-        showWarningMessage('يرجى إدخال رقم الفاتورة.');
-        return;
-    }
-    
-    // معالجة خاصة لنوع "اجل"
-    if (formType === 'اجل') {
-        const customerIdInput = document.getElementById('selectedCustomerId');
-        const customerId = customerIdInput ? customerIdInput.value : '';
-        
-        if (!customerId) {
-            showWarningMessage('يرجى اختيار العميل الآجل.');
+        if (!categoryCode || isNaN(amount) || amount <= 0) {
+            showWarningMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة.');
             return;
         }
-        
-        // تحديث إجمالي الأجل للعميل
-        const customerIndex = customers.findIndex(c => c.id === customerId);
-        if (customerIndex !== -1) {
-            const currentCustomer = customers[customerIndex];
-            const newTotalCredit = currentCustomer.totalCredit + amount;
-            
-            // تحديث في Google Sheets (افتراض: العمود D هو totalCredit، العمود A هو ID)
-            try {
+
+        // Validate required fields based on form type
+        if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل'].includes(formType)) { // Added 'اجل'
+            if (!invoiceNumber) {
+                showWarningMessage('يرجى إدخال رقم الفاتورة.');
+                return;
+            }
+        }
+        // ... (باقي التحققات كما هي) ...
+
+        if (formType === 'اجل') {
+            const customerId = document.getElementById('selectedCustomerId').value;
+            if (!customerId) {
+                showWarningMessage('يرجى اختيار العميل الآجل.');
+                return;
+            }
+            // Update customer's total credit
+            const customerIndex = customers.findIndex(c => c.id === customerId);
+            if (customerIndex !== -1) {
+                const currentCustomer = customers[customerIndex];
+                const newTotalCredit = currentCustomer.totalCredit + amount;
+                
+                // Update in Google Sheet
                 const rowIndex = await findRowIndex(SHEETS.CUSTOMERS, 0, customerId);
                 if (rowIndex !== -1) {
                     const updateResult = await updateSheet(SHEETS.CUSTOMERS, `D${rowIndex}`, [newTotalCredit.toFixed(2)]);
@@ -919,130 +907,99 @@ function showAddCustomerModalFromExpense() {
                     showErrorMessage('لم يتم العثور على العميل لتحديث الأجل.');
                     return;
                 }
-                
-                // تحديث البيانات المحلية
+
+                // Update local data
                 currentCustomer.totalCredit = newTotalCredit;
                 customers[customerIndex] = currentCustomer;
-                
-                // تسجيل الحركة في CustomerCreditHistory
+
+                // Record credit history
                 const historyId = 'CRH_' + now.getTime();
-                const dateStr = now.toISOString().split('T')[0];
                 const newHistoryEntry = [
                     historyId,
                     customerId,
-                    dateStr,
+                    now.toISOString().split('T')[0],
                     'أجل',
                     amount,
                     invoiceNumber,
                     notes,
                     currentUser.username
                 ];
-                const historyResult = await appendToSheet(SHEETS.CUSTOMER_CREDIT_HISTORY, newHistoryEntry);
-                if (!historyResult.success) {
-                    showErrorMessage('فشل تسجيل حركة الأجل.');
-                    return;
-                }
-            } catch (error) {
-                console.error('Error updating customer credit:', error);
-                showErrorMessage('حدث خطأ أثناء تحديث الأجل للعميل.');
+                await appendToSheet(SHEETS.CUSTOMER_CREDIT_HISTORY, newHistoryEntry);
+
+            } else {
+                showErrorMessage('العميل المختار غير موجود.');
                 return;
             }
-        } else {
-            showErrorMessage('العميل المختار غير موجود.');
-            return;
         }
-    }
-    
-    // إنشاء ID للمصروف (الآن now متاح)
-    const expenseId = 'EXP_' + now.getTime();
-    const dateStr = now.toISOString().split('T')[0];
-    const timeStr = now.toTimeString().split(' ')[0];
-    
-    // إعداد بيانات المصروف (مع تصحيح currentUser.username)
-    let expenseData = [
-        expenseId,
-        categoryName,
-        categoryCode,
-        invoiceNumber,
-        amount,
-        notes,
-        dateStr,
-        timeStr,
-        currentUser.username,
-        now.getFullYear().toString(),
-        document.getElementById('visaReferenceNumber') ? document.getElementById('visaReferenceNumber').value.trim() : '',
-        document.getElementById('tabName') ? document.getElementById('tabName').value.trim() : '',
-        document.getElementById('tabPhone') ? document.getElementById('tabPhone').value.trim() : '',
-        document.getElementById('electricityLocation') ? document.getElementById('electricityLocation').value.trim() : '',
-        document.getElementById('personName') ? document.getElementById('personName').value.trim() : '',
-        document.getElementById('companyName') ? document.getElementById('companyName').value.trim() : '',
-        document.getElementById('companyCode') ? document.getElementById('companyCode').value.trim() : '',
-        document.getElementById('selectedCustomerId') ? document.getElementById('selectedCustomerId').value : ''
-    ];
-    
-    // حفظ المصروف في Google Sheets
-    try {
-        const result = await appendToSheet(SHEETS.EXPENSES, expenseData);
+
+        const now = new Date();
+        const expenseId = 'EXP_' + now.getTime();
         
+        let expenseData = [
+            expenseId,
+            categoryName,
+            categoryCode,
+            invoiceNumber, // Use the invoiceNumber variable
+            amount,
+            notes,
+            now.toISOString().split('T')[0], // Date
+            now.toTimeString().split(' ')[0], // Time
+            currentUser.username,
+            now.getFullYear().toString(),
+            document.getElementById('visaReferenceNumber')?.value.trim() || '',
+            document.getElementById('tabName')?.value.trim() || '',
+            document.getElementById('tabPhone')?.value.trim() || '',
+            document.getElementById('electricityLocation')?.value.trim() || '',
+            document.getElementById('personName')?.value.trim() || '',
+            document.getElementById('companyName')?.value.trim() || '',
+            document.getElementById('companyCode')?.value.trim() || '',
+            document.getElementById('selectedCustomerId')?.value || ''
+        ];
+
+        const result = await appendToSheet(SHEETS.EXPENSES, expenseData);
+
         if (result.success) {
             showSuccessMessage(`تم إضافة ${categoryName} بنجاح.`);
             closeModal('addExpenseModal');
             
-            // تحديث البيانات المحلية للكاشير
+            // Update local cashier data
             const newEntry = {
                 id: expenseId,
                 category: categoryName,
                 categoryCode: categoryCode,
-                invoiceNumber: invoiceNumber,
+                invoiceNumber: invoiceNumber, // Use the invoiceNumber variable
                 amount: amount,
                 notes: notes,
-                date: dateStr,
-                time: timeStr,
+                date: expenseData[6],
+                time: expenseData[7],
                 cashier: currentUser.username
             };
-            
-            // تصنيف المصروف حسب النوع
+
+            // Categorize based on form type
             if (formType === 'إنستا') {
-                if (!cashierDailyData.insta) cashierDailyData.insta = [];
                 cashierDailyData.insta.push(newEntry);
-                if (!cashierDailyData.totalInsta) cashierDailyData.totalInsta = 0;
                 cashierDailyData.totalInsta += amount;
             } else if (formType === 'فيزا') {
-                if (!cashierDailyData.visa) cashierDailyData.visa = [];
                 cashierDailyData.visa.push(newEntry);
-                if (!cashierDailyData.totalVisa) cashierDailyData.totalVisa = 0;
                 cashierDailyData.totalVisa += amount;
             } else if (formType === 'اونلاين') {
-                if (!cashierDailyData.online) cashierDailyData.online = [];
                 cashierDailyData.online.push(newEntry);
-                if (!cashierDailyData.totalOnline) cashierDailyData.totalOnline = 0;
                 cashierDailyData.totalOnline += amount;
             } else {
-                if (!cashierDailyData.expenses) cashierDailyData.expenses = [];
                 cashierDailyData.expenses.push(newEntry);
-                if (!cashierDailyData.totalExpenses) cashierDailyData.totalExpenses = 0;
                 cashierDailyData.totalExpenses += amount;
             }
             
-            // تحديث الواجهة إذا لزم الأمر
+            // Refresh data
             if (formType === 'اجل') {
-                await loadCustomers(); // إعادة تحميل العملاء للحصول على totalCredit المحدث
-                if (document.getElementById('customersTableBodyCashier')) {
-                    displayCustomers('customersTableBodyCashier');
-                }
+                await loadCustomers(); // Reload customers to get updated totalCredit
+                displayCustomers('customersTableBodyCashier');
             }
-            loadCashierExpenses(); // إعادة تحميل المصروفات
+            loadCashierExpenses();
         } else {
             showErrorMessage('فشل إضافة المصروف.');
         }
-    } catch (error) {
-        console.error('Error adding expense:', error);
-        showErrorMessage('حدث خطأ أثناء إضافة المصروف.');
     }
-}
-
-
-
     
 
 async function loadCashierExpenses() {
