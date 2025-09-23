@@ -1593,33 +1593,33 @@ async function updateAccountantDashboard() {
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = onlineExpenses.length;
 
-        // Update stats grid
-        document.getElementById('normalExpensesTotal').textContent = totalNormal.toFixed(2);
-        document.getElementById('normalExpensesCount').textContent = normalCount;
-        document.getElementById('visaTotal').textContent = totalVisa.toFixed(2);
-        document.getElementById('visaCount').textContent = visaCount;
-        document.getElementById('instaTotal').textContent = totalInsta.toFixed(2);
-        document.getElementById('instaCount').textContent = instaCount;
-        document.getElementById('onlineTotal').textContent = totalOnline.toFixed(2);
-        document.getElementById('onlineCount').textContent = onlineCount;
+                // Update stats grid
+        document.getElementById('totalNormalExpensesAccountant').textContent = totalNormal.toFixed(2);
+        document.getElementById('countNormalExpensesAccountant').textContent = normalCount;
+        document.getElementById('totalVisaAccountant').textContent = totalVisa.toFixed(2);
+        document.getElementById('countVisaAccountant').textContent = visaCount;
+        document.getElementById('totalInstaAccountant').textContent = totalInsta.toFixed(2);
+        document.getElementById('countInstaAccountant').textContent = instaCount;
+        document.getElementById('totalOnlineAccountant').textContent = totalOnline.toFixed(2);
+        document.getElementById('countOnlineAccountant').textContent = onlineCount;
 
         // Cashiers stats
         const activeCashiers = users.filter(u => u.role === 'كاشير' && u.status === 'نشط').length;
         const suspendedCashiers = users.filter(u => u.role === 'كاشير' && u.status === 'موقوف').length;
         const blockedCashiers = users.filter(u => u.role === 'كاشير' && u.status === 'محظور').length;
-        document.getElementById('activeCashiers').textContent = activeCashiers;
-        document.getElementById('suspendedCashiers').textContent = suspendedCashiers;
-        document.getElementById('blockedCashiers').textContent = blockedCashiers;
+        document.getElementById('totalActiveCashiersAccountant').textContent = activeCashiers;
+        document.getElementById('totalInactiveCashiersAccountant').textContent = suspendedCashiers;
+        document.getElementById('totalBlockedCashiersAccountant').textContent = blockedCashiers;
 
         // Customers stats
         const totalCustomers = customers.length;
         const customersWithCredit = customers.filter(c => c.totalCredit > 0).length;
         const totalCredit = customers.reduce((sum, c) => sum + c.totalCredit, 0);
         const zeroCreditCustomers = customers.filter(c => c.totalCredit === 0).length;
-        document.getElementById('totalCustomers').textContent = totalCustomers;
-        document.getElementById('customersWithCredit').textContent = customersWithCredit;
-        document.getElementById('totalCredit').textContent = totalCredit.toFixed(2);
-        document.getElementById('zeroCreditCustomers').textContent = zeroCreditCustomers;
+        document.getElementById('totalCustomersAccountant').textContent = totalCustomers;
+        document.getElementById('customersWithCreditAccountant').textContent = customersWithCredit;
+        document.getElementById('totalCreditAmountAccountant').textContent = totalCredit.toFixed(2);
+        document.getElementById('customersWithZeroCreditAccountant').textContent = zeroCreditCustomers;
 
         // Update cashier overview table
         updateAccountantCashierOverview(filters);
@@ -1862,19 +1862,26 @@ async function searchCashierClosuresAccountant() {
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash;
 
-        // Display results
+                // Display results
         document.getElementById('closureResultsAccountant').style.display = 'block';
-                document.getElementById('closeCashierByAccountant').style.display = 'block';
-        document.getElementById('totalNormalExpensesAccountant').textContent = totalNormal.toFixed(2);
-        document.getElementById('normalExpensesCountAccountant').textContent = normalExpenses.length;
-        document.getElementById('totalVisaAccountant').textContent = totalVisa.toFixed(2);
-        document.getElementById('visaCountAccountant').textContent = visaExpenses.length;
-        document.getElementById('totalInstaAccountant').textContent = totalInsta.toFixed(2);
-        document.getElementById('instaCountAccountant').textContent = instaExpenses.length;
-        document.getElementById('totalOnlineAccountant').textContent = totalOnline.toFixed(2);
-        document.getElementById('onlineCountAccountant').textContent = onlineExpenses.length;
-        document.getElementById('drawerCashAccountant').textContent = drawerCash.toFixed(2);
-        document.getElementById('grandTotalAccountant').textContent = grandTotal.toFixed(2);
+        // تأكد أن هذا العنصر موجود في HTML ولديه ID 'closeCashierByAccountant'
+        // إذا كان هذا الزر جزءًا من قسم 'closureResultsAccountant'، فقد لا تحتاج إلى إظهاره بشكل منفصل إذا كان القسم بأكمله يظهر.
+        // ولكن بناءً على HTML، يبدو أنه زر منفصل يحتاج إلى إظهار.
+        const closeCashierBtn = document.getElementById('closeCashierByAccountant');
+        if (closeCashierBtn) { // إضافة تحقق للتأكد من وجود العنصر
+            closeCashierBtn.style.display = 'block';
+        }
+
+        document.getElementById('accTotalNormalExpenses').textContent = totalNormal.toFixed(2);
+        document.getElementById('normalExpensesCountAccountant').textContent = normalExpenses.length; // هذا الـ ID صحيح
+        document.getElementById('accTotalVisa').textContent = totalVisa.toFixed(2);
+        document.getElementById('visaCountAccountant').textContent = visaExpenses.length; // هذا الـ ID صحيح
+        document.getElementById('accTotalInsta').textContent = totalInsta.toFixed(2);
+        document.getElementById('instaCountAccountant').textContent = instaExpenses.length; // هذا الـ ID صحيح
+        document.getElementById('accTotalOnline').textContent = totalOnline.toFixed(2);
+        document.getElementById('onlineCountAccountant').textContent = onlineExpenses.length; // هذا الـ ID صحيح
+        document.getElementById('accDrawerCash').textContent = drawerCash.toFixed(2);
+        document.getElementById('accGrandTotalCashier').textContent = grandTotal.toFixed(2);
         document.getElementById('newmindTotalAccountant').value = ''; // Clear newmind input
         document.getElementById('differenceResultAccountant').style.display = 'none'; // Hide difference initially
 
