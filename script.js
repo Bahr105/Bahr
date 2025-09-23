@@ -471,6 +471,19 @@ function togglePasswordVisibility() {
         toggleButton.classList.add('fa-eye');
     }
 }
+// Add this function to script.js
+function populateAccountantShiftCashierFilter() {
+    const select = document.getElementById('selectedCashierAccountant');
+    if (!select) return;
+    select.innerHTML = '<option value="">اختر الكاشير</option>';
+    const cashiers = users.filter(u => u.role === 'كاشير');
+    cashiers.forEach(cashier => {
+        const option = document.createElement('option');
+        option.value = cashier.username;
+        option.textContent = cashier.name;
+        select.appendChild(option);
+    });
+}
 
 // --- Page Navigation ---
 function showTab(tabId) {
