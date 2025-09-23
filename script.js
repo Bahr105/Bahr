@@ -503,7 +503,7 @@ function showTab(tabId) {
         targetNavTab.classList.add('active');
     }
 
-    // Specific actions for each tab
+    // إجراءات محددة لكل علامة تبويب
     if (tabId === 'categoriesTabCashier' || tabId === 'categoriesTabAccountant') {
         displayCategories(tabId === 'categoriesTabCashier' ? 'categoriesGridCashier' : 'categoriesGridAccountant');
     } else if (tabId === 'expensesTabCashier') {
@@ -511,9 +511,12 @@ function showTab(tabId) {
         populateExpenseCategoryFilter();
     } else if (tabId === 'customersTabCashier') {
         displayCustomers('customersTableBodyCashier');
-    } else if (tabId === 'customersTabAccountant') { // New
+    } else if (tabId === 'customersTabAccountant') { // جديد
         displayCustomers('customersTableBodyAccountant');
-        document.getElementById('customerDetailsAccountant').style.display = 'none'; // Hide details when switching tab
+        const customerDetailsAccountant = document.getElementById('customerDetailsAccountant');
+        if (customerDetailsAccountant) { // أضف فحص القيمة الفارغة هنا
+            customerDetailsAccountant.style.display = 'none'; // إخفاء التفاصيل عند تبديل علامة التبويب
+        }
     } else if (tabId === 'dashboardTabAccountant') {
         updateAccountantDashboard();
     } else if (tabId === 'usersTabAccountant') {
@@ -521,13 +524,25 @@ function showTab(tabId) {
     } else if (tabId === 'reportsTabAccountant') {
         populateReportFilters();
     } else if (tabId === 'shiftCloseTabAccountant') {
-        populateAccountantShiftCashierFilter(); // New
+        populateAccountantShiftCashierFilter(); // جديد
         loadAccountantShiftClosuresHistory();
-        // Reset accountant shift closure form
-        document.getElementById('closureResultsAccountant').style.display = 'none';
-        document.getElementById('closeCashierByAccountant').style.display = 'none';
-        document.getElementById('newmindTotalAccountant').value = '';
-        document.getElementById('differenceResultAccountant').style.display = 'none';
+        // إعادة تعيين نموذج إغلاق شيفت المحاسب
+        const closureResultsAccountant = document.getElementById('closureResultsAccountant');
+        if (closureResultsAccountant) { // أضف فحص القيمة الفارغة
+            closureResultsAccountant.style.display = 'none';
+        }
+        const closeCashierByAccountant = document.getElementById('closeCashierByAccountant');
+        if (closeCashierByAccountant) { // أضف فحص القيمة الفارغة
+            closeCashierByAccountant.style.display = 'none';
+        }
+        const newmindTotalAccountant = document.getElementById('newmindTotalAccountant');
+        if (newmindTotalAccountant) { // أضف فحص القيمة الفارغة
+            newmindTotalAccountant.value = '';
+        }
+        const differenceResultAccountant = document.getElementById('differenceResultAccountant');
+        if (differenceResultAccountant) { // أضف فحص القيمة الفارغة
+            differenceResultAccountant.style.display = 'none';
+        }
     }
 }
 
@@ -2021,37 +2036,55 @@ async function searchCashierClosuresAccountant() {
             }
         });
 
-        // Find if there's a previous closure for this cashier in this period to get drawer cash
+        // البحث عما إذا كان هناك إغلاق سابق لهذا الكاشير في هذه الفترة للحصول على النقدية في الدرج
         const existingClosures = await loadShiftClosures({ cashier: selectedCashierUsername, dateFrom: dateFrom, dateTo: dateTo });
         let drawerCashFromPreviousClosure = 0;
         if (existingClosures.length > 0) {
-            // Assuming we take the drawer cash from the most recent closure in the period
+            // بافتراض أننا نأخذ النقدية في الدرج من أحدث إغلاق في الفترة
             const latestClosure = existingClosures.sort((a, b) => new Date(`${b.closureDate} ${b.closureTime}`) - new Date(`${a.closureDate} ${a.closureTime}`))[0];
             drawerCashFromPreviousClosure = latestClosure.drawerCash;
         }
 
         const grandTotalCashier = totalNormalExpenses + totalVisa + totalInsta + totalOnline + drawerCashFromPreviousClosure;
 
-        document.getElementById('accTotalNormalExpenses').textContent = totalNormalExpenses.toFixed(2);
-        document.getElementById('accTotalVisa').textContent = totalVisa.toFixed(2);
-        document.getElementById('accTotalInsta').textContent = totalInsta.toFixed(2);
-        document.getElementById('accTotalOnline').textContent = totalOnline.toFixed(2);
-        document.getElementById('accDrawerCash').textContent = drawerCashFromPreviousClosure.toFixed(2); 
-        document.getElementById('accGrandTotalCashier').textContent = grandTotalCashier.toFixed(2);
+        // أضف فحوصات القيمة الفارغة قبل الوصول إلى textContent
+        const accTotalNormalExpenses = document.getElementById('accTotalNormalExpenses');
+        if (accTotalNormalExpenses) accTotalNormalExpenses.textContent = totalNormalExpenses.toFixed(2);
+        const accTotalVisa = document.getElementById('accTotalVisa');
+        if (accTotalVisa) accTotalVisa.textContent = totalVisa.toFixed(2);
+        const accTotalInsta = document.getElementById('accTotalInsta');
+        if (accTotalInsta) accTotalInsta.textContent = totalInsta.toFixed(2);
+        const accTotalOnline = document.getElementById('accTotalOnline');
+        if (accTotalOnline) accTotalOnline.textContent = totalOnline.toFixed(2);
+        const accDrawerCash = document.getElementById('accDrawerCash');
+        if (accDrawerCash) accDrawerCash.textContent = drawerCashFromPreviousClosure.toFixed(2); 
+        const accGrandTotalCashier = document.getElementById('accGrandTotalCashier');
+        if (accGrandTotalCashier) accGrandTotalCashier.textContent = grandTotalCashier.toFixed(2);
 
-        document.getElementById('closureResultsAccountant').style.display = 'block';
-        document.getElementById('newmindTotalAccountant').value = '';
-        document.getElementById('differenceResultAccountant').style.display = 'none';
-        document.getElementById('closeCashierByAccountant').style.display = 'block'; // Show close button
+        const closureResultsAccountant = document.getElementById('closureResultsAccountant');
+        if (closureResultsAccountant) { // أضف فحص القيمة الفارغة
+            closureResultsAccountant.style.display = 'block';
+        }
+        const newmindTotalAccountant = document.getElementById('newmindTotalAccountant');
+        if (newmindTotalAccountant) { // أضف فحص القيمة الفارغة
+            newmindTotalAccountant.value = '';
+        }
+        const differenceResultAccountant = document.getElementById('differenceResultAccountant');
+        if (differenceResultAccountant) { // أضف فحص القيمة الفارغة
+            differenceResultAccountant.style.display = 'none';
+        }
+        const closeCashierByAccountant = document.getElementById('closeCashierByAccountant');
+        if (closeCashierByAccountant) { // أضف فحص القيمة الفارغة
+            closeCashierByAccountant.style.display = 'block'; // إظهار زر الإغلاق
+        }
 
         showSuccessMessage('تم حساب الشيفت للكاشير بنجاح.');
     } catch (error) {
-        console.error('Error searching cashier closures:', error);
+        console.error('خطأ في البحث عن إغلاقات الكاشير:', error);
         showErrorMessage('حدث خطأ أثناء البحث عن تقفيلات الكاشير.');
     } finally {
         showLoading(false);
     }
-}
 
 async function calculateDifferenceAccountant() {
     const cashierTotal = parseFloat(document.getElementById('accGrandTotalCashier').textContent);
@@ -2326,4 +2359,5 @@ if (document.readyState === 'loading') {
     });
 } else {
     loadGoogleScripts();
+}
 }
