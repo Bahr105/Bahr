@@ -311,6 +311,10 @@
                 <i class="fas fa-tags"></i>
                 التصنيفات
             </button>
+            <button class="nav-tab" onclick="showTab('customersTabAccountant')">
+                <i class="fas fa-users"></i>
+                العملاء
+            </button>
             <button class="nav-tab" onclick="showTab('shiftCloseTabAccountant')">
                 <i class="fas fa-calculator"></i>
                 تقفيل الشيفت
@@ -385,7 +389,7 @@
                     <div class="stat-content">
                         <h3>العملاء</h3>
                         <div class="stat-value" id="totalCustomersAccountant">0</div>
-                        <div class="stat-period">عليهم أجل: <span id="customersWithCreditAccountant">0</span> | إجمالي الأجل: <span id="totalCreditAmountAccountant">0</span></div>
+                        <div class="stat-period">عليهم أجل: <span id="customersWithCreditAccountant">0</span> | إجمالي الأجل: <span id="totalCreditAmountAccountant">0</span> | حسابهم 0: <span id="customersWithZeroCreditAccountant">0</span></div>
                     </div>
                 </div>
             </div>
@@ -648,7 +652,6 @@
             <div class="closure-info">
                 <h3>نتائج البحث</h3>
                 <div class="closure-summary" id="closureSummaryAccountant">
-                    <!-- سيتم عرض ملخص التقفيل هنا -->
                     <p>إجمالي المصروفات (عادي): <span id="accTotalNormalExpenses">0</span></p>
                     <p>إجمالي الفيزا: <span id="accTotalVisa">0</span></p>
                     <p>إجمالي الإنستا: <span id="accTotalInsta">0</span></p>
@@ -703,56 +706,6 @@
             </div>
         </div>
     </div>
-    
-    <!-- سيتم عرض ملخص التقفيل هنا -->
-                        </div>
-                        
-                        <div class="newmind-input">
-                            <div class="form-group">
-                                <label for="newmindTotalAccountant">إجمالي نيو مايند:</label>
-                                <input type="number" id="newmindTotalAccountant" placeholder="أدخل إجمالي نظام نيو مايند" step="0.01">
-                            </div>
-                            
-                            <button class="calculate-difference-btn" onclick="calculateDifferenceAccountant()">
-                                <i class="fas fa-calculator"></i>
-                                حساب الفرق
-                            </button>
-                        </div>
-                        
-                        <div class="difference-result" id="differenceResultAccountant" style="display: none;">
-                            <!-- سيتم عرض نتيجة المقارنة هنا -->
-                        </div>
-                        
-                        <button class="close-cashier-btn" onclick="closeCashierByAccountant()" style="display: none;">
-                            <i class="fas fa-check"></i>
-                            تقفيل الكاشير
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="closures-history">
-                    <h3><i class="fas fa-history"></i> سجل التقفيلات</h3>
-                    <div class="closures-table">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>الكاشير</th>
-                                    <th>الفترة</th>
-                                    <th>إجمالي الكاشير</th>
-                                    <th>إجمالي نيو مايند</th>
-                                    <th>الفرق</th>
-                                    <th>الحالة</th>
-                                    <th>تاريخ التقفيل</th>
-                                    <th>الإجراءات</th>
-                                </tr>
-                            </thead>
-                            <tbody id="closuresHistoryBodyAccountant">
-                                <!-- سيتم ملء البيانات ديناميكياً -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
         </main>
     </div>
 
