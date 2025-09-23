@@ -9,6 +9,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- عنصر الرسائل - يجب أن يكون في الأعلى -->
+    <div id="messageContainer" style="position: fixed; top: 20px; right: 20px; z-index: 10000;"></div>
+
     <!-- صفحة تسجيل الدخول -->
     <div id="loginPage" class="page active">
         <div class="login-container">
@@ -632,6 +635,7 @@
                 <div class="form-group">
                     <label for="formType">نوع الفورم:</label>
                     <select id="formType" required>
+                        <option value="">اختر نوع الفورم</option>
                         <option value="عادي">عادي</option>
                         <option value="فيزا">فيزا</option>
                         <option value="شحن_تاب">شحن تاب</option>
@@ -642,6 +646,7 @@
                         <option value="عجوزات">عجوزات</option>
                         <option value="اجل">أجل</option>
                         <option value="اونلاين">أونلاين</option>
+                        <option value="إنستا">إنستا</option>
                     </select>
                 </div>
                 
@@ -669,8 +674,10 @@
             <form id="addExpenseForm" onsubmit="event.preventDefault(); addExpense();">
                 <div class="form-group">
                     <label for="expenseCategorySearch">البحث عن التصنيف:</label>
-                    <input type="text" id="expenseCategorySearch" placeholder="ابحث بالاسم أو الكود" onkeyup="searchExpenseCategories(this.value)">
-                    <div id="expenseCategorySuggestions" class="suggestions"></div>
+                    <div class="input-group">
+                        <input type="text" id="expenseCategorySearch" placeholder="ابحث بالاسم أو الكود" onkeyup="searchExpenseCategories(this.value)" autocomplete="off">
+                        <div id="expenseCategorySuggestions" class="suggestions"></div>
+                    </div>
                     <input type="hidden" id="selectedExpenseCategoryCode">
                     <input type="hidden" id="selectedExpenseCategoryName">
                     <input type="hidden" id="selectedExpenseCategoryFormType">
@@ -808,19 +815,11 @@
     <div id="loadingOverlay" class="loading-overlay hidden">
         <div class="loading-spinner">
             <i class="fas fa-spinner fa-spin"></i>
-            <p>جارٍ التحميل...</p>
+            <p>جار التحميل...</p>
         </div>
     </div>
 
-<!-- الترتيب الصحيح -->
-<script src="script.js"></script>
-<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-<!-- عنصر الرسائل -->
-<div id="message" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 10000; padding: 15px; border-radius: 5px; color: white; font-weight: bold;"></div>
-
-<!-- عناصر إضافية مطلوبة -->
-<div id="shiftSummaryCashier" style="display: none;"></div>
-<input type="number" id="drawerCashCashier" style="display: none;">
+    <!-- تحميل الملفات -->
+    <script src="script.js"></script>
 </body>
 </html>
