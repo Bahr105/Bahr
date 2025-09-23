@@ -2049,7 +2049,7 @@ async function calculateDifferenceAccountant() {
         return;
     }
 
-    const difference = newMindTotal - cashierTotal;
+    const difference =  cashierTotal - newMindTotal;
     const resultDiv = document.getElementById('differenceResultAccountant');
     resultDiv.style.display = 'block';
 
