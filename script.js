@@ -19,7 +19,7 @@ function loadGoogleScripts() {
 // --- Google Sheets API Configuration ---
 const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU'; 
 const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com'; 
-const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRf7qsHDWWhfDvUtvQ7u7IC9Q'; // تأكد من تحديث هذا الـ ID إذا تغير
+const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; 
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
 const SHEETS = {
@@ -28,7 +28,7 @@ const SHEETS = {
     EXPENSES: 'Expenses',
     CUSTOMERS: 'Customers',
     SHIFT_CLOSURES: 'ShiftClosures',
-    CUSTOMER_CREDIT_HISTORY: 'CustomerCreditHistory'
+    CUSTOMER_CREDIT_HISTORY: 'CustomerCreditHistory' // New sheet
 };
 
 let gapiInited = false;
@@ -135,24 +135,25 @@ async function handleAuthClick() {
 }
 
 // --- Google Sheets API Functions ---
-async function readSheet(sheetName, range = 'A:Z') {
-    try {
-        if (!isAuthenticated) {
-            await handleAuthClick();
-        }
-        
-        const fullRange = range ? `${sheetName}!${range}` : `${sheetName}!A:Z`;
-        const response = await gapi.client.sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: fullRange,
-        });
-        return response.result.values || [];
-    } catch (error) {
-        console.error(`Error reading sheet ${sheetName}:`, error);
-        showErrorMessage(`خطأ في قراءة البيانات من ${sheetName}`);
-        return [];
-    }
-}
+  async function readSheet(sheetName, range = 'A:Z') {  // افتراضي A:Z للشيت كامل
+      try {
+          if (!isAuthenticated) {
+              await handleAuthClick();
+          }
+          
+          const fullRange = range ? `${sheetName}!${range}` : `${sheetName}!A:Z`;  // دائماً نطاق كامل إذا لم يحدد
+          const response = await gapi.client.sheets.spreadsheets.values.get({
+              spreadsheetId: SPREADSHEET_ID,
+              range: fullRange,
+          });
+          return response.result.values || [];
+      } catch (error) {
+          console.error(`Error reading sheet ${sheetName}:`, error);
+          showErrorMessage(`خطأ في قراءة البيانات من ${sheetName}`);
+          return [];
+      }
+  }
+  
 
 async function appendToSheet(sheetName, values) {
     try {
@@ -198,7 +199,7 @@ async function updateSheet(sheetName, range, values) {
 
 async function findRowIndex(sheetName, columnIndex, searchValue) {
     const data = await readSheet(sheetName);
-    for (let i = 1; i < data.length; i++) { // Start from 1 to skip header
+    for (let i = 1; i < data.length; i++) {
         if (data[i][columnIndex] === searchValue) {
             return i + 1; // +1 because sheets are 1-indexed
         }
@@ -218,7 +219,7 @@ async function loadUsers() {
                 username: row[3] || '',
                 password: row[4] || '',
                 role: row[5] || '',
-                status: row[6] || 'نشط',
+                status: row[6] || 'نشط', // Assuming status is at index 6
                 creationDate: row[7] || ''
             }));
         } else {
@@ -258,7 +259,7 @@ async function loadCustomers() {
                 id: row[0] || '',
                 name: row[1] || '',
                 phone: row[2] || '',
-                totalCredit: parseFloat(row[3] || 0),
+                totalCredit: parseFloat(row[3] || 0), // Assuming totalCredit is at index 3
                 creationDate: row[4] || '',
                 lastUpdate: row[5] || ''
             }));
@@ -330,20 +331,17 @@ async function loadExpenses(filters = {}) {
             toDate.setHours(23, 59, 59, 999);
             expenses = expenses.filter(exp => new Date(exp.date) <= toDate);
         }
-        if (filters.timeFrom && filters.timeTo) {
-            expenses = expenses.filter(exp => {
-                const [expHours, expMinutes] = exp.time.split(':').map(Number);
-                const [fromHours, fromMinutes] = filters.timeFrom.split(':').map(Number);
-                const [toHours, toMinutes] = filters.timeTo.split(':').map(Number);
-                const expTotalMinutes = expHours * 60 + expMinutes;
-                const fromTotalMinutes = fromHours * 60 + fromMinutes;
-                const toTotalMinutes = toHours * 60 + toMinutes;
-                return expTotalMinutes >= fromTotalMinutes && expTotalMinutes <= toTotalMinutes;
-            });
-        }
-        if (filters.invoiceNumber) {
-            expenses = expenses.filter(exp => exp.invoiceNumber === filters.invoiceNumber);
-        }
+       if (filters.timeFrom && filters.timeTo) {
+      expenses = expenses.filter(exp => {
+          const [expHours, expMinutes] = exp.time.split(':').map(Number);  // تحويل إلى أرقام
+          const [fromHours, fromMinutes] = filters.timeFrom.split(':').map(Number);
+          const [toHours, toMinutes] = filters.timeTo.split(':').map(Number);
+          const expTotalMinutes = expHours * 60 + expMinutes;
+          const fromTotalMinutes = fromHours * 60 + fromMinutes;
+          const toTotalMinutes = toHours * 60 + toMinutes;
+          return expTotalMinutes >= fromTotalMinutes && expTotalMinutes <= toTotalMinutes;
+      });
+  }
 
         return expenses;
     } catch (error) {
@@ -386,15 +384,18 @@ async function loadShiftClosures(filters = {}) {
         if (filters.cashier) {
             closures = closures.filter(closure => closure.cashier === filters.cashier);
         }
-        if (filters.dateFrom && filters.dateTo) {
-            const fromDateTime = new Date(`${filters.dateFrom}T${filters.timeFrom || '00:00'}:00`);
-            const toDateTime = new Date(`${filters.dateTo}T${filters.timeTo || '23:59'}:59.999`);
-            closures = closures.filter(closure => {
-                const closureStart = new Date(`${closure.dateFrom}T${closure.timeFrom}:00`);
-                const closureEnd = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
-                return closureStart >= fromDateTime && closureEnd <= toDateTime;
-            });
-        }
+            if (filters.dateFrom && filters.dateTo) {
+      const fromDateTime = new Date(`${filters.dateFrom}T${filters.timeFrom || '00:00'}:00`);  // افتراضي إذا لم يكن timeFrom
+      const toDateTime = new Date(`${filters.dateTo}T${filters.timeTo || '23:59'}:59.999`);
+      closures = closures.filter(closure => {
+          const closureStart = new Date(`${closure.dateFrom}T${closure.timeFrom}:00`);
+          const closureEnd = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
+          return closureStart >= fromDateTime && closureEnd <= toDateTime;
+      });
+  }
+  
+  
+
 
         return closures;
     } catch (error) {
@@ -550,7 +551,6 @@ function showTab(tabId) {
         displayUsers();
     } else if (tabId === 'reportsTabAccountant') {
         populateReportFilters();
-        generateReport(); // Generate report on tab switch
     } else if (tabId === 'shiftCloseTabAccountant') {
         populateAccountantShiftCashierFilter(); 
         loadAccountantShiftClosuresHistory();
@@ -559,9 +559,9 @@ function showTab(tabId) {
         if (closureResultsAccountant) { 
             closureResultsAccountant.style.display = 'none';
         }
-        const closeCashierByAccountantBtn = document.getElementById('closeCashierByAccountant');
-        if (closeCashierByAccountantBtn) { 
-            closeCashierByAccountantBtn.style.display = 'none';
+        const closeCashierByAccountant = document.getElementById('closeCashierByAccountant');
+        if (closeCashierByAccountant) { 
+            closeCashierByAccountant.style.display = 'none';
         }
         const newmindTotalAccountant = document.getElementById('newmindTotalAccountant');
         if (newmindTotalAccountant) { 
@@ -1033,17 +1033,13 @@ async function addExpense() {
             cashier: currentUser.username
         };
 
-        // Update cashierDailyData based on formType
-        const category = categories.find(c => c.code === categoryCode);
-        const actualFormType = category ? category.formType : 'عادي';
-
-        if (actualFormType === 'إنستا') {
+        if (formType === 'إنستا') {
             cashierDailyData.insta.push(newEntry);
             cashierDailyData.totalInsta += amount;
-        } else if (actualFormType === 'فيزا') {
+        } else if (formType === 'فيزا') {
             cashierDailyData.visa.push(newEntry);
             cashierDailyData.totalVisa += amount;
-        } else if (actualFormType === 'اونلاين') {
+        } else if (formType === 'اونلاين') {
             cashierDailyData.online.push(newEntry);
             cashierDailyData.totalOnline += amount;
         } else {
@@ -1051,11 +1047,11 @@ async function addExpense() {
             cashierDailyData.totalExpenses += amount;
         }
         
-        if (actualFormType === 'اجل') {
+        if (formType === 'اجل') {
             await loadCustomers(); // Reload customers to get updated totalCredit
             displayCustomers('customersTableBodyCashier');
         }
-        loadCashierExpenses(); // Reload and filter expenses for cashier
+        loadCashierExpenses();
     } else {
         showErrorMessage('فشل إضافة المصروف.');
     }
@@ -1466,7 +1462,7 @@ async function finalizeCashierShiftCloseout() {
         const shiftId = 'SHIFT_' + now.getTime();
         
         const totalExpenses = parseFloat(document.getElementById('totalExpensesCashier').textContent) || 0;
-        const expenseCount = parseInt(document.getElementById('expenseCountCashier').textContent) || 0;
+                const expenseCount = parseInt(document.getElementById('expenseCountCashier').textContent) || 0;
         const totalInsta = parseFloat(document.getElementById('totalInstaCashier').textContent) || 0;
         const instaCount = parseInt(document.getElementById('instaCountCashier').textContent) || 0;
         const totalVisa = parseFloat(document.getElementById('totalVisaCashier').textContent) || 0;
@@ -1476,9 +1472,9 @@ async function finalizeCashierShiftCloseout() {
         const grandTotal = parseFloat(document.getElementById('grandTotalCashier').textContent) || 0;
 
          const shiftClosureData = [
-            shiftId,
-            currentUser.username,
-            document.getElementById('shiftDateFromCashier').value,
+      shiftId,
+      currentUser .username,  // إزالة المسافة قبل النقطة
+      document.getElementById('shiftDateFromCashier').value,
             document.getElementById('shiftTimeFromCashier').value,
             document.getElementById('shiftDateToCashier').value,
             document.getElementById('shiftTimeToCashier').value,
@@ -1518,65 +1514,44 @@ async function finalizeCashierShiftCloseout() {
 }
 
 // --- Accountant Page Functions ---
-async function showAccountantPage() {
-    document.getElementById('loginPage').classList.remove('active');
-    document.getElementById('cashierPage').classList.remove('active');
-    document.getElementById('accountantPage').classList.add('active');
-    document.getElementById('accountantNameDisplay').textContent = currentUserName;
-    document.getElementById('currentDateAccountant').textContent = new Date().toLocaleDateString('ar-EG');
-    
-    await loadUsers();
-    await loadCategories();
-    await loadCustomers();
-    populateAccountantFilters();
-    updateAccountantDashboard();
-    showTab('dashboardTabAccountant');
-}
+ async function showAccountantPage() {
+      document.getElementById('loginPage').classList.remove('active');
+      document.getElementById('cashierPage').classList.remove('active');
+      document.getElementById('accountantPage').classList.add('active');
+      document.getElementById('accountantNameDisplay').textContent = currentUserName;  // إزالة المسافة
+      document.getElementById('currentDateAccountant').textContent = new Date().toLocaleDateString('ar-EG');
+      
+      await loadUsers();
+      await loadCategories();
+      await loadCustomers();
+      populateAccountantFilters();
+      updateAccountantDashboard();
+      showTab('dashboardTabAccountant');
+  }
+  
 
 function populateAccountantFilters() {
-    // Populate cashier filter for dashboard
-    const dashboardCashierSelect = document.getElementById('dashboardCashierFilter');
-    if (dashboardCashierSelect) {
-        dashboardCashierSelect.innerHTML = '<option value="">جميع الكاشيرز</option>';
+    // Populate cashier filter
+    const cashierSelect = document.getElementById('dashboardCashierFilter');
+    if (cashierSelect) {
+        cashierSelect.innerHTML = '<option value="">جميع الكاشيرز</option>';
         const cashiers = users.filter(u => u.role === 'كاشير');
         cashiers.forEach(cashier => {
             const option = document.createElement('option');
             option.value = cashier.username;
             option.textContent = cashier.name;
-            dashboardCashierSelect.appendChild(option);
-        });
-    }
-
-    // Populate cashier filter for reports
-    const reportCashierSelect = document.getElementById('reportCashierFilter');
-    if (reportCashierSelect) {
-        reportCashierSelect.innerHTML = '<option value="">جميع الكاشيرز</option>';
-        const cashiers = users.filter(u => u.role === 'كاشير');
-        cashiers.forEach(cashier => {
-            const option = document.createElement('option');
-            option.value = cashier.username;
-            option.textContent = cashier.name;
-            reportCashierSelect.appendChild(option);
+            cashierSelect.appendChild(option);
         });
     }
 
     // Populate category filter for reports
-    const reportCategorySelect = document.getElementById('reportCategoryFilter');
-    if (reportCategorySelect) {
-        reportCategorySelect.innerHTML = '<option value="">جميع التصنيفات</option>';
-        categories.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.name;
-            option.textContent = cat.name;
-            reportCategorySelect.appendChild(option);
-        });
-    }
+    populateReportFilters();
 }
 
 async function updateAccountantDashboard() {
     const cashierFilter = document.getElementById('dashboardCashierFilter')?.value || '';
-    const dateFromFilter = document.getElementById('dashboardDateFromAccountant')?.value || '';
-    const dateToFilter = document.getElementById('dashboardDateToAccountant')?.value || '';
+    const dateFromFilter = document.getElementById('dashboardDateFrom')?.value || '';
+    const dateToFilter = document.getElementById('dashboardDateTo')?.value || '';
 
     const filters = { cashier: cashierFilter };
     if (dateFromFilter) filters.dateFrom = dateFromFilter;
@@ -1618,7 +1593,7 @@ async function updateAccountantDashboard() {
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = onlineExpenses.length;
 
-        // Update stats grid
+                // Update stats grid
         document.getElementById('totalNormalExpensesAccountant').textContent = totalNormal.toFixed(2);
         document.getElementById('countNormalExpensesAccountant').textContent = normalCount;
         document.getElementById('totalVisaAccountant').textContent = totalVisa.toFixed(2);
@@ -1654,70 +1629,133 @@ async function updateAccountantDashboard() {
     } finally {
         showLoading(false);
     }
-}
 
-async function updateAccountantCashierOverview(filters) {
-    const tableBody = document.getElementById('cashiersOverviewBodyAccountant');
-    if (!tableBody) return;
+    async function updateAccountantDashboard() {
+    try {
+        console.log('بدء تحديث لوحة التحكم للمحاسب...'); // للتحقق في Console
 
-    const cashiers = users.filter(u => u.role === 'كاشير');
-    tableBody.innerHTML = '';
+        // قائمة الـ IDs التي يجب التحقق منها (بناءً على HTML الخاص بك)
+        const requiredIds = [
+            'totalNormalExpensesAccountant',
+            'countNormalExpensesAccountant',
+            'totalVisaAccountant',
+            'countVisaAccountant',
+            'totalInstaAccountant',
+            'countInstaAccountant',
+            'totalOnlineAccountant',
+            'countOnlineAccountant',
+            'totalActiveCashiersAccountant',
+            'totalInactiveCashiersAccountant',
+            'totalBlockedCashiersAccountant',
+            'totalCustomersAccountant',
+            'customersWithCreditAccountant',
+            'totalCreditAmountAccountant',
+            'customersWithZeroCreditAccountant'
+        ];
 
-    for (const cashier of cashiers) {
-        const expenses = await loadExpenses({ ...filters, cashier: cashier.username });
-
-        let normalExpenses = [];
-        let visaExpenses = [];
-        let instaExpenses = [];
-        let onlineExpenses = [];
-
-        expenses.forEach(expense => {
-            const category = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
-            const formType = category ? category.formType : 'عادي';
-
-            if (formType === 'فيزا') {
-                visaExpenses.push(expense);
-            } else if (formType === 'إنستا') {
-                instaExpenses.push(expense);
-            } else if (formType === 'اونلاين') {
-                onlineExpenses.push(expense);
+        // تحقق من وجود جميع الـ IDs
+        requiredIds.forEach(id => {
+            const element = document.getElementById(id);
+            if (!element) {
+                console.error(`العنصر غير موجود في HTML: ${id}`);
+                throw new Error(`ID غير موجود: ${id}`);
             } else {
-                normalExpenses.push(expense);
+                console.log(`العنصر موجود: ${id}`);
             }
         });
 
-        const totalNormal = normalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const normalCount = normalExpenses.length;
-        const totalVisa = visaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const visaCount = visaExpenses.length;
-        const totalInsta = instaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const instaCount = instaExpenses.length;
-        const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const onlineCount = onlineExpenses.length;
+        // باقي الكود الخاص بجلب البيانات (مثل fetch للـ expenses و users و customers)
+        // ... (اترك باقي الدالة كما هي، لكن تأكد من التعديلات السابقة)
 
-        const row = tableBody.insertRow();
-        row.insertCell().textContent = cashier.name;
-        row.insertCell().textContent = totalNormal.toFixed(2);
-        row.insertCell().textContent = normalCount;
-        row.insertCell().textContent = totalVisa.toFixed(2);
-        row.insertCell().textContent = visaCount;
-        row.insertCell().textContent = totalInsta.toFixed(2);
-        row.insertCell().textContent = instaCount;
-        row.insertCell().textContent = totalOnline.toFixed(2);
-        row.insertCell().textContent = onlineCount;
-        row.insertCell().textContent = cashier.lastUpdate || 'لا يوجد'; // Assuming lastUpdate field for cashier
-        row.insertCell().textContent = cashier.status;
+        // الآن، قم بتحديث الإحصائيات (هذا هو الجزء الذي يسبب الخطأ)
+        // Update stats grid
+        document.getElementById('totalNormalExpensesAccountant').textContent = totalNormal.toFixed(2);
+        document.getElementById('countNormalExpensesAccountant').textContent = normalCount;
+        // ... باقي الأسطر كما في الإصلاحات السابقة
+
+    } catch (error) {
+        console.error('خطأ في تحديث لوحة التحكم:', error);
+        alert('خطأ في تحديث لوحة التحكم: ' + error.message); // لعرض الخطأ لك
     }
+}
+
+}
+
+function updateAccountantCashierOverview(filters) {
+    const tableBody = document.getElementById('cashierOverviewBody');
+    if (!tableBody) return;
+
+    // For overview, we need aggregated data per cashier
+    const cashiers = users.filter(u => u.role === 'كاشير');
+    tableBody.innerHTML = '';
+
+    cashiers.forEach(cashier => {
+        // Load expenses for this cashier with filters
+        loadExpenses({ ...filters, cashier: cashier.username }).then(expenses => {
+            let normalExpenses = [];
+            let visaExpenses = [];
+            let instaExpenses = [];
+            let onlineExpenses = [];
+
+            expenses.forEach(expense => {
+                const category = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
+                const formType = category ? category.formType : 'عادي';
+
+                if (formType === 'فيزا') {
+                    visaExpenses.push(expense);
+                } else if (formType === 'إنستا') {
+                    instaExpenses.push(expense);
+                } else if (formType === 'اونلاين') {
+                    onlineExpenses.push(expense);
+                } else {
+                    normalExpenses.push(expense);
+                }
+            });
+
+            const totalNormal = normalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+            const normalCount = normalExpenses.length;
+            const totalVisa = visaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+            const visaCount = visaExpenses.length;
+            const totalInsta = instaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+            const instaCount = instaExpenses.length;
+            const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+            const onlineCount = onlineExpenses.length;
+
+            // Find the row for this cashier and update it (or create new)
+            let row = Array.from(tableBody.rows).find(r => r.cells[0].textContent === cashier.name);
+            if (!row) {
+                row = tableBody.insertRow();
+                row.insertCell().textContent = cashier.name;
+                row.insertCell().textContent = totalNormal.toFixed(2);
+                row.insertCell().textContent = normalCount;
+                row.insertCell().textContent = totalVisa.toFixed(2);
+                row.insertCell().textContent = visaCount;
+                row.insertCell().textContent = totalInsta.toFixed(2);
+                row.insertCell().textContent = instaCount;
+                row.insertCell().textContent = totalOnline.toFixed(2);
+                row.insertCell().textContent = onlineCount;
+            } else {
+                row.cells[1].textContent = totalNormal.toFixed(2);
+                row.cells[2].textContent = normalCount;
+                row.cells[3].textContent = totalVisa.toFixed(2);
+                row.cells[4].textContent = visaCount;
+                row.cells[5].textContent = totalInsta.toFixed(2);
+                row.cells[6].textContent = instaCount;
+                row.cells[7].textContent = totalOnline.toFixed(2);
+                row.cells[8].textContent = onlineCount;
+            }
+        });
+    });
 
     if (tableBody.rows.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="11">لا توجد بيانات للكاشيرز.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="9">لا توجد بيانات للكاشيرز.</td></tr>';
     }
 }
 
 function clearAccountantDashboardFilters() {
     const cashierFilter = document.getElementById('dashboardCashierFilter');
-    const dateFromFilter = document.getElementById('dashboardDateFromAccountant');
-    const dateToFilter = document.getElementById('dashboardDateToAccountant');
+    const dateFromFilter = document.getElementById('dashboardDateFrom');
+    const dateToFilter = document.getElementById('dashboardDateTo');
 
     if (cashierFilter) cashierFilter.value = '';
     if (dateFromFilter) dateFromFilter.value = '';
@@ -1754,64 +1792,55 @@ function populateReportFilters() {
 async function generateReport() {
     const categoryFilter = document.getElementById('reportCategoryFilter')?.value || '';
     const cashierFilter = document.getElementById('reportCashierFilter')?.value || '';
-    const dateFrom = document.getElementById('reportDateFromAccountant')?.value || '';
-    const dateTo = document.getElementById('reportDateToAccountant')?.value || '';
+    const dateFrom = document.getElementById('reportDateFrom')?.value || '';
+    const dateTo = document.getElementById('reportDateTo')?.value || '';
 
     const filters = { cashier: cashierFilter };
     if (categoryFilter) filters.category = categoryFilter;
     if (dateFrom) filters.dateFrom = dateFrom;
     if (dateTo) filters.dateTo = dateTo;
 
-    showLoading(true);
-    try {
-        const expenses = await loadExpenses(filters);
-        const tableBody = document.getElementById('reportTableBody');
-        if (!tableBody) return;
+    const expenses = await loadExpenses(filters);
+    const tableBody = document.getElementById('reportTableBody');
+    if (!tableBody) return;
 
-        tableBody.innerHTML = '';
+    tableBody.innerHTML = '';
 
-        if (expenses.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="8">لا توجد بيانات مطابقة.</td></tr>';
-            return;
-        }
-
-        expenses.forEach(exp => {
-            const row = tableBody.insertRow();
-            row.insertCell().textContent = exp.category;
-            row.insertCell().textContent = exp.invoiceNumber || '--';
-            row.insertCell().textContent = exp.amount.toFixed(2);
-            row.insertCell().textContent = exp.date;
-            row.insertCell().textContent = exp.time;
-            row.insertCell().textContent = exp.cashier;
-            row.insertCell().textContent = exp.notes || '--';
-            const actionsCell = row.insertCell();
-            actionsCell.innerHTML = `<button class="view-btn" onclick="showWarningMessage('عرض التفاصيل غير متاح حالياً.')"><i class="fas fa-eye"></i></button>`;
-        });
-
-        showSuccessMessage('تم إنشاء التقرير بنجاح.');
-    } catch (error) {
-        console.error('Error generating report:', error);
-        showErrorMessage('حدث خطأ أثناء إنشاء التقرير.');
-    } finally {
-        showLoading(false);
+    if (expenses.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8">لا توجد بيانات مطابقة.</td></tr>';
+        return;
     }
+
+    expenses.forEach(exp => {
+        const row = tableBody.insertRow();
+        row.insertCell().textContent = exp.category;
+        row.insertCell().textContent = exp.invoiceNumber || '--';
+        row.insertCell().textContent = exp.amount.toFixed(2);
+        row.insertCell().textContent = exp.date;
+        row.insertCell().textContent = exp.time;
+        row.insertCell().textContent = exp.cashier;
+        row.insertCell().textContent = exp.notes || '--';
+        const actionsCell = row.insertCell();
+        actionsCell.innerHTML = `<button class="view-btn" onclick="showWarningMessage('عرض التفاصيل غير متاح حالياً.')"><i class="fas fa-eye"></i></button>`;
+    });
+
+    showSuccessMessage('تم إنشاء التقرير بنجاح.');
 }
 
 function displayUsers() {
-    const tableBody = document.getElementById('usersTableBodyAccountant');
+    const tableBody = document.getElementById('usersTableBody');
     if (!tableBody) return;
 
     tableBody.innerHTML = '';
 
     if (users.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="7">لا توجد مستخدمين.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="6">لا توجد مستخدمين.</td></tr>';
         return;
     }
 
     users.forEach(user => {
         const row = tableBody.insertRow();
         row.insertCell().textContent = user.name;
-        row.insertCell().textContent = user.phone;
         row.insertCell().textContent = user.username;
         row.insertCell().textContent = user.role;
         row.insertCell().textContent = user.status;
@@ -1825,56 +1854,9 @@ function displayUsers() {
     });
 }
 
-function showAddUserModal() {
-    const form = document.getElementById('addUserForm');
-    if (form) form.reset();
-    const modal = document.getElementById('addUserModal');
-    if (modal) modal.classList.add('active');
-}
 
-async function addUser() {
-    const name = document.getElementById('userName').value.trim();
-    const phone = document.getElementById('userPhone').value.trim();
-    const username = document.getElementById('userUsername').value.trim();
-    const password = document.getElementById('userPassword').value.trim();
-    const role = document.getElementById('userRole').value;
 
-    if (!name || !phone || !username || !password || !role) {
-        showWarningMessage('يرجى ملء جميع حقول المستخدم.');
-        return;
-    }
 
-    const existingUser = users.find(u => u.username === username || u.phone === phone);
-    if (existingUser) {
-        showWarningMessage('اسم المستخدم أو رقم التليفون موجود بالفعل.');
-        return;
-    }
-
-    const userId = 'USER_' + new Date().getTime();
-    const newUser = [
-        userId,
-        name,
-        phone,
-        username,
-        password,
-        role,
-        'نشط', // Default status
-        new Date().toISOString().split('T')[0]
-    ];
-
-    const result = await appendToSheet(SHEETS.USERS, newUser);
-
-    if (result.success) {
-        showSuccessMessage('تم إضافة المستخدم بنجاح.');
-        closeModal('addUserModal');
-        await loadUsers();
-        displayUsers();
-        populateUserDropdown(); // Update login dropdown
-        populateAccountantFilters(); // Update accountant filters
-    } else {
-        showErrorMessage('فشل إضافة المستخدم.');
-    }
-}
 
 // --- Shift Closure for Accountant ---
 async function searchCashierClosuresAccountant() {
@@ -1924,7 +1906,7 @@ async function searchCashierClosuresAccountant() {
 
         // Get last drawer cash from previous closure (simplified: assume 0 if no previous)
         const lastClosures = await loadShiftClosures({ cashier: selectedCashier });
-        const lastClosure = lastClosures.sort((a, b) => new Date(`${b.closureDate}T${b.closureTime}`) - new Date(`${a.closureDate}T${a.closureTime}`))[0];
+        const lastClosure = lastClosures.sort((a, b) => new Date(b.closureDate) - new Date(a.closureDate))[0];
         const drawerCash = lastClosure ? lastClosure.drawerCash : 0;
 
         // Calculate totals
@@ -1934,21 +1916,24 @@ async function searchCashierClosuresAccountant() {
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash;
 
-        // Display results
+                // Display results
         document.getElementById('closureResultsAccountant').style.display = 'block';
+        // تأكد أن هذا العنصر موجود في HTML ولديه ID 'closeCashierByAccountant'
+        // إذا كان هذا الزر جزءًا من قسم 'closureResultsAccountant'، فقد لا تحتاج إلى إظهاره بشكل منفصل إذا كان القسم بأكمله يظهر.
+        // ولكن بناءً على HTML، يبدو أنه زر منفصل يحتاج إلى إظهار.
         const closeCashierBtn = document.getElementById('closeCashierByAccountant');
-        if (closeCashierBtn) {
+        if (closeCashierBtn) { // إضافة تحقق للتأكد من وجود العنصر
             closeCashierBtn.style.display = 'block';
         }
 
         document.getElementById('accTotalNormalExpenses').textContent = totalNormal.toFixed(2);
-        document.getElementById('normalExpensesCountAccountant').textContent = normalExpenses.length;
+        document.getElementById('normalExpensesCountAccountant').textContent = normalExpenses.length; // هذا الـ ID صحيح
         document.getElementById('accTotalVisa').textContent = totalVisa.toFixed(2);
-        document.getElementById('visaCountAccountant').textContent = visaExpenses.length;
+        document.getElementById('visaCountAccountant').textContent = visaExpenses.length; // هذا الـ ID صحيح
         document.getElementById('accTotalInsta').textContent = totalInsta.toFixed(2);
-        document.getElementById('instaCountAccountant').textContent = instaExpenses.length;
+        document.getElementById('instaCountAccountant').textContent = instaExpenses.length; // هذا الـ ID صحيح
         document.getElementById('accTotalOnline').textContent = totalOnline.toFixed(2);
-        document.getElementById('onlineCountAccountant').textContent = onlineExpenses.length;
+        document.getElementById('onlineCountAccountant').textContent = onlineExpenses.length; // هذا الـ ID صحيح
         document.getElementById('accDrawerCash').textContent = drawerCash.toFixed(2);
         document.getElementById('accGrandTotalCashier').textContent = grandTotal.toFixed(2);
         document.getElementById('newmindTotalAccountant').value = ''; // Clear newmind input
@@ -1983,12 +1968,12 @@ async function searchCashierClosuresAccountant() {
 }
 
 function calculateDifferenceAccountant() {
-    const accGrandTotalCashier = parseFloat(document.getElementById('accGrandTotalCashier').textContent) || 0;
+    const grandTotal = parseFloat(document.getElementById('grandTotalAccountant').textContent) || 0;
     const newMindTotal = parseFloat(document.getElementById('newmindTotalAccountant').value) || 0;
-    const difference = newMindTotal - accGrandTotalCashier;
+    const difference = newMindTotal - grandTotal;
     const differenceResult = document.getElementById('differenceResultAccountant');
 
-    if (isNaN(newMindTotal)) {
+    if (isNaN(newMindTotal) || newMindTotal < 0) {
         showWarningMessage('يرجى إدخال قيمة صحيحة لإجمالي نيو مايند.');
         return;
     }
@@ -2016,7 +2001,7 @@ async function closeCashierShiftByAccountant() {
     }
 
     const newMindTotal = parseFloat(document.getElementById('newmindTotalAccountant').value);
-    if (isNaN(newMindTotal)) {
+    if (isNaN(newMindTotal) || newMindTotal < 0) {
         showWarningMessage('يرجى إدخال قيمة صحيحة لإجمالي نيو مايند.');
         return;
     }
@@ -2029,8 +2014,8 @@ async function closeCashierShiftByAccountant() {
         const shiftId = 'SHIFT_ACC_' + now.getTime();
 
          const shiftClosureData = [
-            shiftId,
-            window.currentClosureData.cashier,
+      shiftId,
+      window.currentClosureData.cashier,
             window.currentClosureData.dateFrom,
             window.currentClosureData.timeFrom,
             window.currentClosureData.dateTo,
@@ -2045,12 +2030,13 @@ async function closeCashierShiftByAccountant() {
             window.currentClosureData.onlineCount,
             window.currentClosureData.grandTotal,
             window.currentClosureData.drawerCash,
+            
             newMindTotal,
             difference,
             'مغلق بواسطة المحاسب', // status
             now.toISOString().split('T')[0],
             now.toTimeString().split(' ')[0],
-            currentUser.username // accountant
+            currentUser .username // accountant
         ];
 
         const result = await appendToSheet(SHEETS.SHIFT_CLOSURES, shiftClosureData);
@@ -2094,21 +2080,20 @@ async function loadAccountantShiftClosuresHistory() {
     }
 
     // Sort by closure date descending
-    closures.sort((a, b) => new Date(`${b.closureDate}T${b.closureTime}`) - new Date(`${a.closureDate}T${a.closureTime}`));
+    closures.sort((a, b) => new Date(b.closureDate) - new Date(a.closureDate));
 
     closures.forEach(closure => {
         const row = tableBody.insertRow();
         row.insertCell().textContent = closure.cashier;
-        row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
-        row.insertCell().textContent = (closure.totalExpenses + closure.totalVisa + closure.totalInsta + closure.totalOnline + closure.drawerCash).toFixed(2); // إجمالي الكاشير
+        row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom}`;
+        row.insertCell().textContent = `${closure.dateTo} ${closure.timeTo}`;
+        row.insertCell().textContent = (closure.totalNormal + closure.totalVisa + closure.totalInsta + closure.totalOnline + closure.drawerCash).toFixed(2); // إجمالي الكاشير
         row.insertCell().textContent = closure.newMindTotal.toFixed(2);
         row.insertCell().textContent = closure.difference.toFixed(2);
         row.insertCell().textContent = closure.status;
         row.insertCell().textContent = closure.closureDate;
         row.insertCell().textContent = closure.closureTime;
         row.insertCell().textContent = closure.accountant || 'الكاشير نفسه';
-        const actionsCell = row.insertCell();
-        actionsCell.innerHTML = `<button class="view-btn" onclick="showWarningMessage('عرض تفاصيل التقفيلة غير متاح حالياً.')"><i class="fas fa-eye"></i></button>`;
     });
 }
 
@@ -2120,32 +2105,37 @@ function showLoading(show = true) {
     }
 }
 
-// Function to display messages
-function displayMessage(message, type) {
-    const messageContainer = document.getElementById('messageContainer');
-    if (!messageContainer) return;
-
-    const messageElement = document.createElement('div');
-    messageElement.className = `message ${type}`;
-    messageElement.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'times-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i> ${message}`;
-    
-    messageContainer.appendChild(messageElement);
-
-    setTimeout(() => {
-        messageElement.remove();
-    }, type === 'error' ? 5000 : type === 'warning' ? 4000 : 3000);
-}
-
 function showSuccessMessage(message) {
-    displayMessage(message, 'success');
+    const successMsg = document.getElementById('successMessage');
+    if (successMsg) {
+        successMsg.textContent = message;
+        successMsg.style.display = 'block';
+        setTimeout(() => {
+            successMsg.style.display = 'none';
+        }, 3000);
+    }
 }
 
 function showErrorMessage(message) {
-    displayMessage(message, 'error');
+    const errorMsg = document.getElementById('errorMessage');
+    if (errorMsg) {
+        errorMsg.textContent = message;
+        errorMsg.style.display = 'block';
+        setTimeout(() => {
+            errorMsg.style.display = 'none';
+        }, 5000);
+    }
 }
 
 function showWarningMessage(message) {
-    displayMessage(message, 'warning');
+    const warningMsg = document.getElementById('warningMessage');
+    if (warningMsg) {
+        warningMsg.textContent = message;
+        warningMsg.style.display = 'block';
+        setTimeout(() => {
+            warningMsg.style.display = 'none';
+        }, 4000);
+    }
 }
 
 function closeModal(modalId) {
@@ -2210,25 +2200,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Add user form
-    const addUserForm = document.getElementById('addUserForm');
-    if (addUserForm) {
-        addUserForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            addUser();
-        });
-    }
-
     // Dashboard filters
     const dashboardCashierFilter = document.getElementById('dashboardCashierFilter');
     if (dashboardCashierFilter) {
         dashboardCashierFilter.addEventListener('change', updateAccountantDashboard);
     }
-    const dashboardDateFrom = document.getElementById('dashboardDateFromAccountant');
+    const dashboardDateFrom = document.getElementById('dashboardDateFrom');
     if (dashboardDateFrom) {
         dashboardDateFrom.addEventListener('change', updateAccountantDashboard);
     }
-    const dashboardDateTo = document.getElementById('dashboardDateToAccountant');
+    const dashboardDateTo = document.getElementById('dashboardDateTo');
     if (dashboardDateTo) {
         dashboardDateTo.addEventListener('change', updateAccountantDashboard);
     }
@@ -2242,11 +2223,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (reportCashierFilter) {
         reportCashierFilter.addEventListener('change', generateReport);
     }
-    const reportDateFrom = document.getElementById('reportDateFromAccountant');
+    const reportDateFrom = document.getElementById('reportDateFrom');
     if (reportDateFrom) {
         reportDateFrom.addEventListener('change', generateReport);
     }
-    const reportDateTo = document.getElementById('reportDateToAccountant');
+    const reportDateTo = document.getElementById('reportDateTo');
     if (reportDateTo) {
         reportDateTo.addEventListener('change', generateReport);
     }
@@ -2270,12 +2251,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const timeNow = new Date().toTimeString().split(' ')[0].substring(0, 5);
 
     // Dashboard filters
-    if (document.getElementById('dashboardDateFromAccountant')) document.getElementById('dashboardDateFromAccountant').value = today;
-    if (document.getElementById('dashboardDateToAccountant')) document.getElementById('dashboardDateToAccountant').value = today;
+    if (document.getElementById('dashboardDateFrom')) document.getElementById('dashboardDateFrom').value = today;
+    if (document.getElementById('dashboardDateTo')) document.getElementById('dashboardDateTo').value = today;
 
     // Report filters
-    if (document.getElementById('reportDateFromAccountant')) document.getElementById('reportDateFromAccountant').value = today;
-    if (document.getElementById('reportDateToAccountant')) document.getElementById('reportDateToAccountant').value = today;
+    if (document.getElementById('reportDateFrom')) document.getElementById('reportDateFrom').value = today;
+    if (document.getElementById('reportDateTo')) document.getElementById('reportDateTo').value = today;
 
     // Cashier shift filters
     if (document.getElementById('shiftDateFromCashier')) document.getElementById('shiftDateFromCashier').value = today;
@@ -2304,110 +2285,4 @@ if (logoutBtn) {
 const passwordToggle = document.querySelector('.show-password');
 if (passwordToggle) {
     passwordToggle.addEventListener('click', togglePasswordVisibility);
-}
-
-// Accountant Dashboard Search Invoice
-async function searchInvoiceAccountant() {
-    const invoiceNumber = document.getElementById('searchInputAccountant').value.trim();
-    const searchResultDiv = document.getElementById('invoiceSearchResultAccountant');
-    if (!searchResultDiv) return;
-
-    searchResultDiv.innerHTML = '';
-    searchResultDiv.style.display = 'none';
-
-    if (!invoiceNumber) {
-        showWarningMessage('يرجى إدخال رقم الفاتورة للبحث.');
-        return;
-    }
-
-    showLoading(true);
-    try {
-        const expenses = await loadExpenses({ invoiceNumber: invoiceNumber });
-
-        if (expenses.length === 0) {
-            searchResultDiv.innerHTML = '<p>لا توجد فاتورة بهذا الرقم.</p>';
-        } else {
-            let resultHtml = '<h3>نتائج البحث عن الفاتورة:</h3>';
-            resultHtml += '<table><thead><tr><th>التصنيف</th><th>رقم الفاتورة</th><th>القيمة</th><th>التاريخ</th><th>الوقت</th><th>الكاشير</th><th>الملاحظات</th></tr></thead><tbody>';
-            expenses.forEach(exp => {
-                resultHtml += `<tr>
-                    <td>${exp.category}</td>
-                    <td>${exp.invoiceNumber}</td>
-                    <td>${exp.amount.toFixed(2)}</td>
-                    <td>${exp.date}</td>
-                    <td>${exp.time}</td>
-                    <td>${exp.cashier}</td>
-                    <td>${exp.notes || '--'}</td>
-                </tr>`;
-            });
-            resultHtml += '</tbody></table>';
-            searchResultDiv.innerHTML = resultHtml;
-        }
-        searchResultDiv.style.display = 'block';
-    } catch (error) {
-        console.error('Error searching invoice:', error);
-        showErrorMessage('حدث خطأ أثناء البحث عن الفاتورة.');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// Accountant Reports Print and WhatsApp functions (placeholders)
-function printReport() {
-    showWarningMessage('وظيفة الطباعة غير متاحة حالياً.');
-    // window.print(); // Uncomment to enable basic browser print
-}
-
-function showWhatsAppModal() {
-    const whatsappModal = document.getElementById('whatsappModal');
-    if (whatsappModal) {
-        whatsappModal.classList.add('active');
-    }
-}
-
-async function sendReportViaWhatsApp() {
-    const whatsappNumber = document.getElementById('whatsappNumber').value.trim();
-    if (!whatsappNumber) {
-        showWarningMessage('يرجى إدخال رقم الواتساب.');
-        return;
-    }
-
-    // Generate report text
-    const categoryFilter = document.getElementById('reportCategoryFilter')?.value || 'جميع التصنيفات';
-    const cashierFilter = document.getElementById('reportCashierFilter')?.value || 'جميع الكاشيرز';
-    const dateFrom = document.getElementById('reportDateFromAccountant')?.value || 'البداية';
-    const dateTo = document.getElementById('reportDateToAccountant')?.value || 'النهاية';
-
-    const filters = { cashier: cashierFilter === 'جميع الكاشيرز' ? '' : cashierFilter };
-    if (categoryFilter !== 'جميع التصنيفات') filters.category = categoryFilter;
-    if (dateFrom !== 'البداية') filters.dateFrom = dateFrom;
-    if (dateTo !== 'النهاية') filters.dateTo = dateTo;
-
-    showLoading(true);
-    try {
-        const expenses = await loadExpenses(filters);
-        let reportText = `تقرير المصروفات\nالفترة: من ${dateFrom} إلى ${dateTo}\nالكاشير: ${cashierFilter}\nالتصنيف: ${categoryFilter}\n\n`;
-
-        if (expenses.length === 0) {
-            reportText += 'لا توجد مصروفات مطابقة للمعايير.';
-        } else {
-            let totalAmount = 0;
-            expenses.forEach(exp => {
-                reportText += `التصنيف: ${exp.category}, الفاتورة: ${exp.invoiceNumber || '--'}, القيمة: ${exp.amount.toFixed(2)}, التاريخ: ${exp.date}, الوقت: ${exp.time}, الكاشير: ${exp.cashier}\n`;
-                totalAmount += exp.amount;
-            });
-            reportText += `\nالإجمالي الكلي: ${totalAmount.toFixed(2)}`;
-        }
-
-        const encodedText = encodeURIComponent(reportText);
-        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedText}`;
-        window.open(whatsappUrl, '_blank');
-        showSuccessMessage('تم فتح محادثة الواتساب بنجاح.');
-        closeModal('whatsappModal');
-    } catch (error) {
-        console.error('Error sending report via WhatsApp:', error);
-        showErrorMessage('حدث خطأ أثناء إرسال التقرير عبر واتساب.');
-    } finally {
-        showLoading(false);
-    }
 }
