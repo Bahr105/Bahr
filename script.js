@@ -1629,6 +1629,56 @@ async function updateAccountantDashboard() {
     } finally {
         showLoading(false);
     }
+
+    async function updateAccountantDashboard() {
+    try {
+        console.log('بدء تحديث لوحة التحكم للمحاسب...'); // للتحقق في Console
+
+        // قائمة الـ IDs التي يجب التحقق منها (بناءً على HTML الخاص بك)
+        const requiredIds = [
+            'totalNormalExpensesAccountant',
+            'countNormalExpensesAccountant',
+            'totalVisaAccountant',
+            'countVisaAccountant',
+            'totalInstaAccountant',
+            'countInstaAccountant',
+            'totalOnlineAccountant',
+            'countOnlineAccountant',
+            'totalActiveCashiersAccountant',
+            'totalInactiveCashiersAccountant',
+            'totalBlockedCashiersAccountant',
+            'totalCustomersAccountant',
+            'customersWithCreditAccountant',
+            'totalCreditAmountAccountant',
+            'customersWithZeroCreditAccountant'
+        ];
+
+        // تحقق من وجود جميع الـ IDs
+        requiredIds.forEach(id => {
+            const element = document.getElementById(id);
+            if (!element) {
+                console.error(`العنصر غير موجود في HTML: ${id}`);
+                throw new Error(`ID غير موجود: ${id}`);
+            } else {
+                console.log(`العنصر موجود: ${id}`);
+            }
+        });
+
+        // باقي الكود الخاص بجلب البيانات (مثل fetch للـ expenses و users و customers)
+        // ... (اترك باقي الدالة كما هي، لكن تأكد من التعديلات السابقة)
+
+        // الآن، قم بتحديث الإحصائيات (هذا هو الجزء الذي يسبب الخطأ)
+        // Update stats grid
+        document.getElementById('totalNormalExpensesAccountant').textContent = totalNormal.toFixed(2);
+        document.getElementById('countNormalExpensesAccountant').textContent = normalCount;
+        // ... باقي الأسطر كما في الإصلاحات السابقة
+
+    } catch (error) {
+        console.error('خطأ في تحديث لوحة التحكم:', error);
+        alert('خطأ في تحديث لوحة التحكم: ' + error.message); // لعرض الخطأ لك
+    }
+}
+
 }
 
 function updateAccountantCashierOverview(filters) {
