@@ -96,10 +96,42 @@ async function initializeGapiClient() {
             discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
         });
         gapiInited = true;
-        maybeEnableButtons();
+        
+        // تحقق من المصادقة الحالية فور تهيئة GAPI
+        const existingToken = gapi.client.getToken();
+        const wasAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated';
+        
+        if (existingToken && wasAuthenticated && isTokenValid()) {
+            isAuthenticated = true;
+            console.log('تم استعادة جلسة المصادقة الحالية');
+            await loadInitialData();
+        } else {
+            // امسح أي token غير صالح
+            if (existingToken) {
+                gapi.client.setToken(null);
+                localStorage.removeItem('googleAuthState');
+            }
+            await maybeEnableButtons();
+        }
     } catch (error) {
         console.error('Error initializing GAPI client:', error);
         showMessage('فشل تهيئة Google API', 'error');
+    }
+}
+
+function handleAuthError(error) {
+    console.error('Authentication error:', error);
+    isAuthenticated = false;
+    localStorage.removeItem('googleAuthState');
+    gapi.client.setToken(null);
+    
+    // إذا كان الخطأ يتطلب تفاعل المستخدم، أظهر رسالة
+    if (error.error === 'interaction_required') {
+        showMessage('يجب الموافقة على الوصول إلى البيانات', 'warning');
+        // أعد المحاولة مع نافذة الموافقة
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+    } else {
+        showMessage('فشل المصادقة. يرجى المحاولة مرة أخرى', 'error');
     }
 }
 
@@ -151,26 +183,34 @@ function loadAuthState() {
 }
 
 // تعديل الدالة maybeEnableButtons لاستخدام localStorage
-    // تعديل الدالة maybeEnableButtons لاستخدام localStorage
     async function maybeEnableButtons() {
-
-
-        if (gapiInited && gisInited) {
+    if (gapiInited && gisInited) {
         const existingToken = gapi.client.getToken();
         const wasAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated';
 
+        // إذا كان هناك token سابق وحالة مصادقة محفوظة
         if (existingToken && wasAuthenticated) {
-            isAuthenticated = true;
-            console.log('تم استعادة حالة المصادقة السابقة.');
-            await loadInitialData();
-            return;
+            // تحقق من صلاحية الـ token
+            if (existingToken.expires_at && existingToken.expires_at > Date.now()) {
+                isAuthenticated = true;
+                console.log('تم استعادة المصادقة السابقة بنجاح');
+                await loadInitialData();
+                return;
+            } else {
+                // الـ token منتهي الصلاحية، احذفها
+                gapi.client.setToken(null);
+                localStorage.removeItem('googleAuthState');
+                isAuthenticated = false;
+            }
         }
 
-        // إذا لم يكن هناك token، اطلب المصادقة
+        // إذا لم يكن هناك مصادقة سارية، اطلب المصادقة
         if (!isAuthenticated) {
+            console.log('جاري طلب المصادقة...');
             await handleAuthClick();
         }
     }
+
 
 
         if (gapiInited && gisInited && !isAuthenticated) {
@@ -206,28 +246,55 @@ function loadAuthState() {
     return new Promise((resolve, reject) => {
         tokenClient.callback = async (resp) => {
             if (resp.error !== undefined) {
+                console.error('فشل المصادقة:', resp.error);
+                isAuthenticated = false;
+                localStorage.removeItem('googleAuthState');
                 reject(resp);
             } else {
                 isAuthenticated = true;
-                saveAuthState(); // حفظ الحالة فوراً
-                resolve();
+                localStorage.setItem('googleAuthState', 'authenticated');
+                console.log('تمت المصادقة بنجاح');
+                
+                // تحميل البيانات بعد المصادقة الناجحة
+                try {
+                    await loadInitialData();
+                    resolve();
+                } catch (error) {
+                    console.error('فشل تحميل البيانات بعد المصادقة:', error);
+                    reject(error);
+                }
             }
         };
 
+        // اطلب المصادقة مع إظهار نافذة الموافقة إذا لزم الأمر
         if (gapi.client.getToken() === null) {
-            tokenClient.requestAccessToken({ prompt: 'none' });
-        } else {
+            // أول مصادقة - اطلب موافقة المستخدم
             tokenClient.requestAccessToken({ prompt: 'consent' });
+        } else {
+            // محاولة مصادقة تلقائية بدون نافذة
+            tokenClient.requestAccessToken({ prompt: 'none' });
         }
     });
 }
+
 
 // حفظ الحالة قبل إغلاق الصفحة
 window.addEventListener('beforeunload', () => {
     saveAuthState();
 });
 
+    function isTokenValid() {
+    const token = gapi.client.getToken();
+    if (!token) return false;
     
+    // تحقق من وجود وقت انتهاء الصلاحية
+    if (token.expires_at) {
+        return token.expires_at > Date.now();
+    }
+    
+    // إذا لم يكن هناك وقت انتهاء، افترض أنها صالحة لمدة ساعة
+    return true;
+}
 
 // --- Google Sheets API Functions ---
 async function readSheet(sheetName, range = 'A:Z') {
@@ -2763,6 +2830,7 @@ window.onclick = function(event) {
 document.addEventListener('DOMContentLoaded', function() {
     loadGoogleScripts().then(() => {
         console.log('Google Scripts loaded successfully.');
+        // لا حاجة لاستدعاء maybeEnableButtons هنا لأنه يتم استدعاؤه تلقائياً
     }).catch(error => {
         console.error('Failed to load Google Scripts:', error);
         showMessage('فشل تحميل مكتبات Google. يرجى التحقق من الاتصال بالإنترنت.', 'error');
