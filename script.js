@@ -2411,11 +2411,21 @@ async function searchCashierClosuresAccountant() {
         const formattedTimeFrom = normalizeTimeToHHMMSS(timeFrom);
         const formattedTimeTo = normalizeTimeToHHMMSS(timeTo);
 
+        // التحقق من صحة التواريخ أولاً
+        if (!isValidDate(dateFrom) || !isValidDate(dateTo)) {
+            throw new Error('تنسيق التاريخ غير صحيح. يرجى استخدام الصيغة YYYY-MM-DD.');
+        }
+
+        // التحقق من صحة الأوقات
+        if (!isValidTime(formattedTimeFrom) || !isValidTime(formattedTimeTo)) {
+            throw new Error('تنسيق الوقت غير صحيح.');
+        }
+
         // Construct the start and end Date objects for the search period
         const searchStartDateTime = new Date(`${dateFrom}T${formattedTimeFrom}`);
         const searchEndDateTime = new Date(`${dateTo}T${formattedTimeTo}`);
 
-        // التحقق من صحة التواريخ
+        // التحقق من صحة التواريخ المنشأة
         if (isNaN(searchStartDateTime.getTime()) || isNaN(searchEndDateTime.getTime())) {
             throw new Error('تنسيق التاريخ أو الوقت غير صحيح. تأكد من الإدخال.');
         }
@@ -2423,11 +2433,11 @@ async function searchCashierClosuresAccountant() {
         console.log(`البحث عن إغلاقات داخل الفترة: ${searchStartDateTime.toISOString()} إلى ${searchEndDateTime.toISOString()}`);
         console.log(`الكاشير المحدد: ${selectedCashier}, formattedTimeFrom: ${formattedTimeFrom}, formattedTimeTo: ${formattedTimeTo}`);
 
-        // Load expenses for the current search period (مع الأوقات المنظفة)
+        // Load expenses for the current search period
         const expenses = await loadExpenses({
             dateFrom: dateFrom,
             dateTo: dateTo,
-            timeFrom: formattedTimeFrom.slice(0, 5), // لـ loadExpenses، أرسل HH:MM فقط إذا كانت الدالة تتوقعه كذلك
+            timeFrom: formattedTimeFrom.slice(0, 5), // HH:MM
             timeTo: formattedTimeTo.slice(0, 5),
             cashier: selectedCashier
         });
@@ -2597,48 +2607,72 @@ async function searchCashierClosuresAccountant() {
         showLoading(false);
     }
 }
-function calculateDifferenceAccountant() {
-    if (!window.currentClosureData) {
-        showMessage('يرجى البحث عن بيانات الكاشير أولاً.', 'warning');
-        return;
+
+// دالة للتحقق من صحة التاريخ
+function isValidDate(dateString) {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dateString)) return false;
+    
+    const date = new Date(dateString);
+    return date instanceof Date && !isNaN(date.getTime());
+}
+
+// دالة للتحقق من صحة الوقت
+function isValidTime(timeString) {
+    const regex = /^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+    return regex.test(timeString);
+}
+
+// تحسين دالة تحويل الوقت لتكون أكثر أماناً
+function normalizeTimeToHHMMSS(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') {
+        return '00:00:00';
     }
-
-    const newMindTotal = parseFloat(document.getElementById('newmindTotalAccountant').value);
-    if (isNaN(newMindTotal) || newMindTotal < 0) {
-        showMessage('يرجى إدخال قيمة صحيحة لإجمالي نيو مايند.', 'warning');
-        return;
+    
+    // إذا كان الوقت بالفعل بتنسيق 24 ساعة
+    if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/)) {
+        const parts = timeStr.split(':');
+        if (parts.length === 3) return timeStr;
+        if (parts.length === 2) return timeStr + ':00';
+        return '00:00:00';
     }
-
-    const cashierTotal = window.currentClosureData.grandTotal;
-    const difference = newMindTotal - cashierTotal;
-    const differenceResult = document.getElementById('differenceResultAccountant');
-
-    let resultHtml = `
-        <div class="difference-summary">
-            <h4>نتيجة المقارنة:</h4>
-            <p>إجمالي الكاشير: ${cashierTotal.toFixed(2)} جنيه</p>
-            <p>إجمالي نيو مايند: ${newMindTotal.toFixed(2)} جنيه</p>
-            <p>الفرق: ${Math.abs(difference).toFixed(2)} جنيه</p>
-    `;
-
-    if (difference === 0) {
-        resultHtml += `<p class="status-match"><strong>الحالة: مطابق ✓</strong></p>`;
-        differenceResult.className = 'difference-result balanced';
-    } else if (difference > 0) {
-        resultHtml += `<p class="status-surplus"><strong>الحالة: عجز علي الكاشير (زيادة في نيو مايند)</strong></p>`;
-        differenceResult.className = 'difference-result surplus';
-    } else {
-        resultHtml += `<p class="status-deficit"><strong>الحالة: زيادة عند الكاشير (عجز في نيو مايند)</strong></p>`;
-        differenceResult.className = 'difference-result deficit';
-    }
-
-    resultHtml += '</div>';
-    differenceResult.innerHTML = resultHtml;
-    differenceResult.style.display = 'block';
-
-    const closeCashierBtn = document.querySelector('.close-cashier-btn');
-    if (closeCashierBtn) {
-        closeCashierBtn.style.display = 'inline-flex';
+    
+    // تحويل من AM/PM إلى 24 ساعة
+    try {
+        let period = '';
+        let timePart = timeStr.trim();
+        
+        // فصل الفترة (ص/م) إذا وُجدت
+        if (timeStr.includes('ص') || timeStr.includes('م')) {
+            const match = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(ص|م)/);
+            if (match) {
+                timePart = match[1] + ':' + match[2] + (match[3] ? ':' + match[3] : '');
+                period = match[4];
+            }
+        }
+        
+        let [hours, minutes, seconds = '00'] = timePart.split(':').map(Number);
+        
+        if (isNaN(hours) || isNaN(minutes)) {
+            return '00:00:00';
+        }
+        
+        // تحويل إلى 24 ساعة
+        if (period.includes('م') && hours !== 12) {
+            hours += 12;
+        } else if (period.includes('ص') && hours === 12) {
+            hours = 0;
+        }
+        
+        // التأكد من أن الأرقام ضمن النطاق الصحيح
+        hours = Math.max(0, Math.min(23, hours));
+        minutes = Math.max(0, Math.min(59, minutes));
+        seconds = Math.max(0, Math.min(59, seconds));
+        
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    } catch (error) {
+        console.error('Error normalizing time:', error, timeStr);
+        return '00:00:00';
     }
 }
 
