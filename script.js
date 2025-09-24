@@ -2373,7 +2373,9 @@ async function searchCashierClosuresAccountant() {
         const searchStartDateTime = new Date(`${dateFrom}T${timeFrom}:00`);
         const searchEndDateTime = new Date(`${dateTo}T${timeTo}:00`);
 
-        // Load expenses for the current search period
+        console.log(`البحث عن إغلاقات داخل الفترة: ${searchStartDateTime.toISOString()} إلى ${searchEndDateTime.toISOString()}`); // تسجيل للتشخيص
+
+        // Load expenses for the current search period (كما هو)
         const expenses = await loadExpenses({
             dateFrom: dateFrom,
             dateTo: dateTo,
@@ -2402,30 +2404,60 @@ async function searchCashierClosuresAccountant() {
             }
         });
 
-        // --- MODIFIED LOGIC FOR DRAWER CASH ---
-        let drawerCash = 0;
+        // --- MODIFIED LOGIC FOR DRAWER CASH: البحث داخل الفترة أولاً، ثم قبلها ---
+        let drawerCash = 0; // القيمة الافتراضية
         const allClosures = await loadShiftClosures({}); // Load all closures
 
-        // Filter for closures by the selected cashier that ended BEFORE the current search period starts
-        const previousClosures = allClosures.filter(closure => {
-            // Ensure closure dates and times are valid
-            if (!closure.dateTo || !closure.timeTo) return false;
+        // 1. البحث عن الإغلاقات DACHAL الفترة المحددة (closureEndDateTime بين searchStart و searchEnd)
+        const closuresInPeriod = allClosures.filter(closure => {
+            if (!closure.dateTo || !closure.timeTo || !closure.drawerCash) return false;
 
             const closureEndDateTime = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
-            return closure.cashier === selectedCashier && closureEndDateTime < searchStartDateTime;
+            const isInPeriod = closure.cashier === selectedCashier && 
+                               closureEndDateTime >= searchStartDateTime && 
+                               closureEndDateTime <= searchEndDateTime;
+            
+            console.log(`فحص إغلاق ${closure.id}: انتهى في ${closureEndDateTime.toISOString()}, هل داخل الفترة؟ ${isInPeriod}, drawerCash: ${closure.drawerCash}`); // تسجيل مفصل
+            
+            return isInPeriod;
         });
 
-        if (previousClosures.length > 0) {
-            // Sort by closure end date/time to get the latest one
-            const latestPreviousClosure = previousClosures.sort((a, b) =>
-                new Date(`${b.dateTo}T${b.timeTo}:00`) - new Date(`${a.dateTo}T${a.timeTo}:00`)
-            )[0];
-            drawerCash = latestPreviousClosure.drawerCash || 0;
-            console.log(`وُجد إغلاق سابق للفترة: ${latestPreviousClosure.id}، drawerCash = ${drawerCash}`);
+        let drawerCashFromPeriod = 0;
+        if (closuresInPeriod.length > 0) {
+            // تجميع drawerCash من جميع الإغلاقات داخل الفترة
+            drawerCashFromPeriod = closuresInPeriod.reduce((sum, closure) => sum + (parseFloat(closure.drawerCash) || 0), 0);
+            console.log(`وُجد ${closuresInPeriod.length} إغلاق داخل الفترة، drawerCash المجموع = ${drawerCashFromPeriod}`);
+            drawerCash = drawerCashFromPeriod; // استخدم هذا كأساس
         } else {
-            drawerCash = 0;
-            console.log(`لا يوجد إغلاق سابق للفترة ${dateFrom} ${timeFrom}، drawerCash = 0`);
+            console.log(`لا يوجد إغلاق داخل الفترة ${dateFrom} ${timeFrom} إلى ${dateTo} ${timeTo}`);
         }
+
+        // 2. إذا لم يوجد داخل الفترة، ابحث عن آخر إغلاق قبل بداية الفترة كقيمة أولية
+        if (drawerCashFromPeriod === 0) {
+            const previousClosures = allClosures.filter(closure => {
+                if (!closure.dateTo || !closure.timeTo || !closure.drawerCash) return false;
+
+                const closureEndDateTime = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
+                const isPrevious = closure.cashier === selectedCashier && closureEndDateTime < searchStartDateTime;
+                
+                console.log(`فحص إغلاق سابق ${closure.id}: انتهى في ${closureEndDateTime.toISOString()}, هل قبل الفترة؟ ${isPrevious}, drawerCash: ${closure.drawerCash}`);
+                
+                return isPrevious;
+            });
+
+            if (previousClosures.length > 0) {
+                // تجميع من الإغلاقات السابقة (أو آخر واحد فقط إذا أردت)
+                const latestPrevious = previousClosures.sort((a, b) => 
+                    new Date(`${b.dateTo}T${b.timeTo}:00`) - new Date(`${a.dateTo}T${a.timeTo}:00`)
+                )[0]; // آخر واحد فقط (يمكن تغييره إلى reduce للتجميع)
+                drawerCash = parseFloat(latestPrevious.drawerCash) || 0;
+                console.log(`لا إغلاق داخل الفترة، لكن آخر إغلاق سابق: ${latestPrevious.id}، drawerCash = ${drawerCash}`);
+            } else {
+                drawerCash = 0;
+                console.log(`لا يوجد إغلاق داخل أو قبل الفترة، drawerCash = 0`);
+            }
+        }
+
         // --- END MODIFIED LOGIC ---
 
         const totalNormal = normalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
@@ -2433,9 +2465,10 @@ async function searchCashierClosuresAccountant() {
         const totalInsta = instaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         
-        // grandTotal for accountant search should include drawerCash
+        // grandTotal يشمل drawerCash (الداخلي أو السابق)
         const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash; 
 
+        // عرض النتائج (كما هو)
         document.getElementById('closureResultsAccountant').style.display = 'block';
 
         document.getElementById('accTotalNormalExpenses').textContent = totalNormal.toFixed(2);
@@ -2452,6 +2485,7 @@ async function searchCashierClosuresAccountant() {
             closeCashierBtn.style.display = 'none';
         }
 
+        // حفظ البيانات مع drawerCash المحدث
         window.currentClosureData = {
             cashier: selectedCashier,
             dateFrom: dateFrom,
@@ -2464,15 +2498,22 @@ async function searchCashierClosuresAccountant() {
             visaCount: visaExpenses.length,
             totalInsta: totalInsta,
             instaCount: instaExpenses.length,
-            totalOnline: onlineExpenses.length,
+            totalOnline: totalOnline,
             onlineCount: onlineExpenses.length,
-            drawerCash: drawerCash, // حفظ الكاش في الدرج
-            grandTotal: grandTotal // الإجمالي الكلي مع الكاش في الدرج
+            drawerCash: drawerCash, // المجموع من الداخل أو السابق
+            grandTotal: grandTotal
         };
 
-        const cashierUser = users.find(u => u.username === selectedCashier);
-        const cashierDisplayName = cashierUser ? cashierUser.name : selectedCashier;
-        const cashSource = previousClosures.length > 0 ? ` (من آخر إغلاق سابق)` : ` (لا إغلاق سابق)`;
+        const cashierUser  = users.find(u => u.username === selectedCashier);
+        const cashierDisplayName = cashierUser  ? cashierUser .name : selectedCashier;
+        let cashSource = '';
+        if (closuresInPeriod.length > 0) {
+            cashSource = ` (مجموع من ${closuresInPeriod.length} إغلاق داخل الفترة)`;
+        } else if (drawerCash > 0) {
+            cashSource = ` (من آخر إغلاق سابق)`;
+        } else {
+            cashSource = ` (لا إغلاقات، افتراضي)`;
+        }
         showMessage(`تم البحث عن بيانات الكاشير ${cashierDisplayName} للفترة المحددة. إجمالي الكاش في الدرج: ${drawerCash.toFixed(2)}${cashSource}.`, 'success');
     } catch (error) {
         console.error('Error searching cashier closures:', error);
@@ -2481,7 +2522,6 @@ async function searchCashierClosuresAccountant() {
         showLoading(false);
     }
 }
-
 function calculateDifferenceAccountant() {
     if (!window.currentClosureData) {
         showMessage('يرجى البحث عن بيانات الكاشير أولاً.', 'warning');
