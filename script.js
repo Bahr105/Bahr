@@ -1590,19 +1590,23 @@ async function calculateCashierShift() {
         });
 
         const totalExpenses = categorizedExpenses.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const expenseCount = categorizedExpenses.expenses.length;
         const totalInsta = categorizedExpenses.insta.reduce((sum, exp) => sum + exp.amount, 0);
+        const instaCount = categorizedExpenses.insta.length;
         const totalVisa = categorizedExpenses.visa.reduce((sum, exp) => sum + exp.amount, 0);
+        const visaCount = categorizedExpenses.visa.length;
         const totalOnline = categorizedExpenses.online.reduce((sum, exp) => sum + exp.amount, 0);
+        const onlineCount = categorizedExpenses.online.length;
         const grandTotal = totalExpenses + totalInsta + totalVisa + totalOnline;
 
         document.getElementById('totalExpensesCashier').textContent = totalExpenses.toFixed(2);
-        document.getElementById('expenseCountCashier').textContent = categorizedExpenses.expenses.length;
+        document.getElementById('expenseCountCashier').textContent = expenseCount;
         document.getElementById('totalInstaCashier').textContent = totalInsta.toFixed(2);
-        document.getElementById('instaCountCashier').textContent = categorizedExpenses.insta.length;
+        document.getElementById('instaCountCashier').textContent = instaCount;
         document.getElementById('totalVisaCashier').textContent = totalVisa.toFixed(2);
-        document.getElementById('visaCountCashier').textContent = categorizedExpenses.visa.length;
+        document.getElementById('visaCountCashier').textContent = visaCount;
         document.getElementById('totalOnlineCashier').textContent = totalOnline.toFixed(2);
-        document.getElementById('onlineCountCashier').textContent = categorizedExpenses.online.length;
+        document.getElementById('onlineCountCashier').textContent = onlineCount;
         document.getElementById('grandTotalCashier').textContent = grandTotal.toFixed(2);
 
         document.getElementById('shiftSummaryCashier').style.display = 'block';
@@ -2239,8 +2243,16 @@ function displayUsers() {
     });
 }
 
-// (باقي دوال إدارة المستخدمين مثل editUser, saveEditedUser, changeUserPassword, saveNewPassword, showAddUserModal, addUser)
-// لم يتم تضمينها هنا للاختصار، ولكن يجب أن تكون موجودة في الكود الكامل.
+// Placeholder functions for user management (to avoid errors)
+function editUser(userId) {
+    showMessage('وظيفة تعديل المستخدم غير متاحة حالياً.', 'warning');
+    console.log('Edit user:', userId);
+}
+
+function changeUserPassword(userId) {
+    showMessage('وظيفة تغيير كلمة مرور المستخدم غير متاحة حالياً.', 'warning');
+    console.log('Change password for user:', userId);
+}
 
 function showAddUserModal() {
     const form = document.getElementById('addUserForm');
@@ -2355,7 +2367,7 @@ async function searchCashierClosuresAccountant() {
             dateFrom: dateFrom,
             dateTo: dateTo,
             timeFrom: timeFrom,
-                        timeTo: timeTo
+            timeTo: timeTo
         };
 
         const expenses = await loadExpenses(filters);
@@ -2390,6 +2402,7 @@ async function searchCashierClosuresAccountant() {
 
         let drawerCash = 0;
         if (closuresInPeriod.length > 0) {
+            // Find the latest closure within the specified period
             const latestClosure = closuresInPeriod.sort((a, b) =>
                 new Date(`${b.closureDate}T${b.closureTime}:00`) - new Date(`${a.closureDate}T${a.closureTime}:00`)
             )[0];
@@ -2404,7 +2417,7 @@ async function searchCashierClosuresAccountant() {
         const totalVisa = visaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalInsta = instaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash;
+        const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash; // إضافة الكاش في الدرج هنا
 
         document.getElementById('closureResultsAccountant').style.display = 'block';
 
@@ -2430,19 +2443,19 @@ async function searchCashierClosuresAccountant() {
             timeTo: timeTo,
             totalNormal: totalNormal,
             normalCount: normalExpenses.length,
-            totalVisa: totalVisa, // تم إصلاح هذا ليكون القيمة وليس العدد
+            totalVisa: totalVisa,
             visaCount: visaExpenses.length,
-            totalInsta: totalInsta, // تم إصلاح هذا ليكون القيمة وليس العدد
+            totalInsta: totalInsta,
             instaCount: instaExpenses.length,
-            totalOnline: totalOnline, // تم إصلاح هذا ليكون القيمة وليس العدد
+            totalOnline: totalOnline,
             onlineCount: onlineExpenses.length,
-            drawerCash: drawerCash,
-            grandTotal: grandTotal
+            drawerCash: drawerCash, // حفظ الكاش في الدرج
+            grandTotal: grandTotal // الإجمالي الكلي مع الكاش في الدرج
         };
 
         const cashierUser = users.find(u => u.username === selectedCashier);
         const cashierDisplayName = cashierUser ? cashierUser.name : selectedCashier;
-        const cashSource = closuresInPeriod.length > 0 ? ` (من آخر إغلاق داخل الفترة)` : ` (لا إغلاق داخل الفترة)`;
+        const cashSource = closuresInPeriod.length > 0 ? ` (من آخر إغلاق داخل الفترة)` : ` (لا إغلاق سابق في الفترة)`;
         showMessage(`تم البحث عن بيانات الكاشير ${cashierDisplayName} للفترة المحددة. إجمالي الكاش في الدرج: ${drawerCash.toFixed(2)}${cashSource}.`, 'success');
     } catch (error) {
         console.error('Error searching cashier closures:', error);
@@ -2480,10 +2493,10 @@ function calculateDifferenceAccountant() {
         resultHtml += `<p class="status-match"><strong>الحالة: مطابق ✓</strong></p>`;
         differenceResult.className = 'difference-result balanced';
     } else if (difference > 0) {
-        resultHtml += `<p class="status-surplus"><strong>الحالة: عجز علي الكاشير زيادة في نيو مايند</strong></p>`;
+        resultHtml += `<p class="status-surplus"><strong>الحالة: عجز علي الكاشير (زيادة في نيو مايند)</strong></p>`;
         differenceResult.className = 'difference-result surplus';
     } else {
-        resultHtml += `<p class="status-deficit"><strong>الحالة:زياده عند الكاشير عجز في نيو مايند</strong></p>`;
+        resultHtml += `<p class="status-deficit"><strong>الحالة: زيادة عند الكاشير (عجز في نيو مايند)</strong></p>`;
         differenceResult.className = 'difference-result deficit';
     }
 
@@ -2531,8 +2544,8 @@ async function closeCashierByAccountant() {
             window.currentClosureData.visaCount,
             window.currentClosureData.totalOnline.toFixed(2),
             window.currentClosureData.onlineCount,
-            window.currentClosureData.grandTotal.toFixed(2),
-            window.currentClosureData.drawerCash.toFixed(2),
+            window.currentClosureData.grandTotal.toFixed(2), // الإجمالي الكلي للكاشير (مع الكاش في الدرج)
+            window.currentClosureData.drawerCash.toFixed(2), // الكاش في الدرج
             newMindTotal.toFixed(2),
             difference.toFixed(2),
             'مغلق بواسطة المحاسب',
@@ -2569,7 +2582,7 @@ async function loadAccountantShiftClosuresHistory() {
     tableBody.innerHTML = '';
 
     if (closures.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="8">لا توجد سجلات تقفيلات.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="9">لا توجد سجلات تقفيلات.</td></tr>'; // تم زيادة colspan
         return;
     }
 
@@ -2584,6 +2597,7 @@ async function loadAccountantShiftClosuresHistory() {
         row.insertCell().textContent = cashierDisplayName;
         row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
 
+        // إجمالي الكاشير يجب أن يشمل الكاش في الدرج
         const totalCashierAmount = closure.totalExpenses + closure.totalVisa + closure.totalInsta + closure.totalOnline + closure.drawerCash;
         row.insertCell().textContent = totalCashierAmount.toFixed(2);
 
@@ -2597,7 +2611,7 @@ async function loadAccountantShiftClosuresHistory() {
             differenceCell.title = 'عجز على الكاشير (نقص في النقدية)';
         } else if (diffValue < 0) {
             differenceCell.style.color = 'green';
-            differenceCell.title = 'زيادة على الكاشير (فائض في النقدية)';
+            differenceCell.title = 'زيادة عند الكاشير (فائض في النقدية)';
         } else {
             differenceCell.style.color = 'blue';
             differenceCell.title = 'مطابق';
@@ -2610,12 +2624,201 @@ async function loadAccountantShiftClosuresHistory() {
 
         const actionsCell = row.insertCell();
         actionsCell.innerHTML = `
-            <button class="view-btn" onclick="showMessage('عرض تفاصيل التقفيلة غير متاح حالياً.', 'info')">
+            <button class="view-btn" onclick="viewClosureDetails('${closure.id}')">
                 <i class="fas fa-eye"></i> عرض
+            </button>
+            <button class="accountant-close-btn" onclick="showAccountantClosureModal('${closure.id}')">
+                <i class="fas fa-check-double"></i> تقفيل المحاسب
             </button>
         `;
     });
 }
+
+// --- New Modal for Accountant Closure Details ---
+function showAccountantClosureModal(closureId) {
+    const closure = closures.find(c => c.id === closureId); // Assuming 'closures' is globally available or reloaded
+    if (!closure) {
+        showMessage('لم يتم العثور على تفاصيل التقفيلة.', 'error');
+        return;
+    }
+
+    // Populate the modal with closure data
+    document.getElementById('accountantClosureModalCashierName').textContent = users.find(u => u.username === closure.cashier)?.name || closure.cashier;
+    document.getElementById('accountantClosureModalPeriod').textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
+    document.getElementById('accountantClosureModalTotalExpenses').textContent = closure.totalExpenses.toFixed(2);
+    document.getElementById('accountantClosureModalTotalInsta').textContent = closure.totalInsta.toFixed(2);
+    document.getElementById('accountantClosureModalTotalVisa').textContent = closure.totalVisa.toFixed(2);
+    document.getElementById('accountantClosureModalTotalOnline').textContent = closure.totalOnline.toFixed(2);
+    document.getElementById('accountantClosureModalDrawerCash').textContent = closure.drawerCash.toFixed(2);
+    document.getElementById('accountantClosureModalGrandTotal').textContent = (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash).toFixed(2);
+    
+    document.getElementById('accountantClosureModalNewMindTotal').value = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '';
+    document.getElementById('accountantClosureModalDifference').textContent = closure.difference.toFixed(2);
+    document.getElementById('accountantClosureModalStatus').textContent = closure.status;
+
+    // Store current closure data for processing
+    window.currentAccountantClosure = closure;
+
+    // Show the modal
+    document.getElementById('accountantClosureDetailsModal').classList.add('active');
+    updateAccountantClosureDifference(); // Calculate initial difference if newMindTotal is pre-filled
+}
+
+function updateAccountantClosureDifference() {
+    const newMindTotalInput = document.getElementById('accountantClosureModalNewMindTotal');
+    const differenceDisplay = document.getElementById('accountantClosureModalDifference');
+    const statusDisplay = document.getElementById('accountantClosureModalStatus');
+    const saveButton = document.getElementById('saveAccountantClosureBtn');
+
+    if (!window.currentAccountantClosure) return;
+
+    const cashierTotal = parseFloat(document.getElementById('accountantClosureModalGrandTotal').textContent);
+    const newMindTotal = parseFloat(newMindTotalInput.value);
+
+    if (isNaN(newMindTotal)) {
+        differenceDisplay.textContent = '0.00';
+        statusDisplay.textContent = 'في انتظار الإدخال';
+        statusDisplay.className = 'status open';
+        saveButton.disabled = true;
+        return;
+    }
+
+    const difference = newMindTotal - cashierTotal;
+    differenceDisplay.textContent = difference.toFixed(2);
+
+    if (difference === 0) {
+        statusDisplay.textContent = 'مطابق ✓';
+        statusDisplay.className = 'status closed';
+    } else if (difference > 0) {
+        statusDisplay.textContent = 'عجز علي الكاشير (زيادة في نيو مايند)';
+        statusDisplay.className = 'status inactive';
+    } else {
+        statusDisplay.textContent = 'زيادة عند الكاشير (عجز في نيو مايند)';
+        statusDisplay.className = 'status active'; // Using 'active' for deficit, can be customized
+    }
+    saveButton.disabled = false;
+}
+
+async function saveAccountantClosure() {
+    if (!window.currentAccountantClosure) {
+        showMessage('لا توجد بيانات تقفيلة لحفظها.', 'error');
+        return;
+    }
+
+    const newMindTotal = parseFloat(document.getElementById('accountantClosureModalNewMindTotal').value);
+    if (isNaN(newMindTotal) || newMindTotal < 0) {
+        showMessage('يرجى إدخال قيمة صحيحة لإجمالي نيو مايند.', 'warning');
+        return;
+    }
+
+    showLoading(true);
+    try {
+        const closure = window.currentAccountantClosure;
+        const cashierTotal = parseFloat(document.getElementById('accountantClosureModalGrandTotal').textContent);
+        const difference = newMindTotal - cashierTotal;
+        const now = new Date();
+
+        // Find the row index of the existing closure to update it
+        const rowIndex = await findRowIndex(SHEETS.SHIFT_CLOSURES, 0, closure.id);
+        if (rowIndex === -1) {
+            showMessage('لم يتم العثور على التقفيلة لتحديثها.', 'error');
+            return;
+        }
+
+        const updatedData = [
+            closure.id,
+            closure.cashier,
+            closure.dateFrom,
+            closure.timeFrom,
+            closure.dateTo,
+            closure.timeTo,
+            closure.totalExpenses.toFixed(2),
+            closure.expenseCount,
+            closure.totalInsta.toFixed(2),
+            closure.instaCount,
+            closure.totalVisa.toFixed(2),
+            closure.visaCount,
+            closure.totalOnline.toFixed(2),
+            closure.onlineCount,
+            cashierTotal.toFixed(2), // grandTotal
+            closure.drawerCash.toFixed(2), // drawerCash
+            newMindTotal.toFixed(2), // newMindTotal
+            difference.toFixed(2), // difference
+            'مغلق بواسطة المحاسب', // status
+            now.toISOString().split('T')[0], // closureDate
+            now.toTimeString().split(' ')[0], // closureTime
+            currentUser.username // accountant
+        ];
+
+        // Update the entire row
+        const result = await updateSheet(SHEETS.SHIFT_CLOSURES, `A${rowIndex}:V${rowIndex}`, updatedData);
+
+        if (result.success) {
+            showMessage('تم تقفيل الشيفت بنجاح بواسطة المحاسب.', 'success');
+            closeModal('accountantClosureDetailsModal');
+            loadAccountantShiftClosuresHistory(); // Refresh the history table
+        } else {
+            showMessage('فشل تقفيل الشيفت بواسطة المحاسب.', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving accountant closure:', error);
+        showMessage('حدث خطأ أثناء حفظ تقفيلة المحاسب.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// --- View Closure Details (for the 'عرض' button) ---
+async function viewClosureDetails(closureId) {
+    showLoading(true);
+    try {
+        const allClosures = await loadShiftClosures({}); // Load all closures
+        const closure = allClosures.find(c => c.id === closureId);
+        if (!closure) {
+            showMessage('لم يتم العثور على تفاصيل التقفيلة.', 'error');
+            return;
+        }
+
+        const cashierUser = users.find(u => u.username === closure.cashier);
+        const cashierDisplayName = cashierUser ? cashierUser.name : closure.cashier;
+        const accountantUser = users.find(u => u.username === closure.accountant);
+        const accountantDisplayName = accountantUser ? accountantUser.name : closure.accountant;
+
+        let detailsHtml = `
+            <h3>تفاصيل تقفيلة الشيفت</h3>
+            <p><strong>الكاشير:</strong> ${cashierDisplayName}</p>
+            <p><strong>الفترة:</strong> ${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}</p>
+            <p><strong>إجمالي المصروفات (عادي):</strong> ${closure.totalExpenses.toFixed(2)} (${closure.expenseCount} فاتورة)</p>
+            <p><strong>إجمالي الإنستا:</strong> ${closure.totalInsta.toFixed(2)} (${closure.instaCount} فاتورة)</p>
+            <p><strong>إجمالي الفيزا:</strong> ${closure.totalVisa.toFixed(2)} (${closure.visaCount} فاتورة)</p>
+            <p><strong>إجمالي الأونلاين:</strong> ${closure.totalOnline.toFixed(2)} (${closure.onlineCount} فاتورة)</p>
+            <p><strong>إجمالي الكاش في الدرج:</strong> ${closure.drawerCash.toFixed(2)}</p>
+            <p><strong>الإجمالي الكلي للكاشير:</strong> ${closure.grandTotal.toFixed(2)}</p>
+            <p><strong>إجمالي نيو مايند:</strong> ${closure.newMindTotal.toFixed(2)}</p>
+            <p><strong>الفرق:</strong> ${closure.difference.toFixed(2)}</p>
+            <p><strong>الحالة:</strong> ${closure.status}</p>
+            <p><strong>تاريخ التقفيل:</strong> ${closure.closureDate} ${closure.closureTime}</p>
+            ${closure.accountant ? `<p><strong>تم التقفيل بواسطة المحاسب:</strong> ${accountantDisplayName}</p>` : ''}
+        `;
+
+        // Display in a generic modal or a dedicated one
+        const genericModal = document.getElementById('genericDetailsModal'); // Assuming you have a generic modal
+        const genericModalContent = document.getElementById('genericDetailsModalContent');
+        if (genericModal && genericModalContent) {
+            genericModalContent.innerHTML = detailsHtml;
+            genericModal.classList.add('active');
+        } else {
+            alert(detailsHtml.replace(/<[^>]*>?/gm, '\n').replace(/\n\n/g, '\n').trim()); // Fallback to alert
+        }
+
+    } catch (error) {
+        console.error('Error viewing closure details:', error);
+        showMessage('حدث خطأ أثناء عرض تفاصيل التقفيلة.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
 
 // --- Utility Functions ---
 function showLoading(show = true) {
