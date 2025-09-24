@@ -785,7 +785,7 @@ table tr:hover {
 .summary-card.total {
     background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
     color: white;
-    border-left: 4px solid #2e7d32;
+    border-left: 44px solid #2e7d32;
 }
 
 .summary-card h3 {
