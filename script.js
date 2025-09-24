@@ -2369,18 +2369,29 @@ async function searchCashierClosuresAccountant() {
     showLoading(true);
 
     try {
+        // تحويل timeFrom و timeTo إلى تنسيق 24 ساعة إذا كان AM/PM (للدعم العربي)
+        let formattedTimeFrom = timeFrom;
+        let formattedTimeTo = timeTo;
+        if (timeFrom.includes('ص') || timeFrom.includes('م')) {
+            formattedTimeFrom = convertTo24HourFormat(timeFrom); // دالة مساعدة، سنضيفها أدناه
+        }
+        if (timeTo.includes('م')) {
+            formattedTimeTo = convertTo24HourFormat(timeTo);
+        }
+
         // Construct the start and end Date objects for the search period
-        const searchStartDateTime = new Date(`${dateFrom}T${timeFrom}:00`);
-        const searchEndDateTime = new Date(`${dateTo}T${timeTo}:00`);
+        const searchStartDateTime = new Date(`${dateFrom}T${formattedTimeFrom}:00`);
+        const searchEndDateTime = new Date(`${dateTo}T${formattedTimeTo}:00`);
 
         console.log(`البحث عن إغلاقات داخل الفترة: ${searchStartDateTime.toISOString()} إلى ${searchEndDateTime.toISOString()}`); // تسجيل للتشخيص
+        console.log(`الكاشير المحدد: ${selectedCashier}, dateFrom: ${dateFrom}, timeFrom: ${formattedTimeFrom}`); // إضافي للتشخيص
 
         // Load expenses for the current search period (كما هو)
         const expenses = await loadExpenses({
             dateFrom: dateFrom,
             dateTo: dateTo,
-            timeFrom: timeFrom,
-            timeTo: timeTo,
+            timeFrom: formattedTimeFrom, // استخدم المنسق
+            timeTo: formattedTimeTo,
             cashier: selectedCashier
         });
 
@@ -2404,15 +2415,24 @@ async function searchCashierClosuresAccountant() {
             }
         });
 
-        // --- MODIFIED LOGIC FOR DRAWER CASH: البحث داخل الفترة أولاً، ثم قبلها ---
+        // --- MODIFIED LOGIC FOR DRAWER CASH: البحث داخل الفترة أولاً ---
         let drawerCash = 0; // القيمة الافتراضية
         const allClosures = await loadShiftClosures({}); // Load all closures
 
-        // 1. البحث عن الإغلاقات DACHAL الفترة المحددة (closureEndDateTime بين searchStart و searchEnd)
+        // طباعة جميع الإغلاقات للتشخيص (ستظهر في console)
+        console.log('جميع الإغلاقات المحملة:', allClosures.map(c => ({ id: c.id, cashier: c.cashier, dateTo: c.dateTo, timeTo: c.timeTo, drawerCash: c.drawerCash })));
+
+        // 1. البحث عن الإغلاقات داخل الفترة المحددة (closureEndDateTime بين searchStart و searchEnd)
         const closuresInPeriod = allClosures.filter(closure => {
             if (!closure.dateTo || !closure.timeTo || !closure.drawerCash) return false;
 
-            const closureEndDateTime = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
+            // تحويل timeTo للإغلاق إلى 24 ساعة إذا لزم
+            let closureTimeTo = closure.timeTo;
+            if (closure.timeTo.includes('ص') || closure.timeTo.includes('م')) {
+                closureTimeTo = convertTo24HourFormat(closure.timeTo);
+            }
+
+            const closureEndDateTime = new Date(`${closure.dateTo}T${closureTimeTo}:00`);
             const isInPeriod = closure.cashier === selectedCashier && 
                                closureEndDateTime >= searchStartDateTime && 
                                closureEndDateTime <= searchEndDateTime;
@@ -2429,15 +2449,20 @@ async function searchCashierClosuresAccountant() {
             console.log(`وُجد ${closuresInPeriod.length} إغلاق داخل الفترة، drawerCash المجموع = ${drawerCashFromPeriod}`);
             drawerCash = drawerCashFromPeriod; // استخدم هذا كأساس
         } else {
-            console.log(`لا يوجد إغلاق داخل الفترة ${dateFrom} ${timeFrom} إلى ${dateTo} ${timeTo}`);
+            console.log(`لا يوجد إغلاق داخل الفترة ${dateFrom} ${formattedTimeFrom} إلى ${dateTo} ${formattedTimeTo}`);
         }
 
-        // 2. إذا لم يوجد داخل الفترة، ابحث عن آخر إغلاق قبل بداية الفترة كقيمة أولية
+        // 2. Fallback: إذا لم يوجد داخل الفترة، ابحث عن آخر إغلاق قبل بداية الفترة
         if (drawerCashFromPeriod === 0) {
             const previousClosures = allClosures.filter(closure => {
                 if (!closure.dateTo || !closure.timeTo || !closure.drawerCash) return false;
 
-                const closureEndDateTime = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
+                let closureTimeTo = closure.timeTo;
+                if (closure.timeTo.includes('ص') || closure.timeTo.includes('م')) {
+                    closureTimeTo = convertTo24HourFormat(closure.timeTo);
+                }
+
+                const closureEndDateTime = new Date(`${closure.dateTo}T${closureTimeTo}:00`);
                 const isPrevious = closure.cashier === selectedCashier && closureEndDateTime < searchStartDateTime;
                 
                 console.log(`فحص إغلاق سابق ${closure.id}: انتهى في ${closureEndDateTime.toISOString()}, هل قبل الفترة؟ ${isPrevious}, drawerCash: ${closure.drawerCash}`);
@@ -2446,10 +2471,10 @@ async function searchCashierClosuresAccountant() {
             });
 
             if (previousClosures.length > 0) {
-                // تجميع من الإغلاقات السابقة (أو آخر واحد فقط إذا أردت)
+                // آخر واحد فقط من السابقين (يمكن تجميع إذا أردت)
                 const latestPrevious = previousClosures.sort((a, b) => 
-                    new Date(`${b.dateTo}T${b.timeTo}:00`) - new Date(`${a.dateTo}T${a.timeTo}:00`)
-                )[0]; // آخر واحد فقط (يمكن تغييره إلى reduce للتجميع)
+                    new Date(`${b.dateTo}T${convertTo24HourFormat(b.timeTo)}:00`) - new Date(`${a.dateTo}T${convertTo24HourFormat(a.timeTo)}:00`)
+                )[0];
                 drawerCash = parseFloat(latestPrevious.drawerCash) || 0;
                 console.log(`لا إغلاق داخل الفترة، لكن آخر إغلاق سابق: ${latestPrevious.id}، drawerCash = ${drawerCash}`);
             } else {
@@ -2468,7 +2493,7 @@ async function searchCashierClosuresAccountant() {
         // grandTotal يشمل drawerCash (الداخلي أو السابق)
         const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash; 
 
-        // عرض النتائج (كما هو)
+        // عرض النتائج
         document.getElementById('closureResultsAccountant').style.display = 'block';
 
         document.getElementById('accTotalNormalExpenses').textContent = totalNormal.toFixed(2);
@@ -2485,13 +2510,13 @@ async function searchCashierClosuresAccountant() {
             closeCashierBtn.style.display = 'none';
         }
 
-        // حفظ البيانات مع drawerCash المحدث
+        // حفظ البيانات
         window.currentClosureData = {
             cashier: selectedCashier,
             dateFrom: dateFrom,
-            timeFrom: timeFrom,
+            timeFrom: formattedTimeFrom,
             dateTo: dateTo,
-            timeTo: timeTo,
+            timeTo: formattedTimeTo,
             totalNormal: totalNormal,
             normalCount: normalExpenses.length,
             totalVisa: totalVisa,
@@ -2500,7 +2525,7 @@ async function searchCashierClosuresAccountant() {
             instaCount: instaExpenses.length,
             totalOnline: totalOnline,
             onlineCount: onlineExpenses.length,
-            drawerCash: drawerCash, // المجموع من الداخل أو السابق
+            drawerCash: drawerCash,
             grandTotal: grandTotal
         };
 
@@ -2521,6 +2546,22 @@ async function searchCashierClosuresAccountant() {
     } finally {
         showLoading(false);
     }
+}
+
+// دالة مساعدة جديدة لتحويل AM/PM إلى 24 ساعة (أضفها خارج الدالة، في نهاية script.js إذا لم تكن موجودة)
+function convertTo24HourFormat(timeStr) {
+    // افتراض: timeStr مثل "09:52 ص" أو "09:52 م"
+    let [time, period] = timeStr.split(' ');
+    if (!period) period = timeStr.includes('م') ? 'م' : 'ص'; // إذا لم يكن مفصولاً
+    let [hours, minutes] = time.split(':').map(Number);
+    
+    if (period.includes('م') && hours !== 12) {
+        hours += 12;
+    } else if (period.includes('ص') && hours === 12) {
+        hours = 0;
+    }
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 function calculateDifferenceAccountant() {
     if (!window.currentClosureData) {
