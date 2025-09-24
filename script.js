@@ -1338,13 +1338,13 @@ async function loadCashierExpenses() {
         const formType = category ? category.formType : 'عادي';
 
         if (formType === 'إنستا') {
-            cashierDailyData.insta.push(expense);  // ✅ استخدام expense بدلاً من newEntry
+            cashierDailyData.insta.push(expense);
             cashierDailyData.totalInsta += expense.amount;
         } else if (formType === 'فيزا') {
-            cashierDailyData.visa.push(expense);   // ✅ استخدام expense بدلاً من newEntry
+            cashierDailyData.visa.push(expense);  // ✅ تم التصحيح
             cashierDailyData.totalVisa += expense.amount;
         } else if (formType === 'اونلاين') {
-            cashierDailyData.online.push(expense); // ✅ استخدام expense بدلاً من newEntry
+            cashierDailyData.online.push(expense);
             cashierDailyData.totalOnline += expense.amount;
         } else {
             cashierDailyData.expenses.push(expense);
@@ -3025,4 +3025,5 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
 
