@@ -1203,16 +1203,24 @@ async function addExpense() {
             return;
         }
 
-        // --- START OF MODIFICATION ---
-        // التحقق من تكرار رقم الفاتورة
-        const allExistingExpenses = await loadExpenses({}); // تحميل جميع المصروفات
-        const isInvoiceNumberDuplicate = allExistingExpenses.some(exp =>
-            exp.invoiceNumber === invoiceNumber
-        );
+        // --- START OF MODIFICATION (Improved Invoice Number Uniqueness Check) ---
+        showLoading(true); // عرض شاشة التحميل أثناء التحقق
+        try {
+            const allExistingExpenses = await readSheet(SHEETS.EXPENSES); // تحميل جميع المصروفات مباشرة من الشيت
+            const isInvoiceNumberDuplicate = allExistingExpenses.slice(1).some(row => // تخطي الصف الأول (العناوين)
+                row[3] && row[3].trim() === invoiceNumber // التحقق من العمود الرابع (رقم الفاتورة)
+            );
 
-        if (isInvoiceNumberDuplicate) {
-            showMessage('رقم الفاتورة هذا موجود بالفعل. يرجى إدخال رقم فاتورة فريد.', 'error');
-            return;
+            if (isInvoiceNumberDuplicate) {
+                showMessage('رقم الفاتورة هذا موجود بالفعل. يرجى إدخال رقم فاتورة فريد.', 'error');
+                return; // إيقاف الدالة إذا كان الرقم مكررًا
+            }
+        } catch (error) {
+            console.error('Error checking for duplicate invoice number:', error);
+            showMessage('حدث خطأ أثناء التحقق من رقم الفاتورة. يرجى المحاولة مرة أخرى.', 'error');
+            return; // إيقاف الدالة في حالة وجود خطأ
+        } finally {
+            showLoading(false); // إخفاء شاشة التحميل
         }
         // --- END OF MODIFICATION ---
     }
@@ -2688,7 +2696,7 @@ async function searchCashierClosuresAccountant() {
             timeTo: timeTo,
             totalNormal: totalNormal,
             normalCount: normalExpenses.length,
-            totalVisa: totalVisa,
+            totalVisa: visaExpenses.length,
             visaCount: visaExpenses.length,
             totalInsta: instaExpenses.length,
             instaCount: instaExpenses.length,
