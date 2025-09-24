@@ -2863,6 +2863,16 @@ window.onclick = function(event) {
 document.addEventListener('DOMContentLoaded', function() {
     loadGoogleScripts().then(() => {
         console.log('Google Scripts loaded successfully.');
+        setTimeout(() => {
+    console.log('=== فحص حالة التهيئة بعد 2 ثانية ===');
+    console.log('gapiInited:', gapiInited);
+    console.log('gisInited:', gisInited);
+    checkAuthStatus();
+    
+    if (gapiInited && gisInited) {
+        maybeEnableButtons();
+    }
+}, 2000);
         // لا حاجة لاستدعاء أي شيء هنا - maybeEnableButtons سيتم استدعاؤها تلقائياً
     }).catch(error => {
         console.error('Failed to load Google Scripts:', error);
