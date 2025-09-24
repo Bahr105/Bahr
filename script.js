@@ -2345,7 +2345,7 @@ async function closeCashierByAccountant() {
         return;
     }
 
-    const difference = newMindTotal - window.currentClosureData.grandTotal;
+    const difference = window.currentClosureData.grandTotal -newMindTotal  ;
 
     showLoading(true);
     try {
@@ -2591,5 +2591,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
 
 
