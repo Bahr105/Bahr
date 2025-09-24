@@ -29,22 +29,52 @@ function handleAuthFailure() {
 }
 
 // في بداية script.js - حل بديل
+// في بداية script.js - حل محسن
 function loadGoogleScripts() {
     return new Promise((resolve, reject) => {
-        const script1 = document.createElement('script');
-        script1.src = 'https://apis.google.com/js/api.js';
-        script1.onload = gapiLoaded;
-        script1.onerror = () => reject(new Error('Failed to load GAPI'));
-        document.head.appendChild(script1);
-
-        const script2 = document.createElement('script');
-        script2.src = 'https://accounts.google.com/gsi/client';
-        script2.onload = function() {
-            gisLoaded();
-            resolve();
+        // تحميل GAPI أولاً
+        const gapiScript = document.createElement('script');
+        gapiScript.src = 'https://apis.google.com/js/api.js';
+        gapiScript.onload = function() {
+            console.log('GAPI loaded, initializing...');
+            
+            // بعد تحميل GAPI، حمّل GIS
+            const gisScript = document.createElement('script');
+            gisScript.src = 'https://accounts.google.com/gsi/client';
+            gisScript.onload = function() {
+                console.log('GIS loaded, initializing...');
+                
+                // تهيئة GAPI client أولاً
+                gapi.load('client', async () => {
+                    try {
+                        await initializeGapiClient();
+                        
+                        // ثم تهيئة GIS
+                        gisLoaded();
+                        
+                        console.log('Both GAPI and GIS initialized successfully');
+                        resolve();
+                    } catch (error) {
+                        console.error('Error during initialization:', error);
+                        reject(error);
+                    }
+                });
+            };
+            
+            gisScript.onerror = () => {
+                console.error('Failed to load GIS');
+                reject(new Error('Failed to load GIS'));
+            };
+            
+            document.head.appendChild(gisScript);
         };
-        script2.onerror = () => reject(new Error('Failed to load GIS'));
-        document.head.appendChild(script2);
+        
+        gapiScript.onerror = () => {
+            console.error('Failed to load GAPI');
+            reject(new Error('Failed to load GAPI'));
+        };
+        
+        document.head.appendChild(gapiScript);
     });
 }
 
@@ -113,13 +143,41 @@ async function initializeGapiClient() {
             discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
         });
         gapiInited = true;
-        console.log('GAPI client initialized.');
-        await maybeEnableButtons(); // استدعاء maybeEnableButtons بعد تهيئة GAPI
+        console.log('GAPI client initialized successfully');
+        return true;
     } catch (error) {
         console.error('Error initializing GAPI client:', error);
         showMessage('فشل تهيئة Google API', 'error');
-        handleAuthFailure(); // تأكد من مسح حالة المصادقة عند فشل التهيئة
+        return false;
     }
+}
+// دالة للتحقق المتكرر من حالة التهيئة
+function checkInitializationStatus() {
+    const checkInterval = setInterval(() => {
+        console.log('Checking initialization status:', {
+            gapiInited: gapiInited,
+            gisInited: gisInited,
+            hasGapi: typeof gapi !== 'undefined',
+            hasGoogle: typeof google !== 'undefined'
+        });
+        
+        if (gapiInited && gisInited) {
+            clearInterval(checkInterval);
+            console.log('Both APIs initialized, proceeding with authentication...');
+            setTimeout(() => {
+                maybeEnableButtons();
+            }, 1000);
+        }
+    }, 1000);
+    
+    // إيقاف التحقق بعد 30 ثانية كحد أقصى
+    setTimeout(() => {
+        clearInterval(checkInterval);
+        if (!gapiInited || !gisInited) {
+            console.error('Initialization timeout after 30 seconds');
+            showMessage('فشل تحميل المكتبات. يرجى تحديث الصفحة.', 'error');
+        }
+    }, 30000);
 }
 
 function handleAuthError(error) {
@@ -2861,26 +2919,19 @@ window.onclick = function(event) {
 
 // --- Event Listeners ---
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, starting Google scripts loading...');
+    
     loadGoogleScripts().then(() => {
         console.log('Google Scripts loaded successfully.');
-        setTimeout(() => {
-    console.log('=== فحص حالة التهيئة بعد 2 ثانية ===');
-    console.log('gapiInited:', gapiInited);
-    console.log('gisInited:', gisInited);
-    checkAuthStatus();
-    
-    if (gapiInited && gisInited) {
-        maybeEnableButtons();
-    }
-}, 2000);
-        // لا حاجة لاستدعاء أي شيء هنا - maybeEnableButtons سيتم استدعاؤها تلقائياً
+        checkInitializationStatus();
     }).catch(error => {
         console.error('Failed to load Google Scripts:', error);
         showMessage('فشل تحميل مكتبات Google. يرجى التحقق من الاتصال بالإنترنت.', 'error');
-
-        // إظهار زر لإعادة المحاولة
+        
+        // زر إعادة المحاولة
         const retryButton = document.createElement('button');
         retryButton.textContent = 'إعادة المحاولة';
+        retryButton.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000; padding: 10px 20px;';
         retryButton.onclick = () => location.reload();
         document.body.appendChild(retryButton);
     });
