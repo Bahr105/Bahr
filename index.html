@@ -678,7 +678,7 @@
                     
                     <button class="close-cashier-btn" onclick="closeCashierByAccountant()" style="display: none;">
                         <i class="fas fa-check"></i>
-                        تقفيل الشيفت
+                        تقفيل الكاشير
                     </button>
                 </div>
             </div>
@@ -908,18 +908,18 @@
         </div>
     </div>
 
-    <!-- نافذة تفاصيل التقفيلة للمحاسب -->
-    <div id="viewClosureDetailsModal" class="modal">
-        <div class="modal-content large">
+    <!-- نافذة تفاصيل التقفيلة العامة (يمكن استخدامها لعرض تفاصيل أي تقفيلة) -->
+    <div id="genericDetailsModal" class="modal">
+        <div class="modal-content">
             <div class="modal-header">
-                <h3><i class="fas fa-info-circle"></i> تفاصيل تقفيلة الكاشير</h3>
-                <button class="close-btn" onclick="closeModal('viewClosureDetailsModal')">&times;</button>
+                <h3><i class="fas fa-info-circle"></i> تفاصيل التقفيلة</h3>
+                <button class="close-btn" onclick="closeModal('genericDetailsModal')">&times;</button>
             </div>
-            <div class="modal-body" id="closureDetailsContent">
-                <!-- سيتم ملء التفاصيل هنا ديناميكياً -->
+            <div class="modal-body" id="genericDetailsModalContent" style="padding: 25px;">
+                <!-- سيتم ملء المحتوى هنا ديناميكياً -->
             </div>
             <div class="modal-actions">
-                <button type="button" class="cancel-btn" onclick="closeModal('viewClosureDetailsModal')">
+                <button type="button" class="cancel-btn" onclick="closeModal('genericDetailsModal')">
                     <i class="fas fa-times"></i>
                     إغلاق
                 </button>
@@ -927,50 +927,40 @@
         </div>
     </div>
 
-    <!-- نافذة تقفيل المحاسب لشيفت الكاشير -->
-    <div id="accountantCloseShiftModal" class="modal">
+    <!-- نافذة تقفيل المحاسب (لعرض التفاصيل وإدخال إجمالي نيو مايند) -->
+    <div id="accountantClosureDetailsModal" class="modal">
         <div class="modal-content large">
             <div class="modal-header">
-                <h3><i class="fas fa-calculator"></i> تقفيل شيفت الكاشير بواسطة المحاسب</h3>
-                <button class="close-btn" onclick="closeModal('accountantCloseShiftModal')">&times;</button>
+                <h3><i class="fas fa-check-double"></i> تقفيل المحاسب للشيفت</h3>
+                <button class="close-btn" onclick="closeModal('accountantClosureDetailsModal')">&times;</button>
             </div>
-            <div class="modal-body">
-                <div class="closure-info">
-                    <h4>بيانات تقفيلة الكاشير:</h4>
-                    <div class="closure-summary">
-                        <p>الكاشير: <span id="accModalCashierName">--</span></p>
-                        <p>الفترة: <span id="accModalClosurePeriod">--</span></p>
-                        <p>إجمالي المصروفات (عادي): <span id="accModalTotalNormalExpenses">0</span></p>
-                        <p>إجمالي الفيزا: <span id="accModalTotalVisa">0</span></p>
-                        <p>إجمالي الإنستا: <span id="accModalTotalInsta">0</span></p>
-                        <p>إجمالي الأونلاين: <span id="accModalTotalOnline">0</span></p>
-                        <p>إجمالي الكاش في الدرج: <span id="accModalDrawerCash">0</span></p>
-                        <p><strong>الإجمالي الكلي للكاشير: <span id="accModalGrandTotalCashier">0</span></strong></p>
-                    </div>
-                    
-                    <div class="newmind-input">
-                        <div class="form-group">
-                            <label for="accModalNewmindTotal">إجمالي نيو مايند:</label>
-                            <input type="number" id="accModalNewmindTotal" placeholder="أدخل إجمالي نظام نيو مايند" step="0.01">
-                        </div>
-                        
-                        <button class="calculate-difference-btn" onclick="calculateDifferenceInModal()">
-                            <i class="fas fa-calculator"></i>
-                            حساب الفرق
-                        </button>
-                    </div>
-                    
-                    <div class="difference-result" id="accModalDifferenceResult" style="display: none;">
-                        <!-- سيتم عرض نتيجة المقارنة هنا -->
-                    </div>
+            <div class="modal-body" style="padding: 25px;">
+                <h4>بيانات الشيفت:</h4>
+                <p><strong>الكاشير:</strong> <span id="accountantClosureModalCashierName"></span></p>
+                <p><strong>الفترة:</strong> <span id="accountantClosureModalPeriod"></span></p>
+                <p><strong>إجمالي المصروفات (عادي):</strong> <span id="accountantClosureModalTotalExpenses">0.00</span></p>
+                <p><strong>إجمالي الإنستا:</strong> <span id="accountantClosureModalTotalInsta">0.00</span></p>
+                <p><strong>إجمالي الفيزا:</strong> <span id="accountantClosureModalTotalVisa">0.00</span></p>
+                <p><strong>إجمالي الأونلاين:</strong> <span id="accountantClosureModalTotalOnline">0.00</span></p>
+                <p><strong>إجمالي الكاش في الدرج:</strong> <span id="accountantClosureModalDrawerCash">0.00</span></p>
+                <p><strong>الإجمالي الكلي للكاشير:</strong> <span id="accountantClosureModalGrandTotal">0.00</span></p>
+                
+                <hr style="margin: 20px 0;">
+
+                <div class="form-group">
+                    <label for="accountantClosureModalNewMindTotal">إجمالي نيو مايند:</label>
+                    <input type="number" id="accountantClosureModalNewMindTotal" step="0.01" placeholder="أدخل إجمالي نظام نيو مايند" onkeyup="updateAccountantClosureDifference()">
                 </div>
+                
+                <p><strong>الفرق:</strong> <span id="accountantClosureModalDifference">0.00</span></p>
+                <p><strong>الحالة:</strong> <span id="accountantClosureModalStatus" class="status open">في انتظار الإدخال</span></p>
             </div>
             <div class="modal-actions">
-                <button type="button" class="close-cashier-btn" id="accModalFinalizeCloseBtn" onclick="finalizeAccountantClosure()">
+                <button type="button" class="save-btn" id="saveAccountantClosureBtn" onclick="saveAccountantClosure()" disabled>
                     <i class="fas fa-check"></i>
-                    تقفيل الشيفت
+                    حفظ التقفيل
                 </button>
-                <button type="button" class="cancel-btn" onclick="closeModal('accountantCloseShiftModal')">
+                <button type="button" class="cancel-btn" onclick="closeModal('accountantClosureDetailsModal')">
                     <i class="fas fa-times"></i>
                     إلغاء
                 </button>
