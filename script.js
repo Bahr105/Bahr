@@ -410,7 +410,7 @@ async function readSheet(sheetName, range = 'A:Z') {
 
         const fullRange = range ? `${sheetName}!${range}` : `${sheetName}!A:Z`;
         const response = await gapi.client.sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
+            spreadsheetId: SPREADSHEheet_ID,
             range: fullRange,
         });
         return response.result.values || [];
@@ -1202,6 +1202,17 @@ async function addExpense() {
             showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
             return;
         }
+
+        // **التعديل الجديد: التحقق من تكرار رقم الفاتورة**
+        const allExistingExpenses = await loadExpenses({}); // تحميل جميع المصروفات للتحقق
+        const isInvoiceNumberDuplicate = allExistingExpenses.some(
+            exp => exp.invoiceNumber === invoiceNumber && exp.categoryCode === categoryCode
+        );
+
+        if (isInvoiceNumberDuplicate) {
+            showMessage('رقم الفاتورة هذا موجود بالفعل لهذا التصنيف. يرجى إدخال رقم فاتورة فريد.', 'error');
+            return;
+        }
     }
 
     // Handle customer credit for "اجل" type
@@ -1338,13 +1349,13 @@ async function loadCashierExpenses() {
         const formType = category ? category.formType : 'عادي';
 
         if (formType === 'إنستا') {
-            cashierDailyData.insta.push(expense);
+            cashierDailyData.insta.push(expense);  // ✅ استخدام expense بدلاً من newEntry
             cashierDailyData.totalInsta += expense.amount;
         } else if (formType === 'فيزا') {
-            cashierDailyData.visa.push(expense);  // ✅ تم التصحيح
+            cashierDailyData.visa.push(expense);   // ✅ استخدام expense بدلاً من newEntry
             cashierDailyData.totalVisa += expense.amount;
         } else if (formType === 'اونلاين') {
-            cashierDailyData.online.push(expense);
+            cashierDailyData.online.push(expense); // ✅ استخدام expense بدلاً من newEntry
             cashierDailyData.totalOnline += expense.amount;
         } else {
             cashierDailyData.expenses.push(expense);
@@ -2675,7 +2686,7 @@ async function searchCashierClosuresAccountant() {
             timeTo: timeTo,
             totalNormal: totalNormal,
             normalCount: normalExpenses.length,
-            totalVisa: totalVisa,
+            totalVisa: visaExpenses.length,
             visaCount: visaExpenses.length,
             totalInsta: instaExpenses.length,
             instaCount: instaExpenses.length,
@@ -3025,5 +3036,3 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
-
