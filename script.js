@@ -2200,19 +2200,32 @@ async function searchCashierClosuresAccountant() {
             }
         });
 
-        // Get last drawer cash from previous closure (simplified: assume 0 if no previous)
-        const lastClosures = await loadShiftClosures({ cashier: selectedCashier });
-        const lastClosure = lastClosures.sort((a, b) => new Date(b.closureDate) - new Date(a.closureDate))[0];
-        const drawerCash = lastClosure ? lastClosure.drawerCash : 0;
+        // تعديل هنا: تحميل جميع إغلاقات الكاشير (بدون فلاتر زمنية) للعثور على الإغلاق السابق المناسب
+        const allClosures = await loadShiftClosures({ cashier: selectedCashier }); // تحميل كل الإغلاقات للكاشير
+        const startOfPeriod = new Date(`${dateFrom}T${timeFrom}:00`); // بداية الفترة الجديدة كـ Date object
 
-        // Calculate totals
+        // فلترة الإغلاقات السابقة: تلك التي تنتهي قبل بداية الفترة الجديدة
+        const previousClosures = allClosures.filter(closure => {
+            const endOfPreviousShift = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
+            return endOfPreviousShift < startOfPeriod; // نهاية الشيفت السابق < بداية الشيفت الجديد
+        });
+
+        // أخذ آخر إغلاق سابق (الأحدث من بين السابقة)
+        const lastPreviousClosure = previousClosures.length > 0 
+            ? previousClosures.sort((a, b) => new Date(`${b.dateTo}T${b.timeTo}:00`) - new Date(`${a.dateTo}T${a.timeTo}:00`))[0] 
+            : null;
+
+        // إذا لم يوجد إغلاق سابق، drawerCash = 0
+        const drawerCash = lastPreviousClosure ? lastPreviousClosure.drawerCash : 0;
+
+        // Calculate totals (باقي الحسابات كما هي، لكن grandTotal يشمل drawerCash الجديد)
         const totalNormal = normalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalVisa = visaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalInsta = instaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash;
 
-        // Display results - إصلاح مشكلة الـ IDs
+        // Display results
         document.getElementById('closureResultsAccountant').style.display = 'block';
 
         // Update the summary with correct IDs
@@ -2227,14 +2240,14 @@ async function searchCashierClosuresAccountant() {
         if (accTotalVisa) accTotalVisa.textContent = totalVisa.toFixed(2);
         if (accTotalInsta) accTotalInsta.textContent = totalInsta.toFixed(2);
         if (accTotalOnline) accTotalOnline.textContent = totalOnline.toFixed(2);
-        if (accDrawerCash) accDrawerCash.textContent = drawerCash.toFixed(2);
+        if (accDrawerCash) accDrawerCash.textContent = drawerCash.toFixed(2); // الآن مرتبط بالفترة
         if (accGrandTotalCashier) accGrandTotalCashier.textContent = grandTotal.toFixed(2);
 
         // Clear and hide difference result initially
         document.getElementById('newmindTotalAccountant').value = '';
         document.getElementById('differenceResultAccountant').style.display = 'none';
 
-        // Store data for later use
+        // Store data for later use (بما في ذلك drawerCash الجديد)
         window.currentClosureData = {
             cashier: selectedCashier,
             dateFrom: dateFrom,
@@ -2249,13 +2262,13 @@ async function searchCashierClosuresAccountant() {
             instaCount: instaExpenses.length,
             totalOnline: totalOnline,
             onlineCount: onlineExpenses.length,
-            drawerCash: drawerCash,
+            drawerCash: drawerCash, // الآن مرتبط بالفترة
             grandTotal: grandTotal
         };
 
         const cashierUser = users.find(u => u.username === selectedCashier);
         const cashierDisplayName = cashierUser ? cashierUser.name : selectedCashier;
-        showMessage(`تم البحث عن بيانات الكاشير ${cashierDisplayName} للفترة المحددة.`, 'success');
+        showMessage(`تم البحث عن بيانات الكاشير ${cashierDisplayName} للفترة المحددة. إجمالي الكاش في الدرج: ${drawerCash.toFixed(2)}`, 'success');
     } catch (error) {
         console.error('Error searching cashier closures:', error);
         showMessage('حدث خطأ أثناء البحث عن بيانات الكاشير.', 'error');
@@ -2263,6 +2276,7 @@ async function searchCashierClosuresAccountant() {
         showLoading(false);
     }
 }
+
 
 function calculateDifferenceAccountant() {
     if (!window.currentClosureData) {
@@ -2568,3 +2582,4 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
