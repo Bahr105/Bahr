@@ -2315,10 +2315,10 @@ function calculateDifferenceAccountant() {
         resultHtml += `<p class="status-match"><strong>الحالة: مطابق ✓</strong></p>`;
         differenceResult.className = 'difference-result balanced';
     } else if (difference > 0) {
-        resultHtml += `<p class="status-surplus"><strong>الحالة: زيادة في نيو مايند</strong></p>`;
+        resultHtml += `<p class="status-surplus"><strong>الحالة: عجز علي الكاشير زيادة في نيو مايند</strong></p>`;
         differenceResult.className = 'difference-result surplus';
     } else {
-        resultHtml += `<p class="status-deficit"><strong>الحالة: عجز في نيو مايند</strong></p>`;
+        resultHtml += `<p class="status-deficit"><strong>الحالة:زياده عند الكاشير عجز في نيو مايند</strong></p>`;
         differenceResult.className = 'difference-result deficit';
     }
 
@@ -2594,6 +2594,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
 
 
 
