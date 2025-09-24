@@ -2369,15 +2369,18 @@ async function searchCashierClosuresAccountant() {
     showLoading(true);
 
     try {
-        const filters = {
+        // Construct the start and end Date objects for the search period
+        const searchStartDateTime = new Date(`${dateFrom}T${timeFrom}:00`);
+        const searchEndDateTime = new Date(`${dateTo}T${timeTo}:00`);
+
+        // Load expenses for the current search period
+        const expenses = await loadExpenses({
             dateFrom: dateFrom,
             dateTo: dateTo,
             timeFrom: timeFrom,
             timeTo: timeTo,
             cashier: selectedCashier
-        };
-
-        const expenses = await loadExpenses(filters);
+        });
 
         let normalExpenses = [];
         let visaExpenses = [];
@@ -2399,20 +2402,23 @@ async function searchCashierClosuresAccountant() {
             }
         });
 
-        // --- START MODIFICATION HERE ---
+        // --- MODIFIED LOGIC FOR DRAWER CASH ---
         let drawerCash = 0;
-        const searchStartDateTime = new Date(`${dateFrom}T${timeFrom}:00`);
-
         const allClosures = await loadShiftClosures({}); // Load all closures
+
+        // Filter for closures by the selected cashier that ended BEFORE the current search period starts
         const previousClosures = allClosures.filter(closure => {
+            // Ensure closure dates and times are valid
+            if (!closure.dateTo || !closure.timeTo) return false;
+
             const closureEndDateTime = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
             return closure.cashier === selectedCashier && closureEndDateTime < searchStartDateTime;
         });
 
         if (previousClosures.length > 0) {
-            // Sort by closure date/time to get the latest one before the current search period
+            // Sort by closure end date/time to get the latest one
             const latestPreviousClosure = previousClosures.sort((a, b) =>
-                new Date(`${b.closureDate}T${b.closureTime}:00`) - new Date(`${a.closureDate}T${a.closureTime}:00`)
+                new Date(`${b.dateTo}T${b.timeTo}:00`) - new Date(`${a.dateTo}T${a.timeTo}:00`)
             )[0];
             drawerCash = latestPreviousClosure.drawerCash || 0;
             console.log(`وُجد إغلاق سابق للفترة: ${latestPreviousClosure.id}، drawerCash = ${drawerCash}`);
@@ -2420,13 +2426,14 @@ async function searchCashierClosuresAccountant() {
             drawerCash = 0;
             console.log(`لا يوجد إغلاق سابق للفترة ${dateFrom} ${timeFrom}، drawerCash = 0`);
         }
-        // --- END MODIFICATION HERE ---
+        // --- END MODIFIED LOGIC ---
 
         const totalNormal = normalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalVisa = visaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalInsta = instaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-        // Corrected: grandTotal for accountant search should include drawerCash
+        
+        // grandTotal for accountant search should include drawerCash
         const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash; 
 
         document.getElementById('closureResultsAccountant').style.display = 'block';
