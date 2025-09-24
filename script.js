@@ -165,36 +165,48 @@ function loadAuthState() {
     }
     
     async function handleAuthClick() {
-        if (isAuthenticated) return Promise.resolve();
-        // إذا كان هناك token صالح، استخدمه
+    if (isAuthenticated) return Promise.resolve();
+    
+    return new Promise((resolve, reject) => {
+        tokenClient.callback = async (resp) => {
+            if (resp.error !== undefined) {
+                console.error('Authentication failed:', resp);
+                showMessage('فشل المصادقة مع Google Sheets. يرجى التحقق من الأذونات.', 'error');
+                isAuthenticated = false; // تأكد من ضبطها على false عند الفشل
+                saveAuthState();
+                reject(resp);
+            } else {
+                console.log('Authentication successful.');
+                isAuthenticated = true;
+                saveAuthState();
+                resolve();
+            }
+        };
+
         const existingToken = gapi.client.getToken();
         if (existingToken && existingToken.expires_at && existingToken.expires_at > Date.now()) {
+            // إذا كان هناك رمز مميز صالح، لا تفعل شيئًا، فقط قم بالحل
             isAuthenticated = true;
-            return Promise.resolve();
-        }
-        
-        return new Promise((resolve, reject) => {
-            tokenClient.callback = async (resp) => {
-                if (resp.error !== undefined) {
-                    console.error('Authentication failed:', resp);
-                    showMessage('فشل المصادقة مع Google Sheets. يرجى التحقق من الأذونات.', 'error');
-                    reject(resp);
-                } else {
-                    console.log('Authentication successful.');
+            resolve();
+        } else {
+            // حاول الحصول على رمز مميز بصمت أولاً
+            tokenClient.requestAccessToken({prompt: 'none'})
+                .then(() => {
+                    // إذا نجح الحصول على الرمز المميز بصمت
                     isAuthenticated = true;
-                    saveAuthState(); // حفظ حالة المصادقة بعد المصادقة الناجحة
+                    saveAuthState();
                     resolve();
-                }
-            };
+                })
+                .catch(error => {
+                    // إذا فشل الحصول على الرمز المميز بصمت (مثلاً، انتهت صلاحية الـ refresh token)
+                    // اطلب الموافقة من المستخدم
+                    console.warn('Silent authentication failed, requesting consent:', error);
+                    tokenClient.requestAccessToken({prompt: 'consent'});
+                });
+        }
+    });
+}
 
-            const existingToken = gapi.client.getToken();
-            if (existingToken && existingToken.expires_at && existingToken.expires_at > Date.now()) {
-                tokenClient.requestAccessToken({prompt: ''}); 
-            } else {
-                tokenClient.requestAccessToken({prompt: 'consent'});
-            }
-        });
-    }
     
 
 // --- Google Sheets API Functions ---
