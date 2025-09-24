@@ -1100,7 +1100,7 @@ function generateDynamicExpenseForm(formType) {
             </div>
         `;
     } else if (formType === 'شحن_كهربا') {
-    formHtml += `
+        formHtml += `
             <div class="form-group">
                 <label for="electricityLocation">مكان الشحن:</label>
                 <input type="text" id="electricityLocation" required placeholder="أدخل مكان الشحن">
@@ -1408,7 +1408,7 @@ function filterCashierExpenses() {
 
     tableBody.innerHTML = '';
 
-    let filtered = [...cashierDailyData.expenses, ...cashierDailyData.insta, ...cashierDailyData.visa, ...cashierDailyData.dailyOnline]; // تم تصحيح dailyOnline
+    let filtered = [...cashierDailyData.expenses, ...cashierDailyData.insta, ...cashierDailyData.visa, ...cashierDailyData.online]; // تم تصحيح dailyOnline
 
     if (categoryFilter) {
         filtered = filtered.filter(exp => exp.category === categoryFilter);
@@ -1427,7 +1427,7 @@ function filterCashierExpenses() {
         return;
     }
 
-    filtered.sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.date}`)); // تم تصحيح b.date بدلاً من b.time
+    filtered.sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.time}`)); // تم تصحيح a.date الثانية إلى a.time
 
     filtered.forEach(exp => {
         const row = tableBody.insertRow();
