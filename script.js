@@ -2399,32 +2399,28 @@ async function searchCashierClosuresAccountant() {
             }
         });
 
-        // Load all closures and filter them to find the latest drawerCash
-        const allClosures = await loadShiftClosures({}); // Load all closures without specific filters
-        
+        // --- START MODIFICATION HERE ---
         let drawerCash = 0;
-        const filteredClosuresForDrawerCash = allClosures.filter(closure => {
-            const closureStartDateTime = new Date(`${closure.dateFrom}T${closure.timeFrom}:00`);
-            const closureEndDateTime = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
-            const searchStartDateTime = new Date(`${dateFrom}T${timeFrom}:00`);
-            const searchEndDateTime = new Date(`${dateTo}T${timeTo}:00`);
+        const searchStartDateTime = new Date(`${dateFrom}T${timeFrom}:00`);
 
-            return closure.cashier === selectedCashier &&
-                   closureStartDateTime >= searchStartDateTime &&
-                   closureEndDateTime <= searchEndDateTime;
+        const allClosures = await loadShiftClosures({}); // Load all closures
+        const previousClosures = allClosures.filter(closure => {
+            const closureEndDateTime = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
+            return closure.cashier === selectedCashier && closureEndDateTime < searchStartDateTime;
         });
 
-        if (filteredClosuresForDrawerCash.length > 0) {
-            // Sort by closure date/time to get the latest one
-            const latestClosure = filteredClosuresForDrawerCash.sort((a, b) =>
+        if (previousClosures.length > 0) {
+            // Sort by closure date/time to get the latest one before the current search period
+            const latestPreviousClosure = previousClosures.sort((a, b) =>
                 new Date(`${b.closureDate}T${b.closureTime}:00`) - new Date(`${a.closureDate}T${a.closureTime}:00`)
             )[0];
-            drawerCash = latestClosure.drawerCash || 0;
-            console.log(`وُجد إغلاق داخل الفترة: ${latestClosure.id}، drawerCash = ${drawerCash}`);
+            drawerCash = latestPreviousClosure.drawerCash || 0;
+            console.log(`وُجد إغلاق سابق للفترة: ${latestPreviousClosure.id}، drawerCash = ${drawerCash}`);
         } else {
             drawerCash = 0;
-            console.log(`لا يوجد إغلاق داخل الفترة ${dateFrom} ${timeFrom} إلى ${dateTo} ${timeTo}، drawerCash = 0`);
+            console.log(`لا يوجد إغلاق سابق للفترة ${dateFrom} ${timeFrom}، drawerCash = 0`);
         }
+        // --- END MODIFICATION HERE ---
 
         const totalNormal = normalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalVisa = visaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
@@ -2461,7 +2457,7 @@ async function searchCashierClosuresAccountant() {
             visaCount: visaExpenses.length,
             totalInsta: totalInsta,
             instaCount: instaExpenses.length,
-            totalOnline: totalOnline,
+            totalOnline: onlineExpenses.length,
             onlineCount: onlineExpenses.length,
             drawerCash: drawerCash, // حفظ الكاش في الدرج
             grandTotal: grandTotal // الإجمالي الكلي مع الكاش في الدرج
@@ -2469,7 +2465,7 @@ async function searchCashierClosuresAccountant() {
 
         const cashierUser = users.find(u => u.username === selectedCashier);
         const cashierDisplayName = cashierUser ? cashierUser.name : selectedCashier;
-        const cashSource = filteredClosuresForDrawerCash.length > 0 ? ` (من آخر إغلاق داخل الفترة)` : ` (لا إغلاق سابق في الفترة)`;
+        const cashSource = previousClosures.length > 0 ? ` (من آخر إغلاق سابق)` : ` (لا إغلاق سابق)`;
         showMessage(`تم البحث عن بيانات الكاشير ${cashierDisplayName} للفترة المحددة. إجمالي الكاش في الدرج: ${drawerCash.toFixed(2)}${cashSource}.`, 'success');
     } catch (error) {
         console.error('Error searching cashier closures:', error);
