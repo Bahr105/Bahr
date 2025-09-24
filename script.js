@@ -2382,14 +2382,69 @@ function convertTo24HourFormat(timeStr) {
 }
 
 // دالة جديدة لتنظيف الوقت إلى HH:MM:SS دائمًا (تجنب الإضافة الزائدة)
+// دالة محسنة لتنظيف الوقت إلى HH:MM:SS
 function normalizeTimeToHHMMSS(timeStr) {
-    let normalized = convertTo24HourFormat(timeStr); // يضمن HH:MM:SS
-    // إذا كان بالفعل HH:MM:SS، لا تغير
-    if (normalized.split(':').length === 3) {
-        return normalized;
+    if (!timeStr || typeof timeStr !== 'string') {
+        return '00:00:00';
     }
-    // إذا HH:MM، أضف :00
-    return normalized + ':00';
+    
+    // تنظيف السلسلة من المسافات الزائدة
+    timeStr = timeStr.trim();
+    
+    // إذا كان الوقت فارغاً
+    if (timeStr === '') {
+        return '00:00:00';
+    }
+    
+    // معالجة الوقت إذا كان بتنسيق AM/PM عربي
+    if (timeStr.includes('ص') || timeStr.includes('م')) {
+        const match = timeStr.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(ص|م)/);
+        if (match) {
+            let hours = parseInt(match[1]);
+            let minutes = parseInt(match[2]);
+            let seconds = match[3] ? parseInt(match[3]) : 0;
+            const period = match[4];
+            
+            // تحويل من 12 ساعة إلى 24 ساعة
+            if (period.includes('م') && hours !== 12) {
+                hours += 12;
+            } else if (period.includes('ص') && hours === 12) {
+                hours = 0;
+            }
+            
+            // التأكد من أن الأرقام ضمن النطاق الصحيح
+            hours = Math.max(0, Math.min(23, hours));
+            minutes = Math.max(0, Math.min(59, minutes));
+            seconds = Math.max(0, Math.min(59, seconds));
+            
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+    
+    // معالجة الوقت بتنسيق 24 ساعة
+    const timeParts = timeStr.split(':').filter(part => part !== '');
+    
+    if (timeParts.length >= 2) {
+        let hours = parseInt(timeParts[0]) || 0;
+        let minutes = parseInt(timeParts[1]) || 0;
+        let seconds = timeParts[2] ? parseInt(timeParts[2]) || 0 : 0;
+        
+        // إصلاح المشكلة: إذا كانت الثواني مكتوبة كـ "0" بدلاً من "00"
+        if (seconds === 0 && timeParts[2] === '0') {
+            seconds = 0; // هذا صحيح، ولكن سنضمن أنه يُنسق كـ "00"
+        }
+        
+        // التأكد من أن الأرقام ضمن النطاق الصحيح
+        hours = Math.max(0, Math.min(23, hours));
+        minutes = Math.max(0, Math.min(59, minutes));
+        seconds = Math.max(0, Math.min(59, seconds));
+        
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    // إذا فشل كل شيء، إرجاع الوقت الافتراضي
+    console.warn(`تعذر تحليل الوقت: "${timeStr}"، سيتم استخدام 00:00:00`);
+    return '00:00:00';
 }
 
 async function searchCashierClosuresAccountant() {
