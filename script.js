@@ -169,8 +169,14 @@ async function maybeEnableButtons() {
 
     console.log('Auth check:', {
         wasAuthenticatedInLocalStorage,
-        hasSavedToken: !!savedTokenStr
+        hasSavedToken: !!savedTokenStr,
+        gapiInited,
+        gisInited
     });
+
+    // إعادة تعيين حالة المصادقة للتأكد من الدقة
+    isAuthenticated = false;
+    gapi.client.setToken(null);
 
     if (wasAuthenticatedInLocalStorage && savedTokenStr) {
         try {
@@ -202,8 +208,10 @@ async function maybeEnableButtons() {
     }
 }
 
+
 async function handleAuthClick() {
-    if (isAuthenticated) {
+    // إذا كان المستخدم مصادقاً بالفعل، تأكد من صحة التوكن
+    if (isAuthenticated && gapi.client.getToken() && isTokenValid()) {
         console.log('المستخدم مصادق عليه بالفعل، تخطي طلب المصادقة.');
         return Promise.resolve();
     }
@@ -212,14 +220,13 @@ async function handleAuthClick() {
         tokenClient.callback = async (resp) => {
             if (resp.error !== undefined) {
                 console.error('فشل المصادقة:', resp.error);
-                handleAuthError(resp); // استخدم دالة معالجة الأخطاء الموحدة
+                handleAuthError(resp);
                 reject(resp);
             } else {
                 // المصادقة ناجحة
-                handleAuthSuccess(); // استخدم دالة النجاح الموحدة
+                handleAuthSuccess();
                 console.log('تمت المصادقة بنجاح. جاري تحميل البيانات الأولية...');
 
-                // تحميل البيانات بعد المصادقة الناجحة
                 try {
                     await loadInitialData();
                     resolve();
@@ -231,9 +238,7 @@ async function handleAuthClick() {
             }
         };
 
-        // اطلب المصادقة.
-        // إذا كان هناك توكن سابق (حتى لو منتهي الصلاحية)، حاول تحديثه بصمت.
-        // إذا لم يكن هناك توكن أو فشل التحديث الصامت، اطلب موافقة المستخدم.
+        // اطلب المصادقة
         if (gapi.client.getToken() === null) {
             console.log('لا يوجد توكن سابق، طلب موافقة المستخدم.');
             tokenClient.requestAccessToken({ prompt: 'consent' });
@@ -244,7 +249,18 @@ async function handleAuthClick() {
     });
 }
 
+function checkAuthStatus() {
+    console.log('=== حالة المصادقة الحالية ===');
+    console.log('isAuthenticated:', isAuthenticated);
+    console.log('gapi.client.getToken():', gapi.client.getToken());
+    console.log('localStorage googleAuthState:', localStorage.getItem('googleAuthState'));
+    console.log('localStorage googleAuthToken:', localStorage.getItem('googleAuthToken'));
+    console.log('isTokenValid():', isTokenValid());
+    console.log('================================');
+}
 
+// استدع هذه الدالة للتحقق من الحالة
+checkAuthStatus();
 // حفظ الحالة قبل إغلاق الصفحة
 window.addEventListener('beforeunload', () => {
     saveAuthState();
