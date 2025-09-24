@@ -5,7 +5,7 @@ let isAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated
 function handleAuthSuccess() {
     isAuthenticated = true;
     localStorage.setItem('googleAuthState', 'authenticated');
-    
+
     // حفظ التوكن في localStorage مع معلومات الوقت
     const token = gapi.client.getToken();
     if (token) {
@@ -23,7 +23,7 @@ function handleAuthFailure() {
     isAuthenticated = false;
     localStorage.removeItem('googleAuthState');
     localStorage.removeItem('googleAuthToken'); // إضافة هذه السطر
-    if (gapi.client.getToken()) {
+    if (typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken()) { // فحص gapi.client
         gapi.client.setToken(null);
     }
 }
@@ -37,21 +37,21 @@ function loadGoogleScripts() {
         gapiScript.src = 'https://apis.google.com/js/api.js';
         gapiScript.onload = function() {
             console.log('GAPI loaded, initializing...');
-            
+
             // بعد تحميل GAPI، حمّل GIS
             const gisScript = document.createElement('script');
             gisScript.src = 'https://accounts.google.com/gsi/client';
             gisScript.onload = function() {
                 console.log('GIS loaded, initializing...');
-                
+
                 // تهيئة GAPI client أولاً
                 gapi.load('client', async () => {
                     try {
                         await initializeGapiClient();
-                        
+
                         // ثم تهيئة GIS
                         gisLoaded();
-                        
+
                         console.log('Both GAPI and GIS initialized successfully');
                         resolve();
                     } catch (error) {
@@ -60,20 +60,20 @@ function loadGoogleScripts() {
                     }
                 });
             };
-            
+
             gisScript.onerror = () => {
                 console.error('Failed to load GIS');
                 reject(new Error('Failed to load GIS'));
             };
-            
+
             document.head.appendChild(gisScript);
         };
-        
+
         gapiScript.onerror = () => {
             console.error('Failed to load GAPI');
             reject(new Error('Failed to load GAPI'));
         };
-        
+
         document.head.appendChild(gapiScript);
     });
 }
@@ -160,7 +160,7 @@ function checkInitializationStatus() {
             hasGapi: typeof gapi !== 'undefined',
             hasGoogle: typeof google !== 'undefined'
         });
-        
+
         if (gapiInited && gisInited) {
             clearInterval(checkInterval);
             console.log('Both APIs initialized, proceeding with authentication...');
@@ -169,7 +169,7 @@ function checkInitializationStatus() {
             }, 1000);
         }
     }, 1000);
-    
+
     // إيقاف التحقق بعد 30 ثانية كحد أقصى
     setTimeout(() => {
         clearInterval(checkInterval);
@@ -183,7 +183,7 @@ function checkInitializationStatus() {
 function handleAuthError(error) {
     console.error('Authentication error:', error);
     handleAuthFailure();
-    
+
     // تنظيف localStorage في حالة الأخطاء المحددة
     if (error.error === 'invalid_grant' || error.error === 'unauthorized_client') {
         localStorage.removeItem('googleAuthToken');
@@ -222,6 +222,17 @@ async function maybeEnableButtons() {
         return;
     }
 
+    // تأكد من تهيئة GAPI client قبل المتابعة
+    if (!gapi.client) {
+        console.log('GAPI client not yet available. Waiting...');
+        await initializeGapiClient(); // حاول التهيئة مرة أخرى إذا لم تكن متاحة
+        if (!gapi.client) {
+            console.error('Failed to initialize GAPI client after retry.');
+            showMessage('فشل تهيئة Google API. يرجى تحديث الصفحة.', 'error');
+            return;
+        }
+    }
+
     const wasAuthenticatedInLocalStorage = loadAuthState();
     const savedTokenStr = localStorage.getItem('googleAuthToken');
 
@@ -234,16 +245,22 @@ async function maybeEnableButtons() {
 
     // إعادة تعيين حالة المصادقة للتأكد من الدقة
     isAuthenticated = false;
-    gapi.client.setToken(null);
+    if (gapi.client) { // فحص gapi.client قبل الاستخدام
+        gapi.client.setToken(null);
+    }
+
 
     if (wasAuthenticatedInLocalStorage && savedTokenStr) {
         try {
             const savedToken = JSON.parse(savedTokenStr);
             console.log('Restoring token from localStorage:', savedToken);
-            
+
             // تعيين التوكن المحفوظ
-            gapi.client.setToken(savedToken);
-            
+            if (gapi.client) { // فحص gapi.client قبل الاستخدام
+                gapi.client.setToken(savedToken);
+            }
+
+
             // التحقق من صلاحية التوكن
             if (isTokenValid()) {
                 isAuthenticated = true;
@@ -271,7 +288,7 @@ async function maybeEnableButtons() {
 
 async function handleAuthClick() {
     // إذا كان المستخدم مصادقاً بالفعل، تأكد من صحة التوكن
-    if (isAuthenticated && gapi.client.getToken() && isTokenValid()) {
+    if (isAuthenticated && typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken() && isTokenValid()) { // فحص gapi.client
         console.log('المستخدم مصادق عليه بالفعل، تخطي طلب المصادقة.');
         return Promise.resolve();
     }
@@ -299,12 +316,16 @@ async function handleAuthClick() {
         };
 
         // اطلب المصادقة
-        if (gapi.client.getToken() === null) {
+        if (typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken() === null) { // فحص gapi.client
             console.log('لا يوجد توكن سابق، طلب موافقة المستخدم.');
             tokenClient.requestAccessToken({ prompt: 'consent' });
-        } else {
+        } else if (typeof gapi !== 'undefined' && gapi.client) { // فحص gapi.client
             console.log('يوجد توكن سابق، محاولة تحديثه بصمت.');
             tokenClient.requestAccessToken({ prompt: 'none' });
+        } else {
+            console.error('GAPI client not available for authentication request.');
+            showMessage('فشل المصادقة: Google API غير متاح.', 'error');
+            reject(new Error('GAPI client not available'));
         }
     });
 }
@@ -312,7 +333,11 @@ async function handleAuthClick() {
 function checkAuthStatus() {
     console.log('=== حالة المصادقة الحالية ===');
     console.log('isAuthenticated:', isAuthenticated);
-    console.log('gapi.client.getToken():', gapi.client.getToken());
+    if (typeof gapi !== 'undefined' && gapi.client) {
+        console.log('gapi.client.getToken():', gapi.client.getToken());
+    } else {
+        console.log('gapi.client.getToken(): GAPI client not yet available.');
+    }
     console.log('localStorage googleAuthState:', localStorage.getItem('googleAuthState'));
     console.log('localStorage googleAuthToken:', localStorage.getItem('googleAuthToken'));
     console.log('isTokenValid():', isTokenValid());
@@ -326,6 +351,12 @@ window.addEventListener('beforeunload', () => {
 });
 
 function isTokenValid() {
+    // أضف فحصًا لـ gapi.client هنا أيضًا
+    if (typeof gapi === 'undefined' || !gapi.client) {
+        console.log('GAPI client not available, cannot check token validity.');
+        return false;
+    }
+
     const token = gapi.client.getToken();
     if (!token) {
         console.log('No token found');
@@ -337,11 +368,11 @@ function isTokenValid() {
         const expiresAt = token.created_at + (token.expires_in * 1000);
         const safetyMargin = 5 * 60 * 1000; // 5 دقائق هامش أمان
         const isValid = expiresAt > (Date.now() + safetyMargin);
-        console.log('Token expiry check:', { 
-            created: new Date(token.created_at), 
+        console.log('Token expiry check:', {
+            created: new Date(token.created_at),
             expires: new Date(expiresAt),
             now: new Date(),
-            isValid 
+            isValid
         });
         return isValid;
     }
@@ -2646,7 +2677,7 @@ async function searchCashierClosuresAccountant() {
             normalCount: normalExpenses.length,
             totalVisa: totalVisa,
             visaCount: visaExpenses.length,
-            totalInsta: totalInsta,
+            totalInsta: instaExpenses.length,
             instaCount: instaExpenses.length,
             totalOnline: onlineExpenses.length,
             onlineCount: onlineExpenses.length,
@@ -2921,14 +2952,14 @@ window.onclick = function(event) {
 // --- Event Listeners ---
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, starting Google scripts loading...');
-    
+
     loadGoogleScripts().then(() => {
         console.log('Google Scripts loaded successfully.');
         checkInitializationStatus();
     }).catch(error => {
         console.error('Failed to load Google Scripts:', error);
         showMessage('فشل تحميل مكتبات Google. يرجى التحقق من الاتصال بالإنترنت.', 'error');
-        
+
         // زر إعادة المحاولة
         const retryButton = document.createElement('button');
         retryButton.textContent = 'إعادة المحاولة';
