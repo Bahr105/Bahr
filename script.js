@@ -410,7 +410,7 @@ async function readSheet(sheetName, range = 'A:Z') {
 
         const fullRange = range ? `${sheetName}!${range}` : `${sheetName}!A:Z`;
         const response = await gapi.client.sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEheet_ID,
+            spreadsheetId: SPREADSHEET_ID,
             range: fullRange,
         });
         return response.result.values || [];
@@ -1203,15 +1203,17 @@ async function addExpense() {
             return;
         }
 
-        // **التعديل الجديد: التحقق من تكرار رقم الفاتورة**
-        const allExistingExpenses = await loadExpenses({}); // تحميل جميع المصروفات للتحقق
-        const isInvoiceNumberDuplicate = allExistingExpenses.some(
-            exp => exp.invoiceNumber === invoiceNumber && exp.categoryCode === categoryCode
-        );
+        // **التعديل الجديد: التحقق من تكرار رقم الفاتورة فقط لـ "خصم عميل"**
+        if (formType === 'خصم عميل') {
+            const allExistingExpenses = await loadExpenses({}); // تحميل جميع المصروفات للتحقق
+            const isInvoiceNumberDuplicate = allExistingExpenses.some(
+                exp => exp.invoiceNumber === invoiceNumber && exp.categoryCode === categoryCode
+            );
 
-        if (isInvoiceNumberDuplicate) {
-            showMessage('رقم الفاتورة هذا موجود بالفعل لهذا التصنيف. يرجى إدخال رقم فاتورة فريد.', 'error');
-            return;
+            if (isInvoiceNumberDuplicate) {
+                showMessage('رقم الفاتورة هذا موجود بالفعل لهذا التصنيف "خصم عميل". يرجى إدخال رقم فاتورة فريد.', 'error');
+                return;
+            }
         }
     }
 
