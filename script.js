@@ -99,21 +99,69 @@ async function maybeEnableButtons() {
     if (gapiInited && gisInited && !isAuthenticated) {
         // Check if user was previously authenticated
         const existingToken = gapi.client.getToken();
+        
+        // إذا كان هناك token سابق ولم ينتهي صلاحيته، لا تطلب المصادقة
         if (existingToken && existingToken.expires_at && existingToken.expires_at > Date.now()) {
             isAuthenticated = true;
+            console.log('Using existing token, no need to re-authenticate');
             await loadInitialData();
-        } else {
-            await handleAuthClick().then(() => {
-                loadInitialData();
-            }).catch(error => {
-                console.error('Authentication failed:', error);
-            });
+            return; // لا تطلب المصادقة مرة أخرى
         }
+        
+        // فقط إذا لم يكن هناك token صالح، اطلب المصادقة
+        await handleAuthClick().then(() => {
+            loadInitialData();
+        }).catch(error => {
+            console.error('Authentication failed:', error);
+        });
     }
 }
+// دالة لحفظ حالة المصادقة
+function saveAuthState() {
+    localStorage.setItem('googleAuthState', isAuthenticated ? 'authenticated' : 'not_authenticated');
+}
 
+// دالة لتحميل حالة المصادقة
+function loadAuthState() {
+    return localStorage.getItem('googleAuthState') === 'authenticated';
+}
+
+// تعديل الدالة maybeEnableButtons لاستخدام localStorage
+async function maybeEnableButtons() {
+    if (gapiInited && gisInited && !isAuthenticated) {
+        // تحقق من localStorage أولاً
+        const wasAuthenticated = loadAuthState();
+        
+        // Check if user was previously authenticated
+        const existingToken = gapi.client.getToken();
+        
+        if ((wasAuthenticated || existingToken) && existingToken && existingToken.expires_at && existingToken.expires_at > Date.now()) {
+            isAuthenticated = true;
+            console.log('User was previously authenticated, skipping popup');
+            await loadInitialData();
+            return;
+        }
+        
+        // فقط إذا لم يكن المستخدم مسجلاً مسبقًا، اطلب المصادقة
+        await handleAuthClick().then(() => {
+            isAuthenticated = true;
+            saveAuthState(); // حفظ حالة المصادقة
+            loadInitialData();
+        }).catch(error => {
+            console.error('Authentication failed:', error);
+            isAuthenticated = false;
+            saveAuthState();
+        });
+    }
+}
 async function handleAuthClick() {
     if (isAuthenticated) return Promise.resolve();
+     // إذا كان هناك token صالح، استخدمه
+    const existingToken = gapi.client.getToken();
+    if (existingToken && existingToken.expires_at && existingToken.expires_at > Date.now()) {
+        isAuthenticated = true;
+        return Promise.resolve();
+    }
     
     return new Promise((resolve, reject) => {
         tokenClient.callback = async (resp) => {
@@ -2733,7 +2781,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
 
 
 
