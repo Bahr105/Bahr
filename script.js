@@ -1,3 +1,18 @@
+// تحميل حالة المصادقة من localStorage عند بدء التشغيل
+let isAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated';
+
+// عند نجاح المصادقة، احفظ الحالة فوراً
+function handleAuthSuccess() {
+    isAuthenticated = true;
+    localStorage.setItem('googleAuthState', 'authenticated');
+}
+
+// عند فشل المصادقة أو تسجيل الخروج، احذف الحالة
+function handleAuthFailure() {
+    isAuthenticated = false;
+    localStorage.removeItem('googleAuthState');
+}
+
 // في بداية script.js - حل بديل
 function loadGoogleScripts() {
     return new Promise((resolve) => {
@@ -34,7 +49,7 @@ const SHEETS = {
  let gapiInited = false;
     let gisInited = false;
     let tokenClient;
-    let isAuthenticated = false; // هذه القيمة ستُحدد بناءً على localStorage
+    
     // دالة لحفظ حالة المصادقة
     function saveAuthState() {
         localStorage.setItem('googleAuthState', isAuthenticated ? 'authenticated' : 'not_authenticated');
@@ -104,29 +119,30 @@ function gisLoaded() {
 }
 
 async function maybeEnableButtons() {
-    if (gapiInited && gisInited && !isAuthenticated) {
-        // Check if user was previously authenticated
+    if (gapiInited && gisInited) {
         const existingToken = gapi.client.getToken();
-        
-        // إذا كان هناك token سابق ولم ينتهي صلاحيته، لا تطلب المصادقة
-        if (existingToken && existingToken.expires_at && existingToken.expires_at > Date.now()) {
+        const wasAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated';
+
+        if (existingToken && wasAuthenticated) {
             isAuthenticated = true;
-            console.log('Using existing token, no need to re-authenticate');
+            console.log('تم استعادة المصادقة السابقة بدون نافذة.');
             await loadInitialData();
-            return; // لا تطلب المصادقة مرة أخرى
+            return;
         }
-        
-        // فقط إذا لم يكن هناك token صالح، اطلب المصادقة
-        await handleAuthClick().then(() => {
-            loadInitialData();
-        }).catch(error => {
-            console.error('Authentication failed:', error);
-        });
+
+        if (!isAuthenticated) {
+            console.log('جاري المصادقة التلقائية...');
+            await handleAuthClick();
+        }
     }
 }
 // دالة لحفظ حالة المصادقة
 function saveAuthState() {
-    localStorage.setItem('googleAuthState', isAuthenticated ? 'authenticated' : 'not_authenticated');
+    if (isAuthenticated) {
+        localStorage.setItem('googleAuthState', 'authenticated');
+    } else {
+        localStorage.removeItem('googleAuthState');
+    }
 }
 
 // دالة لتحميل حالة المصادقة
@@ -137,6 +153,26 @@ function loadAuthState() {
 // تعديل الدالة maybeEnableButtons لاستخدام localStorage
     // تعديل الدالة maybeEnableButtons لاستخدام localStorage
     async function maybeEnableButtons() {
+
+
+        if (gapiInited && gisInited) {
+        const existingToken = gapi.client.getToken();
+        const wasAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated';
+
+        if (existingToken && wasAuthenticated) {
+            isAuthenticated = true;
+            console.log('تم استعادة حالة المصادقة السابقة.');
+            await loadInitialData();
+            return;
+        }
+
+        // إذا لم يكن هناك token، اطلب المصادقة
+        if (!isAuthenticated) {
+            await handleAuthClick();
+        }
+    }
+
+
         if (gapiInited && gisInited && !isAuthenticated) {
             // تحقق من localStorage أولاً
             const wasAuthenticated = loadAuthState();
@@ -166,46 +202,30 @@ function loadAuthState() {
     
     async function handleAuthClick() {
     if (isAuthenticated) return Promise.resolve();
-    
+
     return new Promise((resolve, reject) => {
         tokenClient.callback = async (resp) => {
             if (resp.error !== undefined) {
-                console.error('Authentication failed:', resp);
-                showMessage('فشل المصادقة مع Google Sheets. يرجى التحقق من الأذونات.', 'error');
-                isAuthenticated = false; // تأكد من ضبطها على false عند الفشل
-                saveAuthState();
                 reject(resp);
             } else {
-                console.log('Authentication successful.');
                 isAuthenticated = true;
-                saveAuthState();
+                saveAuthState(); // حفظ الحالة فوراً
                 resolve();
             }
         };
 
-        const existingToken = gapi.client.getToken();
-        if (existingToken && existingToken.expires_at && existingToken.expires_at > Date.now()) {
-            // إذا كان هناك رمز مميز صالح، لا تفعل شيئًا، فقط قم بالحل
-            isAuthenticated = true;
-            resolve();
+        if (gapi.client.getToken() === null) {
+            tokenClient.requestAccessToken({ prompt: 'none' });
         } else {
-            // حاول الحصول على رمز مميز بصمت أولاً
-            tokenClient.requestAccessToken({prompt: 'none'})
-                .then(() => {
-                    // إذا نجح الحصول على الرمز المميز بصمت
-                    isAuthenticated = true;
-                    saveAuthState();
-                    resolve();
-                })
-                .catch(error => {
-                    // إذا فشل الحصول على الرمز المميز بصمت (مثلاً، انتهت صلاحية الـ refresh token)
-                    // اطلب الموافقة من المستخدم
-                    console.warn('Silent authentication failed, requesting consent:', error);
-                    tokenClient.requestAccessToken({prompt: 'consent'});
-                });
+            tokenClient.requestAccessToken({ prompt: 'consent' });
         }
     });
 }
+
+// حفظ الحالة قبل إغلاق الصفحة
+window.addEventListener('beforeunload', () => {
+    saveAuthState();
+});
 
     
 
