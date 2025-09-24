@@ -2060,12 +2060,13 @@ function displayUsers() {
         
         const actionsCell = row.insertCell();
         actionsCell.innerHTML = `
-            <button class="edit-btn" onclick="showMessage('وظيفة تعديل المستخدم غير متاحة حالياً.', 'warning')"><i class="fas fa-edit"></i></button>
-            <button class="delete-btn" onclick="showMessage('وظيفة حذف المستخدم غير متاحة حالياً.', 'warning')"><i class="fas fa-trash"></i></button>
-            <button class="block-btn" onclick="showMessage('وظيفة حظر/إيقاف المستخدم غير متاحة حالياً.', 'warning')"><i class="fas fa-ban"></i></button>
+            <button class="edit-btn" onclick="showEditUserModal('${user.id}')"><i class="fas fa-edit"></i> تعديل</button>
+            <button class="delete-btn" onclick="showMessage('وظيفة حذف المستخدم غير متاحة حالياً.', 'warning')"><i class="fas fa-trash"></i> حذف</button>
+            <button class="block-btn" onclick="showChangePasswordModal('${user.id}')"><i class="fas fa-key"></i> كلمة المرور</button>
         `;
     });
 }
+
 
 function showAddUserModal() {
     const form = document.getElementById('addUserForm');
@@ -2265,9 +2266,9 @@ async function searchCashierClosuresAccountant() {
             normalCount: normalExpenses.length,
             totalVisa: totalVisa,
             visaCount: visaExpenses.length,
-            totalInsta: instaExpenses.length,
+            totalInsta: totalInsta,
             instaCount: instaExpenses.length,
-            totalOnline: onlineExpenses.length,
+            totalOnline: totalOnline,
             onlineCount: onlineExpenses.length,
             drawerCash: drawerCash, // الآن من داخل الفترة
             grandTotal: grandTotal
@@ -2311,16 +2312,15 @@ function calculateDifferenceAccountant() {
             <p>الفرق: ${Math.abs(difference).toFixed(2)} جنيه</p>
     `;
 
-    // Apply color based on difference
     if (difference === 0) {
         resultHtml += `<p class="status-match"><strong>الحالة: مطابق ✓</strong></p>`;
         differenceResult.className = 'difference-result balanced';
-    } else if (difference > 0) { // NewMindTotal > CashierTotal => Cashier has a deficit
-        resultHtml += `<p class="status-deficit-cashier"><strong>الحالة: عجز علي الكاشير زيادة في نيو مايند</strong></p>`;
-        differenceResult.className = 'difference-result deficit'; // Use deficit class for red
-    } else { // NewMindTotal < CashierTotal => Cashier has a surplus
-        resultHtml += `<p class="status-surplus-cashier"><strong>الحالة: زيادة عند الكاشير عجز في نيو مايند</strong></p>`;
-        differenceResult.className = 'difference-result surplus'; // Use surplus class for green
+    } else if (difference > 0) {
+        resultHtml += `<p class="status-surplus"><strong>الحالة: عجز علي الكاشير زيادة في نيو مايند</strong></p>`;
+        differenceResult.className = 'difference-result surplus';
+    } else {
+        resultHtml += `<p class="status-deficit"><strong>الحالة:زياده عند الكاشير عجز في نيو مايند</strong></p>`;
+        differenceResult.className = 'difference-result deficit';
     }
 
     resultHtml += '</div>';
@@ -2433,16 +2433,16 @@ async function loadAccountantShiftClosuresHistory() {
         const differenceCell = row.insertCell();
         const diffValue = closure.difference;
         differenceCell.textContent = diffValue.toFixed(2);
-        
-        // Apply color based on difference for history table
         if (diffValue > 0) {
-            differenceCell.style.color = 'red'; // Cashier deficit
+            // زيادة في نيو مايند = عجز على الكاشير
+            differenceCell.style.color = 'red';
             differenceCell.title = 'عجز على الكاشير (نقص في النقدية)';
         } else if (diffValue < 0) {
-            differenceCell.style.color = 'green'; // Cashier surplus
-            differenceCell.title = 'زيادة عند الكاشير (فائض في النقدية)';
+            // عجز في نيو مايند = زيادة على الكاشير
+            differenceCell.style.color = 'green';
+            differenceCell.title = 'زيادة على الكاشير (فائض في النقدية)';
         } else {
-            differenceCell.style.color = 'blue'; // Match
+            differenceCell.style.color = 'blue';
             differenceCell.title = 'مطابق';
         }
         
@@ -2595,3 +2595,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+
+
