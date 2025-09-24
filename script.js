@@ -2345,7 +2345,7 @@ async function closeCashierByAccountant() {
         return;
     }
 
-    const difference = window.currentClosureData.grandTotal -newMindTotal  ;
+    const difference = newMindTotal - window.currentClosureData.grandTotal;
 
     showLoading(true);
     try {
@@ -2417,8 +2417,8 @@ async function loadAccountantShiftClosuresHistory() {
         const row = tableBody.insertRow();
         
         // Get cashier display name
-        const cashierUser = users.find(u => u.username === closure.cashier);
-        const cashierDisplayName = cashierUser ? cashierUser.name : closure.cashier;
+        const cashierUser  = users.find(u => u.username === closure.cashier);
+        const cashierDisplayName = cashierUser  ? cashierUser .name : closure.cashier;
         
         row.insertCell().textContent = cashierDisplayName;
         row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
@@ -2433,11 +2433,13 @@ async function loadAccountantShiftClosuresHistory() {
         const diffValue = closure.difference;
         differenceCell.textContent = diffValue.toFixed(2);
         if (diffValue > 0) {
-            differenceCell.style.color = 'green';
-            differenceCell.title = 'زيادة';
-        } else if (diffValue < 0) {
+            // زيادة في نيو مايند = عجز على الكاشير
             differenceCell.style.color = 'red';
-            differenceCell.title = 'عجز';
+            differenceCell.title = 'عجز على الكاشير (نقص في النقدية)';
+        } else if (diffValue < 0) {
+            // عجز في نيو مايند = زيادة على الكاشير
+            differenceCell.style.color = 'green';
+            differenceCell.title = 'زيادة على الكاشير (فائض في النقدية)';
         } else {
             differenceCell.style.color = 'blue';
             differenceCell.title = 'مطابق';
@@ -2456,6 +2458,7 @@ async function loadAccountantShiftClosuresHistory() {
         `;
     });
 }
+
 
 // --- Utility Functions ---
 function showLoading(show = true) {
