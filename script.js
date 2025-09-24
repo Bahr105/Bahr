@@ -15,10 +15,11 @@ function handleAuthFailure() {
 
 // في بداية script.js - حل بديل
 function loadGoogleScripts() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const script1 = document.createElement('script');
         script1.src = 'https://apis.google.com/js/api.js';
         script1.onload = gapiLoaded;
+        script1.onerror = () => reject(new Error('Failed to load GAPI'));
         document.head.appendChild(script1);
 
         const script2 = document.createElement('script');
@@ -27,6 +28,7 @@ function loadGoogleScripts() {
             gisLoaded();
             resolve();
         };
+        script2.onerror = () => reject(new Error('Failed to load GIS'));
         document.head.appendChild(script2);
     });
 }
@@ -123,15 +125,13 @@ function handleAuthError(error) {
     console.error('Authentication error:', error);
     isAuthenticated = false;
     localStorage.removeItem('googleAuthState');
-    gapi.client.setToken(null);
     
-    // إذا كان الخطأ يتطلب تفاعل المستخدم، أظهر رسالة
-    if (error.error === 'interaction_required') {
-        showMessage('يجب الموافقة على الوصول إلى البيانات', 'warning');
-        // أعد المحاولة مع نافذة الموافقة
-        tokenClient.requestAccessToken({ prompt: 'consent' });
+    if (error.error === 'popup_closed_by_user') {
+        showMessage('تم إغلاق نافذة المصادقة. يرجى المحاولة مرة أخرى.', 'warning');
+    } else if (error.error === 'access_denied') {
+        showMessage('تم رفض الإذن. يرجى منح الأذونات المطلوبة.', 'error');
     } else {
-        showMessage('فشل المصادقة. يرجى المحاولة مرة أخرى', 'error');
+        showMessage('فشل المصادقة. يرجى المحاولة مرة أخرى.', 'error');
     }
 }
 
@@ -155,19 +155,31 @@ async function maybeEnableButtons() {
         const existingToken = gapi.client.getToken();
         const wasAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated';
 
+        // إذا كان هناك token سابق وحالة مصادقة محفوظة
         if (existingToken && wasAuthenticated) {
-            isAuthenticated = true;
-            console.log('تم استعادة المصادقة السابقة بدون نافذة.');
-            await loadInitialData();
-            return;
+            // تحقق من صلاحية الـ token
+            if (existingToken.expires_at && existingToken.expires_at > Date.now()) {
+                isAuthenticated = true;
+                console.log('تم استعادة المصادقة السابقة بنجاح');
+                await loadInitialData();
+                return;
+            } else {
+                // الـ token منتهي الصلاحية، احذفها
+                gapi.client.setToken(null);
+                localStorage.removeItem('googleAuthState');
+                isAuthenticated = false;
+            }
         }
 
+        // إذا لم يكن هناك مصادقة سارية، اطلب المصادقة مع نافذة الموافقة
         if (!isAuthenticated) {
-            console.log('جاري المصادقة التلقائية...');
+            console.log('جاري طلب المصادقة...');
             await handleAuthClick();
         }
     }
 }
+
+
 // دالة لحفظ حالة المصادقة
 function saveAuthState() {
     if (isAuthenticated) {
@@ -240,7 +252,7 @@ function loadAuthState() {
         }
     }
     
-    async function handleAuthClick() {
+               async function handleAuthClick() {
     if (isAuthenticated) return Promise.resolve();
 
     return new Promise((resolve, reject) => {
@@ -289,12 +301,14 @@ window.addEventListener('beforeunload', () => {
     
     // تحقق من وجود وقت انتهاء الصلاحية
     if (token.expires_at) {
-        return token.expires_at > Date.now();
+        // اترك هامش أمان 5 دقائق
+        return token.expires_at > (Date.now() + 300000);
     }
     
-    // إذا لم يكن هناك وقت انتهاء، افترض أنها صالحة لمدة ساعة
+    // إذا لم يكن هناك وقت انتهاء، افترض أنها صالحة
     return true;
 }
+
 
 // --- Google Sheets API Functions ---
 async function readSheet(sheetName, range = 'A:Z') {
@@ -2830,12 +2844,18 @@ window.onclick = function(event) {
 document.addEventListener('DOMContentLoaded', function() {
     loadGoogleScripts().then(() => {
         console.log('Google Scripts loaded successfully.');
-        // لا حاجة لاستدعاء maybeEnableButtons هنا لأنه يتم استدعاؤه تلقائياً
+        // لا حاجة لاستدعاء أي شيء هنا - maybeEnableButtons سيتم استدعاؤها تلقائياً
     }).catch(error => {
         console.error('Failed to load Google Scripts:', error);
         showMessage('فشل تحميل مكتبات Google. يرجى التحقق من الاتصال بالإنترنت.', 'error');
+        
+        // إظهار زر لإعادة المحاولة
+        const retryButton = document.createElement('button');
+        retryButton.textContent = 'إعادة المحاولة';
+        retryButton.onclick = () => location.reload();
+        document.body.appendChild(retryButton);
     });
-
+    
     // Set default dates and times
     setDefaultDatesAndTimes();
 
