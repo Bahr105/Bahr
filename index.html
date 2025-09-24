@@ -666,7 +666,7 @@
                             <input type="number" id="newmindTotalAccountant" placeholder="أدخل إجمالي نظام نيو مايند" step="0.01">
                         </div>
                         
-                        <button class="calculate-difference-btn" onclick="calculateDifferenceAccountant()">
+                        <button class="calculate-difference-btn" onclick="if(typeof calculateDifferenceAccountant === 'function') calculateDifferenceAccountant(); else console.error('Function not defined');">
                             <i class="fas fa-calculator"></i>
                             حساب الفرق
                         </button>
