@@ -1203,18 +1203,18 @@ async function addExpense() {
             return;
         }
 
-        // **التعديل الجديد: التحقق من تكرار رقم الفاتورة فقط لـ "خصم عميل"**
-        if (formType === 'خصم عميل') {
-            const allExistingExpenses = await loadExpenses({}); // تحميل جميع المصروفات للتحقق
-            const isInvoiceNumberDuplicate = allExistingExpenses.some(
-                exp => exp.invoiceNumber === invoiceNumber && exp.categoryCode === categoryCode
-            );
+        // --- START OF MODIFICATION ---
+        // التحقق من تكرار رقم الفاتورة
+        const allExistingExpenses = await loadExpenses({}); // تحميل جميع المصروفات
+        const isInvoiceNumberDuplicate = allExistingExpenses.some(exp =>
+            exp.invoiceNumber === invoiceNumber
+        );
 
-            if (isInvoiceNumberDuplicate) {
-                showMessage('رقم الفاتورة هذا موجود بالفعل لهذا التصنيف "خصم عميل". يرجى إدخال رقم فاتورة فريد.', 'error');
-                return;
-            }
+        if (isInvoiceNumberDuplicate) {
+            showMessage('رقم الفاتورة هذا موجود بالفعل. يرجى إدخال رقم فاتورة فريد.', 'error');
+            return;
         }
+        // --- END OF MODIFICATION ---
     }
 
     // Handle customer credit for "اجل" type
@@ -2688,7 +2688,7 @@ async function searchCashierClosuresAccountant() {
             timeTo: timeTo,
             totalNormal: totalNormal,
             normalCount: normalExpenses.length,
-            totalVisa: visaExpenses.length,
+            totalVisa: totalVisa,
             visaCount: visaExpenses.length,
             totalInsta: instaExpenses.length,
             instaCount: instaExpenses.length,
