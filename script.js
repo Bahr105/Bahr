@@ -28,7 +28,7 @@ const SHEETS = {
     EXPENSES: 'Expenses',
     CUSTOMERS: 'Customers',
     SHIFT_CLOSURES: 'ShiftClosures',
-    CUSTOMER_CREDIT_HISTORY: 'CustomerCreditHistory' // New sheet
+    CUSTOMER_CREDIT_HISTORY: 'CustomerCreditHistory'
 };
 
 let gapiInited = false;
@@ -43,7 +43,7 @@ let customers = [];
 let currentUser = null;
 let currentUserName = '';
 let currentUserRole = '';
-let currentSelectedCustomerId = null; // To keep track of the customer being viewed in accountant page
+let currentSelectedCustomerId = null;
 
 let cashierDailyData = {
     expenses: [],
@@ -76,7 +76,7 @@ async function initializeGapiClient() {
         maybeEnableButtons();
     } catch (error) {
         console.error('Error initializing GAPI client:', error);
-        showErrorMessage('فشل تهيئة Google API');
+        showMessage('فشل تهيئة Google API', 'error');
     }
 }
 
@@ -85,24 +85,30 @@ function gisLoaded() {
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: CLIENT_ID,
             scope: SCOPES,
-            callback: '', // defined later
+            callback: '',
         });
         gisInited = true;
         maybeEnableButtons();
     } catch (error) {
         console.error('Error initializing GIS:', error);
-        showErrorMessage('فشل تهيئة Google Identity Services');
+        showMessage('فشل تهيئة Google Identity Services', 'error');
     }
 }
 
 async function maybeEnableButtons() {
     if (gapiInited && gisInited && !isAuthenticated) {
-        await handleAuthClick().then(() => {
-            loadInitialData();
-        }).catch(error => {
-            console.error('Authentication failed:', error);
-            // Optionally, show a persistent error message or disable login
-        });
+        // Check if user was previously authenticated
+        const existingToken = gapi.client.getToken();
+        if (existingToken && existingToken.expires_at && existingToken.expires_at > Date.now()) {
+            isAuthenticated = true;
+            await loadInitialData();
+        } else {
+            await handleAuthClick().then(() => {
+                loadInitialData();
+            }).catch(error => {
+                console.error('Authentication failed:', error);
+            });
+        }
     }
 }
 
@@ -113,7 +119,7 @@ async function handleAuthClick() {
         tokenClient.callback = async (resp) => {
             if (resp.error !== undefined) {
                 console.error('Authentication failed:', resp);
-                showErrorMessage('فشل المصادقة مع Google Sheets. يرجى التحقق من الأذونات.');
+                showMessage('فشل المصادقة مع Google Sheets. يرجى التحقق من الأذونات.', 'error');
                 reject(resp);
             } else {
                 console.log('Authentication successful.');
@@ -122,38 +128,34 @@ async function handleAuthClick() {
             }
         };
 
-        // Check if a token already exists and is valid
         const existingToken = gapi.client.getToken();
         if (existingToken && existingToken.expires_at && existingToken.expires_at > Date.now()) {
-            // If token exists and is not expired, try to use it silently
             tokenClient.requestAccessToken({prompt: ''}); 
         } else {
-            // If no token or expired, request a new one with consent
             tokenClient.requestAccessToken({prompt: 'consent'});
         }
     });
 }
 
 // --- Google Sheets API Functions ---
-  async function readSheet(sheetName, range = 'A:Z') {  // افتراضي A:Z للشيت كامل
-      try {
-          if (!isAuthenticated) {
-              await handleAuthClick();
-          }
-          
-          const fullRange = range ? `${sheetName}!${range}` : `${sheetName}!A:Z`;  // دائماً نطاق كامل إذا لم يحدد
-          const response = await gapi.client.sheets.spreadsheets.values.get({
-              spreadsheetId: SPREADSHEET_ID,
-              range: fullRange,
-          });
-          return response.result.values || [];
-      } catch (error) {
-          console.error(`Error reading sheet ${sheetName}:`, error);
-          showErrorMessage(`خطأ في قراءة البيانات من ${sheetName}`);
-          return [];
-      }
-  }
-  
+async function readSheet(sheetName, range = 'A:Z') {
+    try {
+        if (!isAuthenticated) {
+            await handleAuthClick();
+        }
+        
+        const fullRange = range ? `${sheetName}!${range}` : `${sheetName}!A:Z`;
+        const response = await gapi.client.sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: fullRange,
+        });
+        return response.result.values || [];
+    } catch (error) {
+        console.error(`Error reading sheet ${sheetName}:`, error);
+        showMessage(`خطأ في قراءة البيانات من ${sheetName}`, 'error');
+        return [];
+    }
+}
 
 async function appendToSheet(sheetName, values) {
     try {
@@ -201,7 +203,7 @@ async function findRowIndex(sheetName, columnIndex, searchValue) {
     const data = await readSheet(sheetName);
     for (let i = 1; i < data.length; i++) {
         if (data[i][columnIndex] === searchValue) {
-            return i + 1; // +1 because sheets are 1-indexed
+            return i + 1;
         }
     }
     return -1;
@@ -219,7 +221,7 @@ async function loadUsers() {
                 username: row[3] || '',
                 password: row[4] || '',
                 role: row[5] || '',
-                status: row[6] || 'نشط', // Assuming status is at index 6
+                status: row[6] || 'نشط',
                 creationDate: row[7] || ''
             }));
         } else {
@@ -259,7 +261,7 @@ async function loadCustomers() {
                 id: row[0] || '',
                 name: row[1] || '',
                 phone: row[2] || '',
-                totalCredit: parseFloat(row[3] || 0), // Assuming totalCredit is at index 3
+                totalCredit: parseFloat(row[3] || 0),
                 creationDate: row[4] || '',
                 lastUpdate: row[5] || ''
             }));
@@ -281,7 +283,7 @@ async function loadCustomerCreditHistory(customerId) {
             id: row[0] || '',
             customerId: row[1] || '',
             date: row[2] || '',
-            type: row[3] || '', // 'أجل' or 'سداد'
+            type: row[3] || '',
             amount: parseFloat(row[4] || 0),
             invoiceNumber: row[5] || '',
             notes: row[6] || '',
@@ -331,17 +333,20 @@ async function loadExpenses(filters = {}) {
             toDate.setHours(23, 59, 59, 999);
             expenses = expenses.filter(exp => new Date(exp.date) <= toDate);
         }
-       if (filters.timeFrom && filters.timeTo) {
-      expenses = expenses.filter(exp => {
-          const [expHours, expMinutes] = exp.time.split(':').map(Number);  // تحويل إلى أرقام
-          const [fromHours, fromMinutes] = filters.timeFrom.split(':').map(Number);
-          const [toHours, toMinutes] = filters.timeTo.split(':').map(Number);
-          const expTotalMinutes = expHours * 60 + expMinutes;
-          const fromTotalMinutes = fromHours * 60 + fromMinutes;
-          const toTotalMinutes = toHours * 60 + toMinutes;
-          return expTotalMinutes >= fromTotalMinutes && expTotalMinutes <= toTotalMinutes;
-      });
-  }
+        if (filters.timeFrom && filters.timeTo) {
+            expenses = expenses.filter(exp => {
+                const [expHours, expMinutes] = exp.time.split(':').map(Number);
+                const [fromHours, fromMinutes] = filters.timeFrom.split(':').map(Number);
+                const [toHours, toMinutes] = filters.timeTo.split(':').map(Number);
+                const expTotalMinutes = expHours * 60 + expMinutes;
+                const fromTotalMinutes = fromHours * 60 + fromMinutes;
+                const toTotalMinutes = toHours * 60 + toMinutes;
+                return expTotalMinutes >= fromTotalMinutes && expTotalMinutes <= toTotalMinutes;
+            });
+        }
+        if (filters.category) {
+            expenses = expenses.filter(exp => exp.category === filters.category);
+        }
 
         return expenses;
     } catch (error) {
@@ -384,18 +389,15 @@ async function loadShiftClosures(filters = {}) {
         if (filters.cashier) {
             closures = closures.filter(closure => closure.cashier === filters.cashier);
         }
-            if (filters.dateFrom && filters.dateTo) {
-      const fromDateTime = new Date(`${filters.dateFrom}T${filters.timeFrom || '00:00'}:00`);  // افتراضي إذا لم يكن timeFrom
-      const toDateTime = new Date(`${filters.dateTo}T${filters.timeTo || '23:59'}:59.999`);
-      closures = closures.filter(closure => {
-          const closureStart = new Date(`${closure.dateFrom}T${closure.timeFrom}:00`);
-          const closureEnd = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
-          return closureStart >= fromDateTime && closureEnd <= toDateTime;
-      });
-  }
-  
-  
-
+        if (filters.dateFrom && filters.dateTo) {
+            const fromDateTime = new Date(`${filters.dateFrom}T${filters.timeFrom || '00:00'}:00`);
+            const toDateTime = new Date(`${filters.dateTo}T${filters.timeTo || '23:59'}:59.999`);
+            closures = closures.filter(closure => {
+                const closureStart = new Date(`${closure.dateFrom}T${closure.timeFrom}:00`);
+                const closureEnd = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
+                return closureStart >= fromDateTime && closureEnd <= toDateTime;
+            });
+        }
 
         return closures;
     } catch (error) {
@@ -414,10 +416,10 @@ async function loadInitialData() {
             loadCustomers()
         ]);
         populateUserDropdown();
-        showSuccessMessage('تم تحميل البيانات بنجاح');
+        showMessage('تم تحميل البيانات بنجاح', 'success');
     } catch (error) {
         console.error('Error loading initial data:', error);
-        showErrorMessage('حدث خطأ أثناء تحميل البيانات');
+        showMessage('حدث خطأ أثناء تحميل البيانات', 'error');
     } finally {
         showLoading(false);
     }
@@ -442,13 +444,22 @@ async function login() {
     const password = document.getElementById('password').value;
     
     if (!username || !password) {
-        showWarningMessage('يرجى اختيار المستخدم وإدخال كلمة المرور.');
+        showMessage('يرجى اختيار المستخدم وإدخال كلمة المرور.', 'warning');
         return;
     }
 
     const user = users.find(u => u.username === username && u.password === password);
     
     if (user) {
+        if (user.status === 'محظور') {
+            showMessage('هذا المستخدم محظور. اتصل بالمدير.', 'error');
+            return;
+        }
+        if (user.status === 'موقوف') {
+            showMessage('هذا المستخدم موقوف مؤقتاً. اتصل بالمدير.', 'warning');
+            return;
+        }
+
         currentUser = user;
         currentUserName = user.name;
         currentUserRole = user.role;
@@ -458,9 +469,9 @@ async function login() {
         } else if (currentUserRole === 'محاسب') {
             showAccountantPage();
         }
-        showSuccessMessage(`مرحباً بك، ${currentUserName}!`);
+        showMessage(`مرحباً بك، ${currentUserName}!`, 'success');
     } else {
-        showErrorMessage('اسم المستخدم أو كلمة المرور غير صحيحة.');
+        showMessage('اسم المستخدم أو كلمة المرور غير صحيحة.', 'error');
     }
 }
 
@@ -474,15 +485,7 @@ function logout() {
     currentUserName = '';
     currentUserRole = '';
     resetCashierDailyData();
-    showSuccessMessage('تم تسجيل الخروج بنجاح.');
-    // Clear Google token on logout
-    const token = gapi.client.getToken();
-    if (token !== null) {
-        google.accounts.oauth2.revoke(token.access_token, () => {
-            console.log('Access token revoked.');
-            isAuthenticated = false;
-        });
-    }
+    showMessage('تم تسجيل الخروج بنجاح.', 'success');
 }
 
 function togglePasswordVisibility() {
@@ -497,19 +500,6 @@ function togglePasswordVisibility() {
         toggleButton.classList.remove('fa-eye-slash');
         toggleButton.classList.add('fa-eye');
     }
-}
-
-function populateAccountantShiftCashierFilter() {
-    const select = document.getElementById('selectedCashierAccountant');
-    if (!select) return;
-    select.innerHTML = '<option value="">اختر الكاشير</option>';
-    const cashiers = users.filter(u => u.role === 'كاشير');
-    cashiers.forEach(cashier => {
-        const option = document.createElement('option');
-        option.value = cashier.username;
-        option.textContent = cashier.name;
-        select.appendChild(option);
-    });
 }
 
 // --- Page Navigation ---
@@ -545,7 +535,7 @@ function showTab(tabId) {
             customerDetailsAccountant.style.display = 'none'; 
         }
     } else if (tabId === 'dashboardTabAccountant') {
-        populateAccountantFilters(); // Ensure filters are populated before updating dashboard
+        populateAccountantFilters();
         updateAccountantDashboard();
     } else if (tabId === 'usersTabAccountant') {
         displayUsers();
@@ -554,30 +544,7 @@ function showTab(tabId) {
     } else if (tabId === 'shiftCloseTabAccountant') {
         populateAccountantShiftCashierFilter(); 
         loadAccountantShiftClosuresHistory();
-        // إعادة تعيين نموذج إغلاق شيفت المحاسب
-        const closureResultsAccountant = document.getElementById('closureResultsAccountant');
-        if (closureResultsAccountant) { 
-            closureResultsAccountant.style.display = 'none';
-        }
-        const closeCashierByAccountant = document.getElementById('closeCashierByAccountant');
-        if (closeCashierByAccountant) { 
-            closeCashierByAccountant.style.display = 'none';
-        }
-        const newmindTotalAccountant = document.getElementById('newmindTotalAccountant');
-        if (newmindTotalAccountant) { 
-            newmindTotalAccountant.value = '';
-        }
-        const differenceResultAccountant = document.getElementById('differenceResultAccountant');
-        if (differenceResultAccountant) { 
-            differenceResultAccountant.style.display = 'none';
-        }
-        // Reset date/time filters for accountant shift closure
-        const today = new Date().toISOString().split('T')[0];
-        const timeNow = new Date().toTimeString().split(' ')[0].substring(0, 5);
-        document.getElementById('accountantShiftDateFrom').value = today;
-        document.getElementById('accountantShiftDateTo').value = today;
-        document.getElementById('accountantShiftTimeFrom').value = timeNow;
-        document.getElementById('accountantShiftTimeTo').value = timeNow;
+        resetAccountantShiftForm();
     }
 }
 
@@ -592,7 +559,7 @@ async function showCashierPage() {
     await loadCategories();
     await loadCustomers();
     resetCashierDailyData();
-    showTab('expensesTabCashier');
+    showTab('categoriesTabCashier');
 }
 
 function resetCashierDailyData() {
@@ -626,13 +593,43 @@ function resetCashierDailyData() {
     if (drawerCash) {
         drawerCash.value = '';
     }
-    // Reset shift date/time inputs
+    
+    setDefaultDatesAndTimes();
+}
+
+function setDefaultDatesAndTimes() {
     const today = new Date().toISOString().split('T')[0];
     const timeNow = new Date().toTimeString().split(' ')[0].substring(0, 5);
-    document.getElementById('shiftDateFromCashier').value = today;
-    document.getElementById('shiftDateToCashier').value = today;
-    document.getElementById('shiftTimeFromCashier').value = timeNow;
-    document.getElementById('shiftTimeToCashier').value = timeNow;
+    
+    const elements = [
+        'shiftDateFromCashier',
+        'shiftDateToCashier',
+        'dashboardDateFromAccountant',
+        'dashboardDateToAccountant',
+        'reportDateFromAccountant',
+        'reportDateToAccountant',
+        'expenseDateFromFilterCashier',
+        'expenseDateToFilterCashier',
+        'accountantShiftDateFrom',
+        'accountantShiftDateTo'
+    ];
+    
+    elements.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.value = today;
+    });
+    
+    const timeElements = [
+        'shiftTimeFromCashier',
+        'shiftTimeToCashier',
+        'accountantShiftTimeFrom',
+        'accountantShiftTimeTo'
+    ];
+    
+    timeElements.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.value = timeNow;
+    });
 }
 
 // --- Categories Management ---
@@ -656,8 +653,8 @@ function displayCategories(gridId) {
             </div>
             <div class="category-type">نوع الفورم: ${cat.formType}</div>
             <div class="category-actions">
-                <button class="edit-btn" onclick="showWarningMessage('وظيفة تعديل التصنيف غير متاحة حالياً.')"><i class="fas fa-edit"></i> تعديل</button>
-                <button class="delete-btn" onclick="showWarningMessage('وظيفة حذف التصنيف غير متاحة حالياً.')"><i class="fas fa-trash"></i> حذف</button>
+                <button class="edit-btn" onclick="showMessage('وظيفة تعديل التصنيف غير متاحة حالياً.', 'warning')"><i class="fas fa-edit"></i> تعديل</button>
+                <button class="delete-btn" onclick="showMessage('وظيفة حذف التصنيف غير متاحة حالياً.', 'warning')"><i class="fas fa-trash"></i> حذف</button>
             </div>
         `;
         categoriesGrid.appendChild(categoryCard);
@@ -681,14 +678,13 @@ async function addCategory() {
     const formType = document.getElementById('formType').value;
 
     if (!code || !name || !formType) {
-        showWarningMessage('يرجى ملء جميع حقول التصنيف.');
+        showMessage('يرجى ملء جميع حقول التصنيف.', 'warning');
         return;
     }
 
-    // Check for duplicate category code
     const existingCategory = categories.find(cat => cat.code === code);
     if (existingCategory) {
-        showWarningMessage('كود التصنيف موجود بالفعل. يرجى استخدام كود آخر.');
+        showMessage('كود التصنيف موجود بالفعل. يرجى استخدام كود آخر.', 'warning');
         return;
     }
 
@@ -703,24 +699,16 @@ async function addCategory() {
     const result = await appendToSheet(SHEETS.CATEGORIES, newCategory);
 
     if (result.success) {
-        showSuccessMessage('تم إضافة التصنيف بنجاح.');
+        showMessage('تم إضافة التصنيف بنجاح.', 'success');
         closeModal('addCategoryModal');
         await loadCategories();
         displayCategories('categoriesGridCashier');
         displayCategories('categoriesGridAccountant');
         populateExpenseCategoryFilter();
-        populateAccountantFilters(); // Update accountant filters as well
+        populateAccountantFilters();
     } else {
-        showErrorMessage('فشل إضافة التصنيف.');
+        showMessage('فشل إضافة التصنيف.', 'error');
     }
-}
-
-function editCategory(code) {
-    showWarningMessage('وظيفة تعديل التصنيف غير متاحة حالياً.');
-}
-
-function deleteCategory(code) {
-    showWarningMessage('وظيفة حذف التصنيف غير متاحة حالياً.');
 }
 
 // --- Expenses Management ---
@@ -792,7 +780,7 @@ function generateDynamicExpenseForm(formType) {
     if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات'].includes(formType)) {
         formHtml += `
             <div class="form-group">
-                <label for="expenseInvoiceNumber">رقم الفاتورة:</label>
+                <label for="expenseInvoiceNumber">رقم الفاتورة: <span style="color: red;">*</span></label>
                 <input type="text" id="expenseInvoiceNumber" required placeholder="أدخل رقم الفاتورة">
             </div>
         `;
@@ -800,7 +788,7 @@ function generateDynamicExpenseForm(formType) {
 
     formHtml += `
         <div class="form-group">
-            <label for="expenseAmount">القيمة:</label>
+            <label for="expenseAmount">القيمة: <span style="color: red;">*</span></label>
             <input type="number" id="expenseAmount" step="0.01" required placeholder="أدخل القيمة">
         </div>
         <div class="form-group">
@@ -855,7 +843,7 @@ function generateDynamicExpenseForm(formType) {
     } else if (formType === 'اجل') {
         formHtml += `
             <div class="form-group">
-                <label for="customerSearch">البحث عن العميل:</label>
+                <label for="customerSearch">البحث عن العميل: <span style="color: red;">*</span></label>
                 <div class="input-group">
                     <input type="text" id="customerSearch" placeholder="ابحث بالاسم أو الرقم" onkeyup="searchCustomersForExpense(this.value)" autocomplete="off">
                     <div id="customerSuggestions" class="suggestions"></div>
@@ -926,25 +914,26 @@ async function addExpense() {
     const categoryName = document.getElementById('selectedExpenseCategoryName').value;
     const formType = document.getElementById('selectedExpenseCategoryFormType').value;
     const amount = parseFloat(document.getElementById('expenseAmount').value);
-    const notes = document.getElementById('expenseNotes').value.trim();
+    const notes = document.getElementById('expenseNotes')?.value.trim() || '';
     const invoiceNumber = document.getElementById('expenseInvoiceNumber')?.value.trim() || '';
 
     if (!categoryCode || isNaN(amount) || amount <= 0) {
-        showWarningMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة.');
+        showMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة.', 'warning');
         return;
     }
 
     if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات'].includes(formType)) {
         if (!invoiceNumber) {
-            showWarningMessage('يرجى إدخال رقم الفاتورة.');
+            showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
             return;
         }
     }
 
+    // Handle customer credit for "اجل" type
     if (formType === 'اجل') {
         const customerId = document.getElementById('selectedCustomerId').value;
         if (!customerId) {
-            showWarningMessage('يرجى اختيار العميل الآجل.');
+            showMessage('يرجى اختيار العميل الآجل.', 'warning');
             return;
         }
         
@@ -957,13 +946,12 @@ async function addExpense() {
             if (rowIndex !== -1) {
                 const updateResult = await updateSheet(SHEETS.CUSTOMERS, `D${rowIndex}`, [newTotalCredit.toFixed(2)]);
                 if (!updateResult.success) {
-                    showErrorMessage('فشل تحديث إجمالي الأجل للعميل.');
+                    showMessage('فشل تحديث إجمالي الأجل للعميل.', 'error');
                     return;
                 }
-                // Update last update date
                 await updateSheet(SHEETS.CUSTOMERS, `F${rowIndex}`, [now.toISOString().split('T')[0]]);
             } else {
-                showErrorMessage('لم يتم العثور على العميل لتحديث الأجل.');
+                showMessage('لم يتم العثور على العميل لتحديث الأجل.', 'error');
                 return;
             }
 
@@ -983,11 +971,11 @@ async function addExpense() {
             ];
             const historyResult = await appendToSheet(SHEETS.CUSTOMER_CREDIT_HISTORY, newHistoryEntry);
             if (!historyResult.success) {
-                showErrorMessage('فشل تسجيل حركة الأجل.');
+                showMessage('فشل تسجيل حركة الأجل.', 'error');
                 return;
             }
         } else {
-            showErrorMessage('العميل المختار غير موجود.');
+            showMessage('العميل المختار غير موجود.', 'error');
             return;
         }
     }
@@ -1018,7 +1006,7 @@ async function addExpense() {
     const result = await appendToSheet(SHEETS.EXPENSES, expenseData);
 
     if (result.success) {
-        showSuccessMessage(`تم إضافة ${categoryName} بنجاح.`);
+        showMessage(`تم إضافة ${categoryName} بنجاح.`, 'success');
         closeModal('addExpenseModal');
         
         const newEntry = {
@@ -1048,12 +1036,12 @@ async function addExpense() {
         }
         
         if (formType === 'اجل') {
-            await loadCustomers(); // Reload customers to get updated totalCredit
+            await loadCustomers(); 
             displayCustomers('customersTableBodyCashier');
         }
         loadCashierExpenses();
     } else {
-        showErrorMessage('فشل إضافة المصروف.');
+        showMessage('فشل إضافة المصروف.', 'error');
     }
 }
 
@@ -1145,7 +1133,7 @@ function filterCashierExpenses() {
         row.insertCell().textContent = exp.time;
         row.insertCell().textContent = exp.notes || '--';
         const actionsCell = row.insertCell();
-        actionsCell.innerHTML = `<button class="delete-btn" onclick="showWarningMessage('وظيفة حذف المصروفات غير متاحة حالياً.')"><i class="fas fa-trash"></i> حذف</button>`;
+        actionsCell.innerHTML = `<button class="delete-btn" onclick="showMessage('وظيفة حذف المصروفات غير متاحة حالياً.', 'warning')"><i class="fas fa-trash"></i> حذف</button>`;
     });
 }
 
@@ -1179,18 +1167,17 @@ function displayCustomers(tableBodyId) {
         row.insertCell().textContent = cust.totalCredit.toFixed(2);
         row.insertCell().textContent = new Date(cust.creationDate).toLocaleDateString('ar-EG');
         const actionsCell = row.insertCell();
-        // Add view details button for accountant
+        
         if (tableBodyId === 'customersTableBodyAccountant') {
             actionsCell.innerHTML = `
-                <button class="edit-btn" onclick="showWarningMessage('وظيفة تعديل العميل غير متاحة حالياً.')"><i class="fas fa-edit"></i> تعديل</button>
-                <button class="delete-btn" onclick="showWarningMessage('وظيفة حذف العميل غير متاحة حالياً.')"><i class="fas fa-trash"></i> حذف</button>
+                <button class="edit-btn" onclick="showMessage('وظيفة تعديل العميل غير متاحة حالياً.', 'warning')"><i class="fas fa-edit"></i> تعديل</button>
+                <button class="delete-btn" onclick="showMessage('وظيفة حذف العميل غير متاحة حالياً.', 'warning')"><i class="fas fa-trash"></i> حذف</button>
                 <button class="view-btn" onclick="viewCustomerDetails('${cust.id}', '${cust.name}')"><i class="fas fa-eye"></i> تفاصيل</button>
             `;
-        } else { // Cashier
+        } else {
             actionsCell.innerHTML = `
-                <button class="edit-btn" onclick="showWarningMessage('وظيفة تعديل العميل غير متاحة حالياً.')"><i class="fas fa-edit"></i> تعديل</button>
-                <button class="delete-btn" onclick="showWarningMessage('وظيفة حذف العميل غير متاحة حالياً.')"><i class="fas fa-trash"></i> حذف</button>
-                <button class="add-btn" onclick="showWarningMessage('وظيفة سداد/أجل العميل غير متاحة حالياً.')"><i class="fas fa-money-bill-wave"></i> سداد/أجل</button>
+                <button class="edit-btn" onclick="showMessage('وظيفة تعديل العميل غير متاحة حالياً.', 'warning')"><i class="fas fa-edit"></i> تعديل</button>
+                <button class="delete-btn" onclick="showMessage('وظيفة حذف العميل غير متاحة حالياً.', 'warning')"><i class="fas fa-trash"></i> حذف</button>
             `;
         }
     });
@@ -1202,7 +1189,7 @@ async function viewCustomerDetails(customerId, customerName) {
         currentSelectedCustomerId = customerId;
         document.getElementById('customerDetailsName').textContent = customerName;
         document.getElementById('customerDetailsAccountant').style.display = 'block';
-        document.getElementById('customerPaymentAmount').value = ''; // Clear payment input
+        document.getElementById('customerPaymentAmount').value = '';
 
         const history = await loadCustomerCreditHistory(customerId);
         const tableBody = document.getElementById('customerCreditHistoryBody');
@@ -1214,7 +1201,7 @@ async function viewCustomerDetails(customerId, customerName) {
             return;
         }
 
-        history.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date descending
+        history.sort((a, b) => new Date(b.date) - new Date(a.date));
 
         history.forEach(item => {
             const row = tableBody.insertRow();
@@ -1226,7 +1213,7 @@ async function viewCustomerDetails(customerId, customerName) {
         });
     } catch (error) {
         console.error('Error viewing customer details:', error);
-        showErrorMessage('حدث خطأ أثناء عرض تفاصيل العميل.');
+        showMessage('حدث خطأ أثناء عرض تفاصيل العميل.', 'error');
     } finally {
         showLoading(false);
     }
@@ -1234,13 +1221,13 @@ async function viewCustomerDetails(customerId, customerName) {
 
 async function processCustomerPayment() {
     if (!currentSelectedCustomerId) {
-        showWarningMessage('يرجى اختيار عميل أولاً.');
+        showMessage('يرجى اختيار عميل أولاً.', 'warning');
         return;
     }
 
     const paymentAmount = parseFloat(document.getElementById('customerPaymentAmount').value);
     if (isNaN(paymentAmount) || paymentAmount <= 0) {
-        showWarningMessage('يرجى إدخال مبلغ سداد صحيح وموجب.');
+        showMessage('يرجى إدخال مبلغ سداد صحيح وموجب.', 'warning');
         return;
     }
 
@@ -1248,13 +1235,13 @@ async function processCustomerPayment() {
     try {
         const customerIndex = customers.findIndex(c => c.id === currentSelectedCustomerId);
         if (customerIndex === -1) {
-            showErrorMessage('العميل غير موجود.');
+            showMessage('العميل غير موجود.', 'error');
             return;
         }
 
         const currentCustomer = customers[customerIndex];
         if (currentCustomer.totalCredit < paymentAmount) {
-            showWarningMessage('مبلغ السداد أكبر من إجمالي الأجل المستحق.');
+            showMessage('مبلغ السداد أكبر من إجمالي الأجل المستحق.', 'warning');
             return;
         }
 
@@ -1262,22 +1249,19 @@ async function processCustomerPayment() {
         const now = new Date();
         const date = now.toISOString().split('T')[0];
 
-        // Update customer's total credit in Google Sheet
-        const rowIndex = await findRowIndex(SHEETS.CUSTOMERS, 0, currentSelectedCustomerId); // Assuming ID is in column 0
+        const rowIndex = await findRowIndex(SHEETS.CUSTOMERS, 0, currentSelectedCustomerId);
         if (rowIndex !== -1) {
-            const updateResult = await updateSheet(SHEETS.CUSTOMERS, `D${rowIndex}`, [newTotalCredit.toFixed(2)]); // Assuming totalCredit is in column D
+            const updateResult = await updateSheet(SHEETS.CUSTOMERS, `D${rowIndex}`, [newTotalCredit.toFixed(2)]);
             if (!updateResult.success) {
-                showErrorMessage('فشل تحديث إجمالي الأجل للعميل.');
+                showMessage('فشل تحديث إجمالي الأجل للعميل.', 'error');
                 return;
             }
-            // Update last update date
             await updateSheet(SHEETS.CUSTOMERS, `F${rowIndex}`, [date]);
         } else {
-            showErrorMessage('لم يتم العثور على العميل لتحديث الأجل.');
+            showMessage('لم يتم العثور على العميل لتحديث الأجل.', 'error');
             return;
         }
 
-        // Record payment in CustomerCreditHistory sheet
         const historyId = 'CRH_' + now.getTime();
         const newHistoryEntry = [
             historyId,
@@ -1285,28 +1269,27 @@ async function processCustomerPayment() {
             date,
             'سداد',
             paymentAmount,
-            '', // Invoice number (not applicable for payment)
+            '',
             `سداد من المحاسب ${currentUserName}`,
             currentUser.username
         ];
         const historyResult = await appendToSheet(SHEETS.CUSTOMER_CREDIT_HISTORY, newHistoryEntry);
         if (!historyResult.success) {
-            showErrorMessage('فشل تسجيل حركة السداد.');
+            showMessage('فشل تسجيل حركة السداد.', 'error');
             return;
         }
 
-        // Update local data
         currentCustomer.totalCredit = newTotalCredit;
         customers[customerIndex] = currentCustomer;
 
-        showSuccessMessage('تم سداد الأجل بنجاح.');
+        showMessage('تم سداد الأجل بنجاح.', 'success');
         document.getElementById('customerPaymentAmount').value = '';
-        await viewCustomerDetails(currentSelectedCustomerId, currentCustomer.name); // Refresh details
-        displayCustomers('customersTableBodyAccountant'); // Refresh customers table
-        updateAccountantDashboard(); // Update dashboard stats
+        await viewCustomerDetails(currentSelectedCustomerId, currentCustomer.name);
+        displayCustomers('customersTableBodyAccountant');
+        updateAccountantDashboard();
     } catch (error) {
         console.error('Error processing customer payment:', error);
-        showErrorMessage('حدث خطأ أثناء معالجة السداد.');
+        showMessage('حدث خطأ أثناء معالجة السداد.', 'error');
     } finally {
         showLoading(false);
     }
@@ -1328,14 +1311,13 @@ async function addCustomer() {
     const phone = document.getElementById('customerPhone').value.trim();
 
     if (!name || !phone) {
-        showWarningMessage('يرجى ملء جميع حقول العميل.');
+        showMessage('يرجى ملء جميع حقول العميل.', 'warning');
         return;
     }
 
-    // Check for duplicate phone
     const existingCustomer = customers.find(cust => cust.phone === phone);
     if (existingCustomer) {
-        showWarningMessage('رقم التليفون موجود بالفعل.');
+        showMessage('رقم التليفون موجود بالفعل.', 'warning');
         return;
     }
 
@@ -1344,20 +1326,20 @@ async function addCustomer() {
         customerId,
         name,
         phone,
-        '0', // Total credit
-        new Date().toISOString().split('T')[0], // Creation date
-        new Date().toISOString().split('T')[0]  // Last update
+        '0',
+        new Date().toISOString().split('T')[0],
+        new Date().toISOString().split('T')[0]
     ];
 
     const result = await appendToSheet(SHEETS.CUSTOMERS, newCustomer);
 
     if (result.success) {
-        showSuccessMessage('تم إضافة العميل بنجاح.');
+        showMessage('تم إضافة العميل بنجاح.', 'success');
         closeModal('addCustomerModal');
         await loadCustomers();
         displayCustomers('customersTableBodyCashier');
-        displayCustomers('customersTableBodyAccountant'); // Update accountant's customer list
-        updateAccountantDashboard(); // Update dashboard stats
+        displayCustomers('customersTableBodyAccountant');
+        updateAccountantDashboard();
 
         const modal = document.getElementById('addCustomerModal');
         if (modal && modal.dataset.fromExpense === 'true') {
@@ -1366,7 +1348,7 @@ async function addCustomer() {
             selectCustomerForExpense(newCustomerObj);
         }
     } else {
-        showErrorMessage('فشل إضافة العميل.');
+        showMessage('فشل إضافة العميل.', 'error');
     }
 }
 
@@ -1378,7 +1360,7 @@ async function calculateCashierShift() {
     const timeTo = document.getElementById('shiftTimeToCashier').value;
 
     if (!dateFrom || !dateTo || !timeFrom || !timeTo) {
-        showWarningMessage('يرجى ملء جميع حقول التاريخ والوقت.');
+        showMessage('يرجى ملء جميع حقول التاريخ والوقت.', 'warning');
         return;
     }
 
@@ -1395,9 +1377,8 @@ async function calculateCashierShift() {
 
         const expenses = await loadExpenses(filters);
         
-        // تصنيف المصروفات حسب النوع
         let categorizedExpenses = {
-            expenses: [], // Normal expenses
+            expenses: [],
             insta: [],
             visa: [],
             online: []
@@ -1418,14 +1399,12 @@ async function calculateCashierShift() {
             }
         });
 
-        // حساب الإجماليات
         const totalExpenses = categorizedExpenses.expenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalInsta = categorizedExpenses.insta.reduce((sum, exp) => sum + exp.amount, 0);
         const totalVisa = categorizedExpenses.visa.reduce((sum, exp) => sum + exp.amount, 0);
         const totalOnline = categorizedExpenses.online.reduce((sum, exp) => sum + exp.amount, 0);
         const grandTotal = totalExpenses + totalInsta + totalVisa + totalOnline;
 
-        // تحديث الواجهة
         document.getElementById('totalExpensesCashier').textContent = totalExpenses.toFixed(2);
         document.getElementById('expenseCountCashier').textContent = categorizedExpenses.expenses.length;
         document.getElementById('totalInstaCashier').textContent = totalInsta.toFixed(2);
@@ -1438,9 +1417,9 @@ async function calculateCashierShift() {
 
         document.getElementById('shiftSummaryCashier').style.display = 'block';
         
-        showSuccessMessage('تم حساب الشيفت بنجاح.');
+        showMessage('تم حساب الشيفت بنجاح.', 'success');
     } catch (error) {
-        showErrorMessage('حدث خطأ أثناء حساب الشيفت.');
+        showMessage('حدث خطأ أثناء حساب الشيفت.', 'error');
         console.error(error);
     } finally {
         showLoading(false);
@@ -1451,7 +1430,7 @@ async function finalizeCashierShiftCloseout() {
     const drawerCash = parseFloat(document.getElementById('drawerCashCashier').value);
     
     if (isNaN(drawerCash) || drawerCash < 0) {
-        showWarningMessage('يرجى إدخال قيمة صحيحة للنقدية في الدرج.');
+        showMessage('يرجى إدخال قيمة صحيحة للنقدية في الدرج.', 'warning');
         return;
     }
 
@@ -1462,7 +1441,7 @@ async function finalizeCashierShiftCloseout() {
         const shiftId = 'SHIFT_' + now.getTime();
         
         const totalExpenses = parseFloat(document.getElementById('totalExpensesCashier').textContent) || 0;
-                const expenseCount = parseInt(document.getElementById('expenseCountCashier').textContent) || 0;
+        const expenseCount = parseInt(document.getElementById('expenseCountCashier').textContent) || 0;
         const totalInsta = parseFloat(document.getElementById('totalInstaCashier').textContent) || 0;
         const instaCount = parseInt(document.getElementById('instaCountCashier').textContent) || 0;
         const totalVisa = parseFloat(document.getElementById('totalVisaCashier').textContent) || 0;
@@ -1471,10 +1450,10 @@ async function finalizeCashierShiftCloseout() {
         const onlineCount = parseInt(document.getElementById('onlineCountCashier').textContent) || 0;
         const grandTotal = parseFloat(document.getElementById('grandTotalCashier').textContent) || 0;
 
-         const shiftClosureData = [
-      shiftId,
-      currentUser .username,  // إزالة المسافة قبل النقطة
-      document.getElementById('shiftDateFromCashier').value,
+        const shiftClosureData = [
+            shiftId,
+            currentUser.username,
+            document.getElementById('shiftDateFromCashier').value,
             document.getElementById('shiftTimeFromCashier').value,
             document.getElementById('shiftDateToCashier').value,
             document.getElementById('shiftTimeToCashier').value,
@@ -1499,40 +1478,39 @@ async function finalizeCashierShiftCloseout() {
         const result = await appendToSheet(SHEETS.SHIFT_CLOSURES, shiftClosureData);
 
         if (result.success) {
-            showSuccessMessage('تم تقفيل الشيفت بنجاح.');
+            showMessage('تم تقفيل الشيفت بنجاح.', 'success');
             resetCashierDailyData();
             document.getElementById('shiftSummaryCashier').style.display = 'none';
         } else {
-            showErrorMessage('فشل تقفيل الشيفت.');
+            showMessage('فشل تقفيل الشيفت.', 'error');
         }
     } catch (error) {
         console.error('Error finalizing shift closeout:', error);
-        showErrorMessage('حدث خطأ أثناء تقفيل الشيفت.');
+        showMessage('حدث خطأ أثناء تقفيل الشيفت.', 'error');
     } finally {
         showLoading(false);
     }
 }
 
 // --- Accountant Page Functions ---
- async function showAccountantPage() {
-      document.getElementById('loginPage').classList.remove('active');
-      document.getElementById('cashierPage').classList.remove('active');
-      document.getElementById('accountantPage').classList.add('active');
-      document.getElementById('accountantNameDisplay').textContent = currentUserName;  // إزالة المسافة
-      document.getElementById('currentDateAccountant').textContent = new Date().toLocaleDateString('ar-EG');
-      
-      await loadUsers();
-      await loadCategories();
-      await loadCustomers();
-      populateAccountantFilters();
-      updateAccountantDashboard();
-      showTab('dashboardTabAccountant');
-  }
-  
+async function showAccountantPage() {
+    document.getElementById('loginPage').classList.remove('active');
+    document.getElementById('cashierPage').classList.remove('active');
+    document.getElementById('accountantPage').classList.add('active');
+    document.getElementById('accountantNameDisplay').textContent = currentUserName;
+    document.getElementById('currentDateAccountant').textContent = new Date().toLocaleDateString('ar-EG');
+    
+    await loadUsers();
+    await loadCategories();
+    await loadCustomers();
+    populateAccountantFilters();
+    updateAccountantDashboard();
+    showTab('dashboardTabAccountant');
+}
 
 function populateAccountantFilters() {
-    // Populate cashier filter
-    const cashierSelect = document.getElementById('dashboardCashierFilter');
+    // Populate cashier filter for dashboard
+    const cashierSelect = document.getElementById('cashierFilterAccountant');
     if (cashierSelect) {
         cashierSelect.innerHTML = '<option value="">جميع الكاشيرز</option>';
         const cashiers = users.filter(u => u.role === 'كاشير');
@@ -1544,14 +1522,30 @@ function populateAccountantFilters() {
         });
     }
 
+    // Populate cashier filter for shift closure
+    populateAccountantShiftCashierFilter();
+    
     // Populate category filter for reports
     populateReportFilters();
 }
 
+function populateAccountantShiftCashierFilter() {
+    const select = document.getElementById('selectedCashierAccountant');
+    if (!select) return;
+    select.innerHTML = '<option value="">اختر الكاشير</option>';
+    const cashiers = users.filter(u => u.role === 'كاشير');
+    cashiers.forEach(cashier => {
+        const option = document.createElement('option');
+        option.value = cashier.username;
+        option.textContent = cashier.name;
+        select.appendChild(option);
+    });
+}
+
 async function updateAccountantDashboard() {
-    const cashierFilter = document.getElementById('dashboardCashierFilter')?.value || '';
-    const dateFromFilter = document.getElementById('dashboardDateFrom')?.value || '';
-    const dateToFilter = document.getElementById('dashboardDateTo')?.value || '';
+    const cashierFilter = document.getElementById('cashierFilterAccountant')?.value || '';
+    const dateFromFilter = document.getElementById('dashboardDateFromAccountant')?.value || '';
+    const dateToFilter = document.getElementById('dashboardDateToAccountant')?.value || '';
 
     const filters = { cashier: cashierFilter };
     if (dateFromFilter) filters.dateFrom = dateFromFilter;
@@ -1559,10 +1553,8 @@ async function updateAccountantDashboard() {
 
     showLoading(true);
     try {
-        // Load all expenses with filters
         const allExpenses = await loadExpenses(filters);
 
-        // Categorize expenses
         let normalExpenses = [];
         let visaExpenses = [];
         let instaExpenses = [];
@@ -1583,7 +1575,6 @@ async function updateAccountantDashboard() {
             }
         });
 
-        // Calculate totals
         const totalNormal = normalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const normalCount = normalExpenses.length;
         const totalVisa = visaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
@@ -1593,179 +1584,207 @@ async function updateAccountantDashboard() {
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = onlineExpenses.length;
 
-                // Update stats grid
-        document.getElementById('totalNormalExpensesAccountant').textContent = totalNormal.toFixed(2);
-        document.getElementById('countNormalExpensesAccountant').textContent = normalCount;
-        document.getElementById('totalVisaAccountant').textContent = totalVisa.toFixed(2);
-        document.getElementById('countVisaAccountant').textContent = visaCount;
-        document.getElementById('totalInstaAccountant').textContent = totalInsta.toFixed(2);
-        document.getElementById('countInstaAccountant').textContent = instaCount;
-        document.getElementById('totalOnlineAccountant').textContent = totalOnline.toFixed(2);
-        document.getElementById('countOnlineAccountant').textContent = onlineCount;
+        // Update stats grid - إصلاح مشكلة الـ IDs
+        const totalNormalElement = document.getElementById('totalNormalExpensesAccountant');
+        const countNormalElement = document.getElementById('countNormalExpensesAccountant');
+        const totalVisaElement = document.getElementById('totalVisaAccountant');
+        const countVisaElement = document.getElementById('countVisaAccountant');
+        const totalInstaElement = document.getElementById('totalInstaAccountant');
+        const countInstaElement = document.getElementById('countInstaAccountant');
+        const totalOnlineElement = document.getElementById('totalOnlineAccountant');
+        const countOnlineElement = document.getElementById('countOnlineAccountant');
+
+        if (totalNormalElement) totalNormalElement.textContent = totalNormal.toFixed(2);
+        if (countNormalElement) countNormalElement.textContent = normalCount;
+        if (totalVisaElement) totalVisaElement.textContent = totalVisa.toFixed(2);
+        if (countVisaElement) countVisaElement.textContent = visaCount;
+        if (totalInstaElement) totalInstaElement.textContent = totalInsta.toFixed(2);
+        if (countInstaElement) countInstaElement.textContent = instaCount;
+        if (totalOnlineElement) totalOnlineElement.textContent = totalOnline.toFixed(2);
+        if (countOnlineElement) countOnlineElement.textContent = onlineCount;
 
         // Cashiers stats
         const activeCashiers = users.filter(u => u.role === 'كاشير' && u.status === 'نشط').length;
         const suspendedCashiers = users.filter(u => u.role === 'كاشير' && u.status === 'موقوف').length;
         const blockedCashiers = users.filter(u => u.role === 'كاشير' && u.status === 'محظور').length;
-        document.getElementById('totalActiveCashiersAccountant').textContent = activeCashiers;
-        document.getElementById('totalInactiveCashiersAccountant').textContent = suspendedCashiers;
-        document.getElementById('totalBlockedCashiersAccountant').textContent = blockedCashiers;
+        
+        const totalActiveElement = document.getElementById('totalActiveCashiersAccountant');
+        const totalInactiveElement = document.getElementById('totalInactiveCashiersAccountant');
+        const totalBlockedElement = document.getElementById('totalBlockedCashiersAccountant');
+        
+        if (totalActiveElement) totalActiveElement.textContent = activeCashiers;
+        if (totalInactiveElement) totalInactiveElement.textContent = suspendedCashiers;
+        if (totalBlockedElement) totalBlockedElement.textContent = blockedCashiers;
 
         // Customers stats
         const totalCustomers = customers.length;
         const customersWithCredit = customers.filter(c => c.totalCredit > 0).length;
         const totalCredit = customers.reduce((sum, c) => sum + c.totalCredit, 0);
         const zeroCreditCustomers = customers.filter(c => c.totalCredit === 0).length;
-        document.getElementById('totalCustomersAccountant').textContent = totalCustomers;
-        document.getElementById('customersWithCreditAccountant').textContent = customersWithCredit;
-        document.getElementById('totalCreditAmountAccountant').textContent = totalCredit.toFixed(2);
-        document.getElementById('customersWithZeroCreditAccountant').textContent = zeroCreditCustomers;
+        
+        const totalCustomersElement = document.getElementById('totalCustomersAccountant');
+        const customersWithCreditElement = document.getElementById('customersWithCreditAccountant');
+        const totalCreditAmountElement = document.getElementById('totalCreditAmountAccountant');
+        const customersWithZeroCreditElement = document.getElementById('customersWithZeroCreditAccountant');
+        
+        if (totalCustomersElement) totalCustomersElement.textContent = totalCustomers;
+        if (customersWithCreditElement) customersWithCreditElement.textContent = customersWithCredit;
+        if (totalCreditAmountElement) totalCreditAmountElement.textContent = totalCredit.toFixed(2);
+        if (customersWithZeroCreditElement) customersWithZeroCreditElement.textContent = zeroCreditCustomers;
 
         // Update cashier overview table
         updateAccountantCashierOverview(filters);
     } catch (error) {
         console.error('Error updating dashboard:', error);
-        showErrorMessage('حدث خطأ أثناء تحديث لوحة التحكم.');
+        showMessage('حدث خطأ أثناء تحديث لوحة التحكم.', 'error');
     } finally {
         showLoading(false);
     }
-
-    async function updateAccountantDashboard() {
-    try {
-        console.log('بدء تحديث لوحة التحكم للمحاسب...'); // للتحقق في Console
-
-        // قائمة الـ IDs التي يجب التحقق منها (بناءً على HTML الخاص بك)
-        const requiredIds = [
-            'totalNormalExpensesAccountant',
-            'countNormalExpensesAccountant',
-            'totalVisaAccountant',
-            'countVisaAccountant',
-            'totalInstaAccountant',
-            'countInstaAccountant',
-            'totalOnlineAccountant',
-            'countOnlineAccountant',
-            'totalActiveCashiersAccountant',
-            'totalInactiveCashiersAccountant',
-            'totalBlockedCashiersAccountant',
-            'totalCustomersAccountant',
-            'customersWithCreditAccountant',
-            'totalCreditAmountAccountant',
-            'customersWithZeroCreditAccountant'
-        ];
-
-        // تحقق من وجود جميع الـ IDs
-        requiredIds.forEach(id => {
-            const element = document.getElementById(id);
-            if (!element) {
-                console.error(`العنصر غير موجود في HTML: ${id}`);
-                throw new Error(`ID غير موجود: ${id}`);
-            } else {
-                console.log(`العنصر موجود: ${id}`);
-            }
-        });
-
-        // باقي الكود الخاص بجلب البيانات (مثل fetch للـ expenses و users و customers)
-        // ... (اترك باقي الدالة كما هي، لكن تأكد من التعديلات السابقة)
-
-        // الآن، قم بتحديث الإحصائيات (هذا هو الجزء الذي يسبب الخطأ)
-        // Update stats grid
-        document.getElementById('totalNormalExpensesAccountant').textContent = totalNormal.toFixed(2);
-        document.getElementById('countNormalExpensesAccountant').textContent = normalCount;
-        // ... باقي الأسطر كما في الإصلاحات السابقة
-
-    } catch (error) {
-        console.error('خطأ في تحديث لوحة التحكم:', error);
-        alert('خطأ في تحديث لوحة التحكم: ' + error.message); // لعرض الخطأ لك
-    }
 }
 
-}
-
-function updateAccountantCashierOverview(filters) {
-    const tableBody = document.getElementById('cashierOverviewBody');
+async function updateAccountantCashierOverview(filters) {
+    const tableBody = document.getElementById('cashiersOverviewBodyAccountant');
     if (!tableBody) return;
 
-    // For overview, we need aggregated data per cashier
     const cashiers = users.filter(u => u.role === 'كاشير');
     tableBody.innerHTML = '';
 
-    cashiers.forEach(cashier => {
-        // Load expenses for this cashier with filters
-        loadExpenses({ ...filters, cashier: cashier.username }).then(expenses => {
-            let normalExpenses = [];
-            let visaExpenses = [];
-            let instaExpenses = [];
-            let onlineExpenses = [];
+    for (const cashier of cashiers) {
+        const expenses = await loadExpenses({ ...filters, cashier: cashier.username });
+        
+        let normalExpenses = [];
+        let visaExpenses = [];
+        let instaExpenses = [];
+        let onlineExpenses = [];
 
-            expenses.forEach(expense => {
-                const category = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
-                const formType = category ? category.formType : 'عادي';
+        expenses.forEach(expense => {
+            const category = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
+            const formType = category ? category.formType : 'عادي';
 
-                if (formType === 'فيزا') {
-                    visaExpenses.push(expense);
-                } else if (formType === 'إنستا') {
-                    instaExpenses.push(expense);
-                } else if (formType === 'اونلاين') {
-                    onlineExpenses.push(expense);
-                } else {
-                    normalExpenses.push(expense);
-                }
-            });
-
-            const totalNormal = normalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-            const normalCount = normalExpenses.length;
-            const totalVisa = visaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-            const visaCount = visaExpenses.length;
-            const totalInsta = instaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-            const instaCount = instaExpenses.length;
-            const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-            const onlineCount = onlineExpenses.length;
-
-            // Find the row for this cashier and update it (or create new)
-            let row = Array.from(tableBody.rows).find(r => r.cells[0].textContent === cashier.name);
-            if (!row) {
-                row = tableBody.insertRow();
-                row.insertCell().textContent = cashier.name;
-                row.insertCell().textContent = totalNormal.toFixed(2);
-                row.insertCell().textContent = normalCount;
-                row.insertCell().textContent = totalVisa.toFixed(2);
-                row.insertCell().textContent = visaCount;
-                row.insertCell().textContent = totalInsta.toFixed(2);
-                row.insertCell().textContent = instaCount;
-                row.insertCell().textContent = totalOnline.toFixed(2);
-                row.insertCell().textContent = onlineCount;
+            if (formType === 'فيزا') {
+                visaExpenses.push(expense);
+            } else if (formType === 'إنستا') {
+                instaExpenses.push(expense);
+            } else if (formType === 'اونلاين') {
+                onlineExpenses.push(expense);
             } else {
-                row.cells[1].textContent = totalNormal.toFixed(2);
-                row.cells[2].textContent = normalCount;
-                row.cells[3].textContent = totalVisa.toFixed(2);
-                row.cells[4].textContent = visaCount;
-                row.cells[5].textContent = totalInsta.toFixed(2);
-                row.cells[6].textContent = instaCount;
-                row.cells[7].textContent = totalOnline.toFixed(2);
-                row.cells[8].textContent = onlineCount;
+                normalExpenses.push(expense);
             }
         });
-    });
+
+        const totalNormal = normalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const normalCount = normalExpenses.length;
+        const totalVisa = visaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const visaCount = visaExpenses.length;
+        const totalInsta = instaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const instaCount = instaExpenses.length;
+        const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const onlineCount = onlineExpenses.length;
+
+        // Get last activity date
+        const lastActivity = expenses.length > 0 ? 
+            Math.max(...expenses.map(exp => new Date(exp.date))) : 
+            null;
+        const lastActivityStr = lastActivity ? 
+            new Date(lastActivity).toLocaleDateString('ar-EG') : 
+            'لا يوجد نشاط';
+
+        const row = tableBody.insertRow();
+        row.insertCell().textContent = cashier.name;
+        row.insertCell().textContent = totalNormal.toFixed(2);
+        row.insertCell().textContent = normalCount;
+        row.insertCell().textContent = totalVisa.toFixed(2);
+        row.insertCell().textContent = visaCount;
+        row.insertCell().textContent = totalInsta.toFixed(2);
+        row.insertCell().textContent = instaCount;
+        row.insertCell().textContent = totalOnline.toFixed(2);
+        row.insertCell().textContent = onlineCount;
+        row.insertCell().textContent = lastActivityStr;
+        
+        const statusCell = row.insertCell();
+        statusCell.innerHTML = `<span class="status ${cashier.status === 'نشط' ? 'active' : 'inactive'}">${cashier.status}</span>`;
+    }
 
     if (tableBody.rows.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="9">لا توجد بيانات للكاشيرز.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="11">لا توجد بيانات للكاشيرز.</td></tr>';
     }
 }
 
-function clearAccountantDashboardFilters() {
-    const cashierFilter = document.getElementById('dashboardCashierFilter');
-    const dateFromFilter = document.getElementById('dashboardDateFrom');
-    const dateToFilter = document.getElementById('dashboardDateTo');
+// --- Invoice Search Function ---
+async function searchInvoiceAccountant() {
+    const searchInput = document.getElementById('searchInputAccountant');
+    const invoiceNumber = searchInput?.value.trim();
+    const resultDiv = document.getElementById('invoiceSearchResultAccountant');
+    
+    if (!invoiceNumber) {
+        showMessage('يرجى إدخال رقم الفاتورة للبحث.', 'warning');
+        return;
+    }
+    
+    if (!resultDiv) return;
 
-    if (cashierFilter) cashierFilter.value = '';
-    if (dateFromFilter) dateFromFilter.value = '';
-    if (dateToFilter) dateToFilter.value = '';
+    showLoading(true);
+    try {
+        const allExpenses = await loadExpenses({});
+        const matchingExpenses = allExpenses.filter(exp => 
+            exp.invoiceNumber && exp.invoiceNumber.toLowerCase().includes(invoiceNumber.toLowerCase())
+        );
 
-    updateAccountantDashboard();
+        resultDiv.innerHTML = '';
+        
+        if (matchingExpenses.length === 0) {
+            resultDiv.innerHTML = '<p>لم يتم العثور على فواتير مطابقة لرقم الفاتورة المدخل.</p>';
+            resultDiv.style.display = 'block';
+            return;
+        }
+
+        let tableHtml = `
+            <h4>نتائج البحث عن فاتورة رقم: ${invoiceNumber}</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>التصنيف</th>
+                        <th>رقم الفاتورة</th>
+                        <th>القيمة</th>
+                        <th>التاريخ</th>
+                        <th>الوقت</th>
+                        <th>الكاشير</th>
+                        <th>الملاحظات</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        matchingExpenses.forEach(exp => {
+            tableHtml += `
+                <tr>
+                    <td>${exp.category}</td>
+                    <td>${exp.invoiceNumber}</td>
+                    <td>${exp.amount.toFixed(2)}</td>
+                    <td>${exp.date}</td>
+                    <td>${exp.time}</td>
+                    <td>${exp.cashier}</td>
+                    <td>${exp.notes || '--'}</td>
+                </tr>
+            `;
+        });
+
+        tableHtml += '</tbody></table>';
+        resultDiv.innerHTML = tableHtml;
+        resultDiv.style.display = 'block';
+        
+        showMessage(`تم العثور على ${matchingExpenses.length} فاتورة مطابقة.`, 'success');
+    } catch (error) {
+        console.error('Error searching invoice:', error);
+        showMessage('حدث خطأ أثناء البحث عن الفاتورة.', 'error');
+    } finally {
+        showLoading(false);
+    }
 }
 
+// --- Reports Functions ---
 function populateReportFilters() {
-    const categorySelect = document.getElementById('reportCategoryFilter');
+    const categorySelect = document.getElementById('reportCategoryAccountant');
     if (categorySelect) {
         categorySelect.innerHTML = '<option value="">جميع التصنيفات</option>';
         categories.forEach(cat => {
@@ -1776,7 +1795,7 @@ function populateReportFilters() {
         });
     }
 
-    const cashierSelect = document.getElementById('reportCashierFilter');
+    const cashierSelect = document.getElementById('reportCashierAccountant');
     if (cashierSelect) {
         cashierSelect.innerHTML = '<option value="">جميع الكاشيرز</option>';
         const cashiers = users.filter(u => u.role === 'كاشير');
@@ -1789,76 +1808,353 @@ function populateReportFilters() {
     }
 }
 
-async function generateReport() {
-    const categoryFilter = document.getElementById('reportCategoryFilter')?.value || '';
-    const cashierFilter = document.getElementById('reportCashierFilter')?.value || '';
-    const dateFrom = document.getElementById('reportDateFrom')?.value || '';
-    const dateTo = document.getElementById('reportDateTo')?.value || '';
+async function generateAccountantReport() {
+    const categoryFilter = document.getElementById('reportCategoryAccountant')?.value || '';
+    const cashierFilter = document.getElementById('reportCashierAccountant')?.value || '';
+    const dateFrom = document.getElementById('reportDateFromAccountant')?.value || '';
+    const dateTo = document.getElementById('reportDateToAccountant')?.value || '';
 
     const filters = { cashier: cashierFilter };
     if (categoryFilter) filters.category = categoryFilter;
     if (dateFrom) filters.dateFrom = dateFrom;
     if (dateTo) filters.dateTo = dateTo;
 
-    const expenses = await loadExpenses(filters);
-    const tableBody = document.getElementById('reportTableBody');
-    if (!tableBody) return;
+    showLoading(true);
+    try {
+        const expenses = await loadExpenses(filters);
+        const reportContent = document.getElementById('reportContentAccountant');
+        if (!reportContent) return;
 
-    tableBody.innerHTML = '';
+        reportContent.innerHTML = '';
 
-    if (expenses.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="8">لا توجد بيانات مطابقة.</td></tr>';
+        if (expenses.length === 0) {
+            reportContent.innerHTML = '<p>لا توجد بيانات مطابقة لمعايير التقرير المحددة.</p>';
+            return;
+        }
+
+        // Group expenses by cashier
+        const expensesByCashier = {};
+        expenses.forEach(exp => {
+            if (!expensesByCashier[exp.cashier]) {
+                expensesByCashier[exp.cashier] = {
+                    normal: [],
+                    visa: [],
+                    insta: [],
+                    online: []
+                };
+            }
+            
+            const category = categories.find(cat => cat.name === exp.category || cat.code === exp.categoryCode);
+            const formType = category ? category.formType : 'عادي';
+
+            if (formType === 'فيزا') {
+                expensesByCashier[exp.cashier].visa.push(exp);
+            } else if (formType === 'إنستا') {
+                expensesByCashier[exp.cashier].insta.push(exp);
+            } else if (formType === 'اونلاين') {
+                expensesByCashier[exp.cashier].online.push(exp);
+            } else {
+                expensesByCashier[exp.cashier].normal.push(exp);
+            }
+        });
+
+        let reportHtml = `
+            <div class="report-header">
+                <h3>تقرير المصروفات</h3>
+                <p>من ${dateFrom || 'البداية'} إلى ${dateTo || 'النهاية'}</p>
+                ${cashierFilter ? `<p>الكاشير: ${cashierFilter}</p>` : ''}
+                ${categoryFilter ? `<p>التصنيف: ${categoryFilter}</p>` : ''}
+            </div>
+        `;
+
+        let grandTotalNormal = 0;
+        let grandTotalVisa = 0;
+        let grandTotalInsta = 0;
+        let grandTotalOnline = 0;
+
+        Object.keys(expensesByCashier).forEach(cashierName => {
+            const cashierData = expensesByCashier[cashierName];
+            const cashierUser = users.find(u => u.username === cashierName);
+            const displayName = cashierUser ? cashierUser.name : cashierName;
+
+            const totalNormal = cashierData.normal.reduce((sum, exp) => sum + exp.amount, 0);
+            const totalVisa = cashierData.visa.reduce((sum, exp) => sum + exp.amount, 0);
+            const totalInsta = cashierData.insta.reduce((sum, exp) => sum + exp.amount, 0);
+            const totalOnline = cashierData.online.reduce((sum, exp) => sum + exp.amount, 0);
+            
+            grandTotalNormal += totalNormal;
+            grandTotalVisa += totalVisa;
+            grandTotalInsta += totalInsta;
+            grandTotalOnline += totalOnline;
+
+            reportHtml += `
+                <div class="cashier-section">
+                    <h4>${displayName}</h4>
+                    <div class="stats-summary">
+                        <p>إجمالي المصروفات العادية: ${totalNormal.toFixed(2)} (${cashierData.normal.length} فاتورة)</p>
+                        <p>إجمالي الفيزا: ${totalVisa.toFixed(2)} (${cashierData.visa.length} فاتورة)</p>
+                        <p>إجمالي الإنستا: ${totalInsta.toFixed(2)} (${cashierData.insta.length} فاتورة)</p>
+                        <p>إجمالي الأونلاين: ${totalOnline.toFixed(2)} (${cashierData.online.length} فاتورة)</p>
+                        <p><strong>الإجمالي الكلي: ${(totalNormal + totalVisa + totalInsta + totalOnline).toFixed(2)}</strong></p>
+                    </div>
+            `;
+
+            if (cashierFilter === cashierName || !cashierFilter) {
+                const allCashierExpenses = [...cashierData.normal, ...cashierData.visa, ...cashierData.insta, ...cashierData.online];
+                allCashierExpenses.sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.time}`));
+
+                if (allCashierExpenses.length > 0) {
+                    reportHtml += `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>التصنيف</th>
+                                    <th>رقم الفاتورة</th>
+                                    <th>القيمة</th>
+                                    <th>التاريخ</th>
+                                    <th>الوقت</th>
+                                    <th>الملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    allCashierExpenses.forEach(exp => {
+                        reportHtml += `
+                            <tr>
+                                <td>${exp.category}</td>
+                                <td>${exp.invoiceNumber || '--'}</td>
+                                <td>${exp.amount.toFixed(2)}</td>
+                                <td>${exp.date}</td>
+                                <td>${exp.time}</td>
+                                <td>${exp.notes || '--'}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    reportHtml += '</tbody></table>';
+                }
+            }
+            
+            reportHtml += '</div>';
+        });
+
+        reportHtml += `
+            <div class="report-footer">
+                <h4>الإجمالي العام</h4>
+                <p>إجمالي المصروفات العادية: ${grandTotalNormal.toFixed(2)}</p>
+                <p>إجمالي الفيزا: ${grandTotalVisa.toFixed(2)}</p>
+                <p>إجمالي الإنستا: ${grandTotalInsta.toFixed(2)}</p>
+                <p>إجمالي الأونلاين: ${grandTotalOnline.toFixed(2)}</p>
+                <p><strong>الإجمالي الكلي: ${(grandTotalNormal + grandTotalVisa + grandTotalInsta + grandTotalOnline).toFixed(2)}</strong></p>
+            </div>
+        `;
+
+        reportContent.innerHTML = reportHtml;
+        showMessage('تم إنشاء التقرير بنجاح.', 'success');
+    } catch (error) {
+        console.error('Error generating report:', error);
+        showMessage('حدث خطأ أثناء إنشاء التقرير.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+function printReport() {
+    const reportContent = document.getElementById('reportContentAccountant');
+    if (!reportContent || !reportContent.innerHTML.trim()) {
+        showMessage('لا يوجد تقرير للطباعة. يرجى إنشاء التقرير أولاً.', 'warning');
         return;
     }
 
-    expenses.forEach(exp => {
-        const row = tableBody.insertRow();
-        row.insertCell().textContent = exp.category;
-        row.insertCell().textContent = exp.invoiceNumber || '--';
-        row.insertCell().textContent = exp.amount.toFixed(2);
-        row.insertCell().textContent = exp.date;
-        row.insertCell().textContent = exp.time;
-        row.insertCell().textContent = exp.cashier;
-        row.insertCell().textContent = exp.notes || '--';
-        const actionsCell = row.insertCell();
-        actionsCell.innerHTML = `<button class="view-btn" onclick="showWarningMessage('عرض التفاصيل غير متاح حالياً.')"><i class="fas fa-eye"></i></button>`;
-    });
-
-    showSuccessMessage('تم إنشاء التقرير بنجاح.');
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>تقرير المصروفات</title>
+                <style>
+                    body { font-family: Arial, sans-serif; direction: rtl; text-align: right; }
+                    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+                    th { background-color: #f2f2f2; }
+                    .report-header, .report-footer { margin: 20px 0; }
+                    .cashier-section { margin: 30px 0; border-top: 2px solid #ccc; padding-top: 20px; }
+                    .stats-summary { background: #f9f9f9; padding: 15px; margin: 10px 0; }
+                    @media print { body { -webkit-print-color-adjust: exact; } }
+                </style>
+            </head>
+            <body>
+                ${reportContent.innerHTML}
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
 }
 
+function showWhatsAppModal() {
+    const reportContent = document.getElementById('reportContentAccountant');
+    if (!reportContent || !reportContent.innerHTML.trim()) {
+        showMessage('لا يوجد تقرير للإرسال. يرجى إنشاء التقرير أولاً.', 'warning');
+        return;
+    }
+    
+    const modal = document.getElementById('whatsappModal');
+    if (modal) {
+        modal.classList.add('active');
+        document.getElementById('whatsappNumber').value = '';
+    }
+}
+
+function sendReportViaWhatsApp() {
+    const phoneNumber = document.getElementById('whatsappNumber').value.trim();
+    const reportContent = document.getElementById('reportContentAccountant');
+    
+    if (!phoneNumber) {
+        showMessage('يرجى إدخال رقم الواتساب.', 'warning');
+        return;
+    }
+    
+    if (!reportContent || !reportContent.innerHTML.trim()) {
+        showMessage('لا يوجد تقرير للإرسال.', 'error');
+        return;
+    }
+
+    // Extract text content from the report
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = reportContent.innerHTML;
+    const reportText = tempDiv.textContent || tempDiv.innerText || '';
+    
+    // Create WhatsApp URL
+    const encodedText = encodeURIComponent(`تقرير المصروفات\n\n${reportText.substring(0, 1000)}...`);
+    const whatsappUrl = `https://wa.me/${phoneNumber.replace(/\D/g, '')}?text=${encodedText}`;
+    
+    window.open(whatsappUrl, '_blank');
+    closeModal('whatsappModal');
+    showMessage('تم فتح واتساب لإرسال التقرير.', 'success');
+}
+
+// --- Users Management ---
 function displayUsers() {
-    const tableBody = document.getElementById('usersTableBody');
+    const tableBody = document.getElementById('usersTableBodyAccountant');
     if (!tableBody) return;
 
     tableBody.innerHTML = '';
 
     if (users.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6">لا توجد مستخدمين.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="7">لا توجد مستخدمين.</td></tr>';
         return;
     }
 
     users.forEach(user => {
         const row = tableBody.insertRow();
         row.insertCell().textContent = user.name;
+        row.insertCell().textContent = user.phone;
         row.insertCell().textContent = user.username;
         row.insertCell().textContent = user.role;
-        row.insertCell().textContent = user.status;
+        
+        const statusCell = row.insertCell();
+        statusCell.innerHTML = `<span class="status ${user.status === 'نشط' ? 'active' : 'inactive'}">${user.status}</span>`;
+        
         row.insertCell().textContent = user.creationDate;
+        
         const actionsCell = row.insertCell();
         actionsCell.innerHTML = `
-            <button class="edit-btn" onclick="showWarningMessage('وظيفة تعديل المستخدم غير متاحة حالياً.')"><i class="fas fa-edit"></i></button>
-            <button class="delete-btn" onclick="showWarningMessage('وظيفة حذف المستخدم غير متاحة حالياً.')"><i class="fas fa-trash"></i></button>
-            <button class="block-btn" onclick="showWarningMessage('وظيفة حظر/إيقاف المستخدم غير متاحة حالياً.')"><i class="fas fa-ban"></i></button>
+            <button class="edit-btn" onclick="showMessage('وظيفة تعديل المستخدم غير متاحة حالياً.', 'warning')"><i class="fas fa-edit"></i></button>
+            <button class="delete-btn" onclick="showMessage('وظيفة حذف المستخدم غير متاحة حالياً.', 'warning')"><i class="fas fa-trash"></i></button>
+            <button class="block-btn" onclick="showMessage('وظيفة حظر/إيقاف المستخدم غير متاحة حالياً.', 'warning')"><i class="fas fa-ban"></i></button>
         `;
     });
 }
 
+function showAddUserModal() {
+    const form = document.getElementById('addUserForm');
+    if (form) form.reset();
+    
+    const modal = document.getElementById('addUserModal');
+    if (modal) modal.classList.add('active');
+}
 
+async function addUser() {
+    const name = document.getElementById('userName').value.trim();
+    const phone = document.getElementById('userPhone').value.trim();
+    const username = document.getElementById('userUsername').value.trim();
+    const password = document.getElementById('userPassword').value.trim();
+    const role = document.getElementById('userRole').value;
 
+    if (!name || !phone || !username || !password || !role) {
+        showMessage('يرجى ملء جميع حقول المستخدم.', 'warning');
+        return;
+    }
 
+    const existingUser = users.find(u => u.username === username);
+    if (existingUser) {
+        showMessage('اسم المستخدم موجود بالفعل.', 'warning');
+        return;
+    }
+
+    const existingPhone = users.find(u => u.phone === phone);
+    if (existingPhone) {
+        showMessage('رقم التليفون موجود بالفعل.', 'warning');
+        return;
+    }
+
+    const userId = 'USER_' + new Date().getTime();
+    const newUser = [
+        userId,
+        name,
+        phone,
+        username,
+        password,
+        role,
+        'نشط',
+        new Date().toISOString().split('T')[0]
+    ];
+
+    const result = await appendToSheet(SHEETS.USERS, newUser);
+
+    if (result.success) {
+        showMessage('تم إضافة المستخدم بنجاح.', 'success');
+        closeModal('addUserModal');
+        await loadUsers();
+        displayUsers();
+        populateUserDropdown();
+        populateAccountantFilters();
+    } else {
+        showMessage('فشل إضافة المستخدم.', 'error');
+    }
+}
 
 // --- Shift Closure for Accountant ---
+function resetAccountantShiftForm() {
+    const closureResultsAccountant = document.getElementById('closureResultsAccountant');
+    if (closureResultsAccountant) { 
+        closureResultsAccountant.style.display = 'none';
+    }
+    
+    const differenceResultAccountant = document.getElementById('differenceResultAccountant');
+    if (differenceResultAccountant) { 
+        differenceResultAccountant.style.display = 'none';
+    }
+    
+    const newmindTotalAccountant = document.getElementById('newmindTotalAccountant');
+    if (newmindTotalAccountant) { 
+        newmindTotalAccountant.value = '';
+    }
+    
+    // Reset form fields to current date/time
+    setDefaultDatesAndTimes();
+    
+    // Clear selected cashier
+    const selectedCashier = document.getElementById('selectedCashierAccountant');
+    if (selectedCashier) {
+        selectedCashier.value = '';
+    }
+    
+    // Clear stored closure data
+    window.currentClosureData = null;
+}
+
 async function searchCashierClosuresAccountant() {
     const selectedCashier = document.getElementById('selectedCashierAccountant').value;
     const dateFrom = document.getElementById('accountantShiftDateFrom').value;
@@ -1867,7 +2163,7 @@ async function searchCashierClosuresAccountant() {
     const timeTo = document.getElementById('accountantShiftTimeTo').value;
 
     if (!selectedCashier || !dateFrom || !dateTo || !timeFrom || !timeTo) {
-        showWarningMessage('يرجى ملء جميع الحقول للبحث عن تقفيلة الكاشير.');
+        showMessage('يرجى ملء جميع الحقول للبحث عن تقفيلة الكاشير.', 'warning');
         return;
     }
 
@@ -1916,30 +2212,29 @@ async function searchCashierClosuresAccountant() {
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash;
 
-                // Display results
+        // Display results - إصلاح مشكلة الـ IDs
         document.getElementById('closureResultsAccountant').style.display = 'block';
-        // تأكد أن هذا العنصر موجود في HTML ولديه ID 'closeCashierByAccountant'
-        // إذا كان هذا الزر جزءًا من قسم 'closureResultsAccountant'، فقد لا تحتاج إلى إظهاره بشكل منفصل إذا كان القسم بأكمله يظهر.
-        // ولكن بناءً على HTML، يبدو أنه زر منفصل يحتاج إلى إظهار.
-        const closeCashierBtn = document.getElementById('closeCashierByAccountant');
-        if (closeCashierBtn) { // إضافة تحقق للتأكد من وجود العنصر
-            closeCashierBtn.style.display = 'block';
-        }
 
-        document.getElementById('accTotalNormalExpenses').textContent = totalNormal.toFixed(2);
-        document.getElementById('normalExpensesCountAccountant').textContent = normalExpenses.length; // هذا الـ ID صحيح
-        document.getElementById('accTotalVisa').textContent = totalVisa.toFixed(2);
-        document.getElementById('visaCountAccountant').textContent = visaExpenses.length; // هذا الـ ID صحيح
-        document.getElementById('accTotalInsta').textContent = totalInsta.toFixed(2);
-        document.getElementById('instaCountAccountant').textContent = instaExpenses.length; // هذا الـ ID صحيح
-        document.getElementById('accTotalOnline').textContent = totalOnline.toFixed(2);
-        document.getElementById('onlineCountAccountant').textContent = onlineExpenses.length; // هذا الـ ID صحيح
-        document.getElementById('accDrawerCash').textContent = drawerCash.toFixed(2);
-        document.getElementById('accGrandTotalCashier').textContent = grandTotal.toFixed(2);
-        document.getElementById('newmindTotalAccountant').value = ''; // Clear newmind input
-        document.getElementById('differenceResultAccountant').style.display = 'none'; // Hide difference initially
+        // Update the summary with correct IDs
+        const accTotalNormalExpenses = document.getElementById('accTotalNormalExpenses');
+        const accTotalVisa = document.getElementById('accTotalVisa');
+        const accTotalInsta = document.getElementById('accTotalInsta');
+        const accTotalOnline = document.getElementById('accTotalOnline');
+        const accDrawerCash = document.getElementById('accDrawerCash');
+        const accGrandTotalCashier = document.getElementById('accGrandTotalCashier');
 
-        // Store data for later use (e.g., closure)
+        if (accTotalNormalExpenses) accTotalNormalExpenses.textContent = totalNormal.toFixed(2);
+        if (accTotalVisa) accTotalVisa.textContent = totalVisa.toFixed(2);
+        if (accTotalInsta) accTotalInsta.textContent = totalInsta.toFixed(2);
+        if (accTotalOnline) accTotalOnline.textContent = totalOnline.toFixed(2);
+        if (accDrawerCash) accDrawerCash.textContent = drawerCash.toFixed(2);
+        if (accGrandTotalCashier) accGrandTotalCashier.textContent = grandTotal.toFixed(2);
+
+        // Clear and hide difference result initially
+        document.getElementById('newmindTotalAccountant').value = '';
+        document.getElementById('differenceResultAccountant').style.display = 'none';
+
+        // Store data for later use
         window.currentClosureData = {
             cashier: selectedCashier,
             dateFrom: dateFrom,
@@ -1958,51 +2253,72 @@ async function searchCashierClosuresAccountant() {
             grandTotal: grandTotal
         };
 
-        showSuccessMessage(`تم البحث عن بيانات الكاشير ${selectedCashier} للفترة المحددة.`);
+        const cashierUser = users.find(u => u.username === selectedCashier);
+        const cashierDisplayName = cashierUser ? cashierUser.name : selectedCashier;
+        showMessage(`تم البحث عن بيانات الكاشير ${cashierDisplayName} للفترة المحددة.`, 'success');
     } catch (error) {
         console.error('Error searching cashier closures:', error);
-        showErrorMessage('حدث خطأ أثناء البحث عن بيانات الكاشير.');
+        showMessage('حدث خطأ أثناء البحث عن بيانات الكاشير.', 'error');
     } finally {
         showLoading(false);
     }
 }
 
 function calculateDifferenceAccountant() {
-    const grandTotal = parseFloat(document.getElementById('grandTotalAccountant').textContent) || 0;
-    const newMindTotal = parseFloat(document.getElementById('newmindTotalAccountant').value) || 0;
-    const difference = newMindTotal - grandTotal;
-    const differenceResult = document.getElementById('differenceResultAccountant');
-
-    if (isNaN(newMindTotal) || newMindTotal < 0) {
-        showWarningMessage('يرجى إدخال قيمة صحيحة لإجمالي نيو مايند.');
-        return;
-    }
-
-    differenceResult.style.display = 'block';
-    document.getElementById('calculatedDifference').textContent = Math.abs(difference).toFixed(2);
-
-    const statusElement = document.getElementById('differenceStatus');
-    if (difference === 0) {
-        statusElement.textContent = 'مطابق';
-        statusElement.className = 'status-match';
-    } else if (difference > 0) {
-        statusElement.textContent = 'زيادة';
-        statusElement.className = 'status-surplus';
-    } else {
-        statusElement.textContent = 'عجز';
-        statusElement.className = 'status-deficit';
-    }
-}
-
-async function closeCashierShiftByAccountant() {
     if (!window.currentClosureData) {
-        showWarningMessage('يرجى البحث عن بيانات الكاشير أولاً.');
+        showMessage('يرجى البحث عن بيانات الكاشير أولاً.', 'warning');
         return;
     }
 
     const newMindTotal = parseFloat(document.getElementById('newmindTotalAccountant').value);
     if (isNaN(newMindTotal) || newMindTotal < 0) {
-        showWarningMessage('يرجى إدخال قيمة صحيحة لإجمالي نيو مايند.');
+        showMessage('يرجى إدخال قيمة صحيحة لإجمالي نيو مايند.', 'warning');
+        return;
+    }
+
+    const cashierTotal = window.currentClosureData.grandTotal;
+    const difference = newMindTotal - cashierTotal;
+    const differenceResult = document.getElementById('differenceResultAccountant');
+
+    let resultHtml = `
+        <div class="difference-summary">
+            <h4>نتيجة المقارنة:</h4>
+            <p>إجمالي الكاشير: ${cashierTotal.toFixed(2)} جنيه</p>
+            <p>إجمالي نيو مايند: ${newMindTotal.toFixed(2)} جنيه</p>
+            <p>الفرق: ${Math.abs(difference).toFixed(2)} جنيه</p>
+    `;
+
+    if (difference === 0) {
+        resultHtml += `<p class="status-match"><strong>الحالة: مطابق ✓</strong></p>`;
+        differenceResult.className = 'difference-result balanced';
+    } else if (difference > 0) {
+        resultHtml += `<p class="status-surplus"><strong>الحالة: زيادة في نيو مايند</strong></p>`;
+        differenceResult.className = 'difference-result surplus';
+    } else {
+        resultHtml += `<p class="status-deficit"><strong>الحالة: عجز في نيو مايند</strong></p>`;
+        differenceResult.className = 'difference-result deficit';
+    }
+
+    resultHtml += '</div>';
+    differenceResult.innerHTML = resultHtml;
+    differenceResult.style.display = 'block';
+
+    // Show close cashier button
+    const closeCashierBtn = document.querySelector('.close-cashier-btn');
+    if (closeCashierBtn) {
+        closeCashierBtn.style.display = 'inline-flex';
+    }
+}
+
+async function closeCashierByAccountant() {
+    if (!window.currentClosureData) {
+        showMessage('يرجى البحث عن بيانات الكاشير أولاً.', 'warning');
+        return;
+    }
+
+    const newMindTotal = parseFloat(document.getElementById('newmindTotalAccountant').value);
+    if (isNaN(newMindTotal) || newMindTotal < 0) {
+        showMessage('يرجى إدخال قيمة صحيحة لإجمالي نيو مايند.', 'warning');
         return;
     }
 
@@ -2013,9 +2329,9 @@ async function closeCashierShiftByAccountant() {
         const now = new Date();
         const shiftId = 'SHIFT_ACC_' + now.getTime();
 
-         const shiftClosureData = [
-      shiftId,
-      window.currentClosureData.cashier,
+        const shiftClosureData = [
+            shiftId,
+            window.currentClosureData.cashier,
             window.currentClosureData.dateFrom,
             window.currentClosureData.timeFrom,
             window.currentClosureData.dateTo,
@@ -2030,38 +2346,30 @@ async function closeCashierShiftByAccountant() {
             window.currentClosureData.onlineCount,
             window.currentClosureData.grandTotal,
             window.currentClosureData.drawerCash,
-            
             newMindTotal,
             difference,
-            'مغلق بواسطة المحاسب', // status
+            'مغلق بواسطة المحاسب',
             now.toISOString().split('T')[0],
             now.toTimeString().split(' ')[0],
-            currentUser .username // accountant
+            currentUser.username
         ];
 
         const result = await appendToSheet(SHEETS.SHIFT_CLOSURES, shiftClosureData);
 
         if (result.success) {
-            showSuccessMessage('تم تقفيل شيفت الكاشير بنجاح بواسطة المحاسب.');
+            const cashierUser = users.find(u => u.username === window.currentClosureData.cashier);
+            const cashierDisplayName = cashierUser ? cashierUser.name : window.currentClosureData.cashier;
+            showMessage(`تم تقفيل شيفت الكاشير ${cashierDisplayName} بنجاح بواسطة المحاسب.`, 'success');
+            
             // Reset form
-            document.getElementById('selectedCashierAccountant').value = '';
-            document.getElementById('accountantShiftDateFrom').value = '';
-            document.getElementById('accountantShiftDateTo').value = '';
-            document.getElementById('accountantShiftTimeFrom').value = '';
-            document.getElementById('accountantShiftTimeTo').value = '';
-            document.getElementById('closureResultsAccountant').style.display = 'none';
-            document.getElementById('closeCashierByAccountant').style.display = 'none';
-            document.getElementById('newmindTotalAccountant').value = '';
-            document.getElementById('differenceResultAccountant').style.display = 'none';
-            window.currentClosureData = null;
-            // Reload history
+            resetAccountantShiftForm();
             loadAccountantShiftClosuresHistory();
         } else {
-            showErrorMessage('فشل تقفيل شيفت الكاشير.');
+            showMessage('فشل تقفيل شيفت الكاشير.', 'error');
         }
     } catch (error) {
         console.error('Error closing cashier shift by accountant:', error);
-        showErrorMessage('حدث خطأ أثناء تقفيل شيفت الكاشير.');
+        showMessage('حدث خطأ أثناء تقفيل شيفت الكاشير.', 'error');
     } finally {
         showLoading(false);
     }
@@ -2069,31 +2377,60 @@ async function closeCashierShiftByAccountant() {
 
 async function loadAccountantShiftClosuresHistory() {
     const closures = await loadShiftClosures({});
-    const tableBody = document.getElementById('shiftClosuresHistoryBody');
+    const tableBody = document.getElementById('closuresHistoryBodyAccountant');
     if (!tableBody) return;
 
     tableBody.innerHTML = '';
 
     if (closures.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="10">لا توجد سجلات تقفيلات.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="8">لا توجد سجلات تقفيلات.</td></tr>';
         return;
     }
 
     // Sort by closure date descending
-    closures.sort((a, b) => new Date(b.closureDate) - new Date(a.closureDate));
+    closures.sort((a, b) => new Date(`${b.closureDate} ${b.closureTime}`) - new Date(`${a.closureDate} ${a.closureTime}`));
 
     closures.forEach(closure => {
         const row = tableBody.insertRow();
-        row.insertCell().textContent = closure.cashier;
-        row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom}`;
-        row.insertCell().textContent = `${closure.dateTo} ${closure.timeTo}`;
-        row.insertCell().textContent = (closure.totalNormal + closure.totalVisa + closure.totalInsta + closure.totalOnline + closure.drawerCash).toFixed(2); // إجمالي الكاشير
+        
+        // Get cashier display name
+        const cashierUser = users.find(u => u.username === closure.cashier);
+        const cashierDisplayName = cashierUser ? cashierUser.name : closure.cashier;
+        
+        row.insertCell().textContent = cashierDisplayName;
+        row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
+        
+        // Calculate total cashier amount (expenses + visa + insta + online + drawer cash)
+        const totalCashierAmount = closure.totalExpenses + closure.totalVisa + closure.totalInsta + closure.totalOnline + closure.drawerCash;
+        row.insertCell().textContent = totalCashierAmount.toFixed(2);
+        
         row.insertCell().textContent = closure.newMindTotal.toFixed(2);
-        row.insertCell().textContent = closure.difference.toFixed(2);
-        row.insertCell().textContent = closure.status;
-        row.insertCell().textContent = closure.closureDate;
-        row.insertCell().textContent = closure.closureTime;
-        row.insertCell().textContent = closure.accountant || 'الكاشير نفسه';
+        
+        const differenceCell = row.insertCell();
+        const diffValue = closure.difference;
+        differenceCell.textContent = diffValue.toFixed(2);
+        if (diffValue > 0) {
+            differenceCell.style.color = 'green';
+            differenceCell.title = 'زيادة';
+        } else if (diffValue < 0) {
+            differenceCell.style.color = 'red';
+            differenceCell.title = 'عجز';
+        } else {
+            differenceCell.style.color = 'blue';
+            differenceCell.title = 'مطابق';
+        }
+        
+        const statusCell = row.insertCell();
+        statusCell.innerHTML = `<span class="status ${closure.status === 'مغلق' || closure.status === 'مغلق بواسطة المحاسب' ? 'closed' : 'open'}">${closure.status}</span>`;
+        
+        row.insertCell().textContent = `${closure.closureDate} ${closure.closureTime}`;
+        
+        const actionsCell = row.insertCell();
+        actionsCell.innerHTML = `
+            <button class="view-btn" onclick="showMessage('عرض تفاصيل التقفيلة غير متاح حالياً.', 'info')">
+                <i class="fas fa-eye"></i> عرض
+            </button>
+        `;
     });
 }
 
@@ -2101,41 +2438,51 @@ async function loadAccountantShiftClosuresHistory() {
 function showLoading(show = true) {
     const loading = document.getElementById('loadingOverlay');
     if (loading) {
-        loading.style.display = show ? 'flex' : 'none';
+        loading.classList.toggle('hidden', !show);
     }
 }
 
-function showSuccessMessage(message) {
-    const successMsg = document.getElementById('successMessage');
-    if (successMsg) {
-        successMsg.textContent = message;
-        successMsg.style.display = 'block';
-        setTimeout(() => {
-            successMsg.style.display = 'none';
-        }, 3000);
+function showMessage(message, type = 'info') {
+    // Create message container if it doesn't exist
+    let messageContainer = document.getElementById('messageContainer');
+    if (!messageContainer) {
+        messageContainer = document.createElement('div');
+        messageContainer.id = 'messageContainer';
+        messageContainer.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000; max-width: 400px;';
+        document.body.appendChild(messageContainer);
     }
-}
 
-function showErrorMessage(message) {
-    const errorMsg = document.getElementById('errorMessage');
-    if (errorMsg) {
-        errorMsg.textContent = message;
-        errorMsg.style.display = 'block';
-        setTimeout(() => {
-            errorMsg.style.display = 'none';
-        }, 5000);
+    // Create message element
+    const messageElement = document.createElement('div');
+    messageElement.className = `message ${type}`;
+    
+    // Add icon based on type
+    let icon = '';
+    switch(type) {
+        case 'success': icon = '<i class="fas fa-check-circle"></i>'; break;
+        case 'error': icon = '<i class="fas fa-exclamation-circle"></i>'; break;
+        case 'warning': icon = '<i class="fas fa-exclamation-triangle"></i>'; break;
+        case 'info': icon = '<i class="fas fa-info-circle"></i>'; break;
+        default: icon = '<i class="fas fa-info-circle"></i>';
     }
-}
+    
+    messageElement.innerHTML = `${icon} ${message}`;
+    messageContainer.appendChild(messageElement);
 
-function showWarningMessage(message) {
-    const warningMsg = document.getElementById('warningMessage');
-    if (warningMsg) {
-        warningMsg.textContent = message;
-        warningMsg.style.display = 'block';
-        setTimeout(() => {
-            warningMsg.style.display = 'none';
-        }, 4000);
-    }
+    // Auto remove message after delay
+    const delay = type === 'error' ? 5000 : type === 'warning' ? 4000 : 3000;
+    setTimeout(() => {
+        if (messageElement && messageElement.parentNode) {
+            messageElement.parentNode.removeChild(messageElement);
+        }
+    }, delay);
+
+    // Add click to dismiss
+    messageElement.addEventListener('click', () => {
+        if (messageElement && messageElement.parentNode) {
+            messageElement.parentNode.removeChild(messageElement);
+        }
+    });
 }
 
 function closeModal(modalId) {
@@ -2161,8 +2508,11 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Google Scripts loaded successfully.');
     }).catch(error => {
         console.error('Failed to load Google Scripts:', error);
-        showErrorMessage('فشل تحميل مكتبات Google. يرجى التحقق من الاتصال بالإنترنت.');
+        showMessage('فشل تحميل مكتبات Google. يرجى التحقق من الاتصال بالإنترنت.', 'error');
     });
+
+    // Set default dates and times
+    setDefaultDatesAndTimes();
 
     // Login form
     const loginForm = document.getElementById('loginForm');
@@ -2200,89 +2550,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Dashboard filters
-    const dashboardCashierFilter = document.getElementById('dashboardCashierFilter');
-    if (dashboardCashierFilter) {
-        dashboardCashierFilter.addEventListener('change', updateAccountantDashboard);
-    }
-    const dashboardDateFrom = document.getElementById('dashboardDateFrom');
-    if (dashboardDateFrom) {
-        dashboardDateFrom.addEventListener('change', updateAccountantDashboard);
-    }
-    const dashboardDateTo = document.getElementById('dashboardDateTo');
-    if (dashboardDateTo) {
-        dashboardDateTo.addEventListener('change', updateAccountantDashboard);
+    // Add user form
+    const addUserForm = document.getElementById('addUserForm');
+    if (addUserForm) {
+        addUserForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            addUser();
+        });
     }
 
-    // Report filters
-    const reportCategoryFilter = document.getElementById('reportCategoryFilter');
-    if (reportCategoryFilter) {
-        reportCategoryFilter.addEventListener('change', generateReport);
+    // WhatsApp form
+    const whatsappForm = document.getElementById('whatsappForm');
+    if (whatsappForm) {
+        whatsappForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            sendReportViaWhatsApp();
+        });
     }
-    const reportCashierFilter = document.getElementById('reportCashierFilter');
-    if (reportCashierFilter) {
-        reportCashierFilter.addEventListener('change', generateReport);
-    }
-    const reportDateFrom = document.getElementById('reportDateFrom');
-    if (reportDateFrom) {
-        reportDateFrom.addEventListener('change', generateReport);
-    }
-    const reportDateTo = document.getElementById('reportDateTo');
-    if (reportDateTo) {
-        reportDateTo.addEventListener('change', generateReport);
-    }
-
-    // Expense filters for cashier
-    const expenseCategoryFilter = document.getElementById('expenseCategoryFilterCashier');
-    if (expenseCategoryFilter) {
-        expenseCategoryFilter.addEventListener('change', filterCashierExpenses);
-    }
-    const expenseDateFromFilter = document.getElementById('expenseDateFromFilterCashier');
-    if (expenseDateFromFilter) {
-        expenseDateFromFilter.addEventListener('change', filterCashierExpenses);
-    }
-    const expenseDateToFilter = document.getElementById('expenseDateToFilterCashier');
-    if (expenseDateToFilter) {
-        expenseDateToFilter.addEventListener('change', filterCashierExpenses);
-    }
-
-    // Set default dates for filters
-    const today = new Date().toISOString().split('T')[0];
-    const timeNow = new Date().toTimeString().split(' ')[0].substring(0, 5);
-
-    // Dashboard filters
-    if (document.getElementById('dashboardDateFrom')) document.getElementById('dashboardDateFrom').value = today;
-    if (document.getElementById('dashboardDateTo')) document.getElementById('dashboardDateTo').value = today;
-
-    // Report filters
-    if (document.getElementById('reportDateFrom')) document.getElementById('reportDateFrom').value = today;
-    if (document.getElementById('reportDateTo')) document.getElementById('reportDateTo').value = today;
-
-    // Cashier shift filters
-    if (document.getElementById('shiftDateFromCashier')) document.getElementById('shiftDateFromCashier').value = today;
-    if (document.getElementById('shiftDateToCashier')) document.getElementById('shiftDateToCashier').value = today;
-    if (document.getElementById('shiftTimeFromCashier')) document.getElementById('shiftTimeFromCashier').value = timeNow;
-    if (document.getElementById('shiftTimeToCashier')) document.getElementById('shiftTimeToCashier').value = timeNow;
-
-    // Expense filters
-    if (document.getElementById('expenseDateFromFilterCashier')) document.getElementById('expenseDateFromFilterCashier').value = today;
-    if (document.getElementById('expenseDateToFilterCashier')) document.getElementById('expenseDateToFilterCashier').value = today;
-
-    // Accountant shift filters
-    if (document.getElementById('accountantShiftDateFrom')) document.getElementById('accountantShiftDateFrom').value = today;
-    if (document.getElementById('accountantShiftDateTo')) document.getElementById('accountantShiftDateTo').value = today;
-    if (document.getElementById('accountantShiftTimeFrom')) document.getElementById('accountantShiftTimeFrom').value = timeNow;
-    if (document.getElementById('accountantShiftTimeTo')) document.getElementById('accountantShiftTimeTo').value = timeNow;
 });
-
-// Handle logout button
-const logoutBtn = document.querySelector('.logout-btn');
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', logout);
-}
-
-// Handle password toggle
-const passwordToggle = document.querySelector('.show-password');
-if (passwordToggle) {
-    passwordToggle.addEventListener('click', togglePasswordVisibility);
-}
