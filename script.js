@@ -541,6 +541,8 @@ function showTab(tabId) {
         displayUsers();
     } else if (tabId === 'reportsTabAccountant') {
         populateReportFilters();
+        generateAccountantReport();
+        
     } else if (tabId === 'shiftCloseTabAccountant') {
         populateAccountantShiftCashierFilter(); 
         loadAccountantShiftClosuresHistory();
@@ -2731,6 +2733,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
 
 
 
