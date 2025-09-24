@@ -249,7 +249,9 @@ async function maybeEnableButtons() {
                 isAuthenticated = true;
                 console.log('✅ تم استعادة التوكن بنجاح من localStorage');
                 await loadInitialData();
+                checkAuthStatus();
                 return;
+
             } else {
                 console.log('🔄 التوكن منتهي الصلاحية، جاري تجديده...');
                 // محاولة التجديد بصمت
@@ -317,8 +319,7 @@ function checkAuthStatus() {
     console.log('================================');
 }
 
-// استدع هذه الدالة للتحقق من الحالة
-checkAuthStatus();
+
 // حفظ الحالة قبل إغلاق الصفحة
 window.addEventListener('beforeunload', () => {
     saveAuthState();
