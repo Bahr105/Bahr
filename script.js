@@ -2126,6 +2126,142 @@ async function addUser() {
     }
 }
 
+
+
+function showEditUserModal(userId) {
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+        showMessage('المستخدم غير موجود.', 'error');
+        return;
+    }
+
+    document.getElementById('editUserId').value = user.id;
+    document.getElementById('editUserName').value = user.name;
+    document.getElementById('editUserPhone').value = user.phone;
+    document.getElementById('editUserUsername').value = user.username; // Username is disabled for editing
+    document.getElementById('editUserRole').value = user.role;
+    document.getElementById('editUserStatus').value = user.status;
+
+    const modal = document.getElementById('editUserModal');
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+
+async function saveEditedUser() {
+    const userId = document.getElementById('editUserId').value;
+    const name = document.getElementById('editUserName').value.trim();
+    const phone = document.getElementById('editUserPhone').value.trim();
+    const role = document.getElementById('editUserRole').value;
+    const status = document.getElementById('editUserStatus').value;
+
+    if (!name || !phone || !role || !status) {
+        showMessage('يرجى ملء جميع حقول المستخدم.', 'warning');
+        return;
+    }
+
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        showMessage('المستخدم غير موجود.', 'error');
+        return;
+    }
+
+    // Check for duplicate phone number, excluding the current user
+    const existingPhoneUser = users.find(u => u.phone === phone && u.id !== userId);
+    if (existingPhoneUser) {
+        showMessage('رقم التليفون موجود بالفعل لمستخدم آخر.', 'warning');
+        return;
+    }
+
+    const rowIndex = await findRowIndex(SHEETS.USERS, 0, userId); // Column 0 is 'id'
+    if (rowIndex === -1) {
+        showMessage('لم يتم العثور على المستخدم لتحديثه.', 'error');
+        return;
+    }
+
+    const updatedUser = [
+        userId,
+        name,
+        phone,
+        users[userIndex].username, // Keep original username
+        users[userIndex].password, // Keep original password
+        role,
+        status,
+        users[userIndex].creationDate // Keep original creation date
+    ];
+
+    const result = await updateSheet(SHEETS.USERS, `A${rowIndex}:H${rowIndex}`, updatedUser);
+
+    if (result.success) {
+        showMessage('تم تحديث بيانات المستخدم بنجاح.', 'success');
+        closeModal('editUserModal');
+        await loadUsers(); // Reload users to reflect changes
+        displayUsers(); // Re-render the users table
+        populateUserDropdown(); // Update login dropdown if names changed
+        populateAccountantFilters(); // Update cashier filters if names changed
+    } else {
+        showMessage('فشل تحديث بيانات المستخدم.', 'error');
+    }
+}
+
+function showChangePasswordModal(userId) {
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+        showMessage('المستخدم غير موجود.', 'error');
+        return;
+    }
+
+    document.getElementById('changePasswordUserId').value = user.id;
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmNewPassword').value = '';
+
+    const modal = document.getElementById('changePasswordModal');
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+
+async function saveNewPassword() {
+    const userId = document.getElementById('changePasswordUserId').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+
+    if (!newPassword || !confirmNewPassword) {
+        showMessage('يرجى إدخال وتأكيد كلمة المرور الجديدة.', 'warning');
+        return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+        showMessage('كلمة المرور الجديدة وتأكيدها غير متطابقين.', 'error');
+        return;
+    }
+
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        showMessage('المستخدم غير موجود.', 'error');
+        return;
+    }
+
+    const rowIndex = await findRowIndex(SHEETS.USERS, 0, userId); // Column 0 is 'id'
+    if (rowIndex === -1) {
+        showMessage('لم يتم العثور على المستخدم لتغيير كلمة المرور.', 'error');
+        return;
+    }
+
+    // Update only the password field (column E, index 4)
+    const result = await updateSheet(SHEETS.USERS, `E${rowIndex}`, [newPassword]);
+
+    if (result.success) {
+        showMessage('تم تغيير كلمة المرور بنجاح.', 'success');
+        closeModal('changePasswordModal');
+        await loadUsers(); // Reload users to reflect changes
+    } else {
+        showMessage('فشل تغيير كلمة المرور.', 'error');
+    }
+}
+
+
+
 // --- Shift Closure for Accountant ---
 function resetAccountantShiftForm() {
     const closureResultsAccountant = document.getElementById('closureResultsAccountant');
