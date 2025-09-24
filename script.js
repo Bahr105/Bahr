@@ -5,13 +5,19 @@ let isAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated
 function handleAuthSuccess() {
     isAuthenticated = true;
     localStorage.setItem('googleAuthState', 'authenticated');
+    
+    // حفظ التوكن في localStorage
+    const token = gapi.client.getToken();
+    if (token) {
+        localStorage.setItem('googleAuthToken', JSON.stringify(token));
+    }
 }
 
 // عند فشل المصادقة أو تسجيل الخروج، احذف الحالة
 function handleAuthFailure() {
     isAuthenticated = false;
     localStorage.removeItem('googleAuthState');
-    // Clear any existing token from gapi client
+    localStorage.removeItem('googleAuthToken'); // إضافة هذه السطر
     if (gapi.client.getToken()) {
         gapi.client.setToken(null);
     }
@@ -147,18 +153,33 @@ async function maybeEnableButtons() {
         return;
     }
 
-    const existingToken = gapi.client.getToken();
     const wasAuthenticatedInLocalStorage = loadAuthState();
+    const savedToken = localStorage.getItem('googleAuthToken');
 
-    if (existingToken && wasAuthenticatedInLocalStorage && isTokenValid()) {
-        isAuthenticated = true;
-        console.log('تم استعادة المصادقة السابقة بنجاح من الذاكرة المحلية والتوكن صالح.');
-        await loadInitialData();
+    if (wasAuthenticatedInLocalStorage && savedToken) {
+        try {
+            const token = JSON.parse(savedToken);
+            gapi.client.setToken(token);
+
+            // التحقق من صلاحية التوكن
+            if (isTokenValid()) {
+                isAuthenticated = true;
+                console.log('تم استعادة التوكن بنجاح من localStorage');
+                await loadInitialData();
+                return;
+            } else {
+                console.log('التوكن منتهي الصلاحية، جاري تجديده...');
+                // التوكن منتهي، نطلب تجديده بصمت
+                await handleAuthClick();
+            }
+        } catch (error) {
+            console.error('خطأ في استعادة التوكن:', error);
+            await handleAuthClick();
+        }
     } else {
-        // إذا لم يكن هناك توكن صالح أو لم تتم المصادقة في localStorage
-        console.log('لا توجد مصادقة سارية أو التوكن غير صالح. جاري طلب المصادقة...');
-        handleAuthFailure(); // تأكد من مسح أي حالة مصادقة غير صالحة
-        await handleAuthClick(); // اطلب المصادقة
+        // لا يوجد توكن محفوظ، نطلب المصادقة
+        console.log('لا توجد مصادقة سابقة، جاري طلب المصادقة...');
+        await handleAuthClick();
     }
 }
 
@@ -214,14 +235,14 @@ function isTokenValid() {
     const token = gapi.client.getToken();
     if (!token) return false;
 
-    // تحقق من وجود وقت انتهاء الصلاحية
     if (token.expires_at) {
-        // اترك هامش أمان 5 دقائق (300000 مللي ثانية)
+        // هامش أمان 5 دقائق
         return token.expires_at > (Date.now() + 300000);
     }
 
-    // إذا لم يكن هناك وقت انتهاء، افترض أنها صالحة (قد تحتاج إلى مراجعة هذا المنطق)
-    return true;
+    // إذا لم يكن هناك expires_at، نعتبر التوكن صالحًا لمدة ساعة افتراضيًا
+    const oneHour = 60 * 60 * 1000;
+    return (Date.now() - token.created_at) < oneHour;
 }
 
 
