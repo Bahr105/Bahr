@@ -28,7 +28,6 @@ function handleAuthFailure() {
     }
 }
 
-// في بداية script.js - حل بديل
 // في بداية script.js - حل محسن
 function loadGoogleScripts() {
     return new Promise((resolve, reject) => {
@@ -96,7 +95,7 @@ const SHEETS = {
 let gapiInited = false;
 let gisInited = false;
 let tokenClient;
-let isAppInitialized = false; // علم جديد لمنع التهيئة المزدوجة
+let initialDataLoaded = false; // علامة جديدة لتتبع تحميل البيانات الأولية
 
 // دالة لحفظ حالة المصادقة (تم تبسيطها)
 function saveAuthState() {
@@ -154,28 +153,24 @@ async function initializeGapiClient() {
 }
 // دالة للتحقق المتكرر من حالة التهيئة
 function checkInitializationStatus() {
-    // إذا تم تهيئة التطبيق بالفعل، لا تفعل شيئًا
-    if (isAppInitialized) {
-        console.log('Application already initialized. Skipping checkInitializationStatus.');
-        return;
-    }
-
     const checkInterval = setInterval(() => {
         console.log('Checking initialization status:', {
             gapiInited: gapiInited,
             gisInited: gisInited,
             hasGapi: typeof gapi !== 'undefined',
-            hasGoogle: typeof google !== 'undefined'
+            hasGoogle: typeof google !== 'undefined',
+            initialDataLoaded: initialDataLoaded // أضفنا هذه العلامة
         });
 
-        if (gapiInited && gisInited) {
+        if (gapiInited && gisInited && !initialDataLoaded) { // تحقق من initialDataLoaded
             clearInterval(checkInterval);
             console.log('Both APIs initialized, proceeding with authentication...');
-            // تعيين العلم لمنع التهيئة المزدوجة
-            isAppInitialized = true;
-            setTimeout(() => {
-                maybeEnableButtons();
-            }, 1000);
+            // لا تستدعي maybeEnableButtons هنا، بل دعها تُستدعى مرة واحدة فقط
+            // بعد تهيئة GIS مباشرة
+            // setTimeout(() => { maybeEnableButtons(); }, 1000); // تم إزالة هذا الاستدعاء
+        } else if (gapiInited && gisInited && initialDataLoaded) {
+            clearInterval(checkInterval); // توقف إذا تم التحميل بالفعل
+            console.log('APIs initialized and initial data already loaded.');
         }
     }, 1000);
 
@@ -217,7 +212,7 @@ function gisLoaded() {
         });
         gisInited = true;
         console.log('GIS client initialized.');
-        maybeEnableButtons(); // استدعاء maybeEnableButtons بعد تهيئة GIS
+        maybeEnableButtons(); // استدعاء maybeEnableButtons بعد تهيئة GIS مباشرة
     } catch (error) {
         console.error('Error initializing GIS:', error);
         showMessage('فشل تهيئة Google Identity Services', 'error');
@@ -240,6 +235,12 @@ async function maybeEnableButtons() {
             showMessage('فشل تهيئة Google API. يرجى تحديث الصفحة.', 'error');
             return;
         }
+    }
+
+    // إذا تم تحميل البيانات الأولية بالفعل، لا تفعل شيئًا
+    if (initialDataLoaded) {
+        console.log('Initial data already loaded, skipping maybeEnableButtons.');
+        return;
     }
 
     const wasAuthenticatedInLocalStorage = loadAuthState();
@@ -275,6 +276,7 @@ async function maybeEnableButtons() {
                 isAuthenticated = true;
                 console.log('✅ تم استعادة التوكن بنجاح من localStorage');
                 await loadInitialData();
+                initialDataLoaded = true; // تم تحميل البيانات
                 checkAuthStatus();
                 return;
 
@@ -315,6 +317,7 @@ async function handleAuthClick() {
 
                 try {
                     await loadInitialData();
+                    initialDataLoaded = true; // تم تحميل البيانات
                     resolve();
                 } catch (error) {
                     console.error('فشل تحميل البيانات بعد المصادقة:', error);
@@ -767,6 +770,7 @@ function logout() {
     currentUserRole = '';
     resetCashierDailyData();
     handleAuthFailure(); // مسح حالة المصادقة عند تسجيل الخروج
+    initialDataLoaded = false; // إعادة تعيين علامة تحميل البيانات
     showMessage('تم تسجيل الخروج بنجاح.', 'success');
 }
 
@@ -1326,13 +1330,17 @@ async function addExpense() {
             cashier: currentUser.username
         };
 
-        if (formType === 'إنستا') {
+        // تحديث البيانات المحلية بعد الإضافة
+        const category = categories.find(c => c.name === newEntry.category || c.code === newEntry.categoryCode);
+        const formTypeForNewEntry = category ? category.formType : 'عادي';
+
+        if (formTypeForNewEntry === 'إنستا') {
             cashierDailyData.insta.push(newEntry);
             cashierDailyData.totalInsta += amount;
-        } else if (formType === 'فيزا') {
+        } else if (formTypeForNewEntry === 'فيزا') {
             cashierDailyData.visa.push(newEntry);
             cashierDailyData.totalVisa += amount;
-        } else if (formType === 'اونلاين') {
+        } else if (formTypeForNewEntry === 'اونلاين') {
             cashierDailyData.online.push(newEntry);
             cashierDailyData.totalOnline += amount;
         } else {
@@ -1341,10 +1349,10 @@ async function addExpense() {
         }
 
         if (formType === 'اجل') {
-            await loadCustomers();
+            await loadCustomers(); // إعادة تحميل العملاء لتحديث رصيد الأجل
             displayCustomers('customersTableBodyCashier');
         }
-        loadCashierExpenses();
+        filterCashierExpenses(); // إعادة فلترة وعرض المصروفات المحدثة
     } else {
         showMessage('فشل إضافة المصروف.', 'error');
     }
@@ -1408,7 +1416,7 @@ function filterCashierExpenses() {
 
     tableBody.innerHTML = '';
 
-    let filtered = [...cashierDailyData.expenses, ...cashierDailyData.insta, ...cashierDailyData.visa, ...cashierDailyData.online]; // تم تصحيح dailyOnline
+    let filtered = [...cashierDailyData.expenses, ...cashierDailyData.insta, ...cashierDailyData.visa, ...cashierDailyData.online];
 
     if (categoryFilter) {
         filtered = filtered.filter(exp => exp.category === categoryFilter);
@@ -1427,7 +1435,7 @@ function filterCashierExpenses() {
         return;
     }
 
-    filtered.sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.time}`)); // تم تصحيح a.date الثانية إلى a.time
+    filtered.sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.time}`));
 
     filtered.forEach(exp => {
         const row = tableBody.insertRow();
@@ -1641,7 +1649,7 @@ async function addCustomer() {
     if (result.success) {
         showMessage('تم إضافة العميل بنجاح.', 'success');
         closeModal('addCustomerModal');
-        await loadCustomers();
+        await loadCustomers(); // إعادة تحميل العملاء لتحديث القائمة
         displayCustomers('customersTableBodyCashier');
         displayCustomers('customersTableBodyAccountant');
         updateAccountantDashboard();
@@ -1800,8 +1808,8 @@ async function finalizeCashierShiftCloseout() {
 // --- Accountant Page Functions ---
 async function showAccountantPage() {
     document.getElementById('loginPage').classList.remove('active');
-    document.getElementById('accountantPage').classList.remove('active');
-    document.getElementById('cashierPage').classList.add('active');
+    document.getElementById('cashierPage').classList.remove('active');
+    document.getElementById('accountantPage').classList.add('active');
     document.getElementById('accountantNameDisplay').textContent = currentUserName;
     document.getElementById('currentDateAccountant').textContent = new Date().toLocaleDateString('ar-EG');
 
@@ -2983,16 +2991,10 @@ window.onclick = function(event) {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, starting Google scripts loading...');
 
-    // إضافة علم لمنع التهيئة المزدوجة
-    if (window.hasInitializedApp) {
-        console.log('App already initialized. Skipping DOMContentLoaded logic.');
-        return;
-    }
-    window.hasInitializedApp = true; // تعيين العلم
-
     loadGoogleScripts().then(() => {
         console.log('Google Scripts loaded successfully.');
-        checkInitializationStatus();
+        // لا تستدعي checkInitializationStatus هنا، لأن maybeEnableButtons ستُستدعى من gisLoaded
+        // checkInitializationStatus(); // تم إزالة هذا الاستدعاء
     }).catch(error => {
         console.error('Failed to load Google Scripts:', error);
         showMessage('فشل تحميل مكتبات Google. يرجى التحقق من الاتصال بالإنترنت.', 'error');
