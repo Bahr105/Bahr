@@ -11,6 +11,10 @@ function handleAuthSuccess() {
 function handleAuthFailure() {
     isAuthenticated = false;
     localStorage.removeItem('googleAuthState');
+    // Clear any existing token from gapi client
+    if (gapi.client.getToken()) {
+        gapi.client.setToken(null);
+    }
 }
 
 // في بداية script.js - حل بديل
@@ -34,9 +38,9 @@ function loadGoogleScripts() {
 }
 
 // --- Google Sheets API Configuration ---
-const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU'; 
-const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com'; 
-const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; 
+const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU';
+const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com';
+const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
 const SHEETS = {
@@ -48,18 +52,18 @@ const SHEETS = {
     CUSTOMER_CREDIT_HISTORY: 'CustomerCreditHistory'
 };
 
- let gapiInited = false;
-    let gisInited = false;
-    let tokenClient;
-    
-    // دالة لحفظ حالة المصادقة
-    function saveAuthState() {
-        localStorage.setItem('googleAuthState', isAuthenticated ? 'authenticated' : 'not_authenticated');
-    }
-    // دالة لتحميل حالة المصادقة
-    function loadAuthState() {
-        return localStorage.getItem('googleAuthState') === 'authenticated';
-    }
+let gapiInited = false;
+let gisInited = false;
+let tokenClient;
+
+// دالة لحفظ حالة المصادقة (تم تبسيطها)
+function saveAuthState() {
+    localStorage.setItem('googleAuthState', isAuthenticated ? 'authenticated' : 'not_authenticated');
+}
+// دالة لتحميل حالة المصادقة (تم تبسيطها)
+function loadAuthState() {
+    return localStorage.getItem('googleAuthState') === 'authenticated';
+}
 
 // --- Global Application State ---
 let users = [];
@@ -98,34 +102,19 @@ async function initializeGapiClient() {
             discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
         });
         gapiInited = true;
-        
-        // تحقق من المصادقة الحالية فور تهيئة GAPI
-        const existingToken = gapi.client.getToken();
-        const wasAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated';
-        
-        if (existingToken && wasAuthenticated && isTokenValid()) {
-            isAuthenticated = true;
-            console.log('تم استعادة جلسة المصادقة الحالية');
-            await loadInitialData();
-        } else {
-            // امسح أي token غير صالح
-            if (existingToken) {
-                gapi.client.setToken(null);
-                localStorage.removeItem('googleAuthState');
-            }
-            await maybeEnableButtons();
-        }
+        console.log('GAPI client initialized.');
+        await maybeEnableButtons(); // استدعاء maybeEnableButtons بعد تهيئة GAPI
     } catch (error) {
         console.error('Error initializing GAPI client:', error);
         showMessage('فشل تهيئة Google API', 'error');
+        handleAuthFailure(); // تأكد من مسح حالة المصادقة عند فشل التهيئة
     }
 }
 
 function handleAuthError(error) {
     console.error('Authentication error:', error);
-    isAuthenticated = false;
-    localStorage.removeItem('googleAuthState');
-    
+    handleAuthFailure(); // استخدم الدالة الموحدة لمسح حالة المصادقة
+
     if (error.error === 'popup_closed_by_user') {
         showMessage('تم إغلاق نافذة المصادقة. يرجى المحاولة مرة أخرى.', 'warning');
     } else if (error.error === 'access_denied') {
@@ -140,150 +129,76 @@ function gisLoaded() {
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: CLIENT_ID,
             scope: SCOPES,
-            callback: '',
+            callback: '', // سيتم تعيين الـ callback ديناميكيًا في handleAuthClick
         });
         gisInited = true;
-        maybeEnableButtons();
+        console.log('GIS client initialized.');
+        maybeEnableButtons(); // استدعاء maybeEnableButtons بعد تهيئة GIS
     } catch (error) {
         console.error('Error initializing GIS:', error);
         showMessage('فشل تهيئة Google Identity Services', 'error');
+        handleAuthFailure(); // تأكد من مسح حالة المصادقة عند فشل التهيئة
     }
 }
 
 async function maybeEnableButtons() {
-    if (gapiInited && gisInited) {
-        const existingToken = gapi.client.getToken();
-        const wasAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated';
-
-        // إذا كان هناك token سابق وحالة مصادقة محفوظة
-        if (existingToken && wasAuthenticated) {
-            // تحقق من صلاحية الـ token
-            if (existingToken.expires_at && existingToken.expires_at > Date.now()) {
-                isAuthenticated = true;
-                console.log('تم استعادة المصادقة السابقة بنجاح');
-                await loadInitialData();
-                return;
-            } else {
-                // الـ token منتهي الصلاحية، احذفها
-                gapi.client.setToken(null);
-                localStorage.removeItem('googleAuthState');
-                isAuthenticated = false;
-            }
-        }
-
-        // إذا لم يكن هناك مصادقة سارية، اطلب المصادقة مع نافذة الموافقة
-        if (!isAuthenticated) {
-            console.log('جاري طلب المصادقة...');
-            await handleAuthClick();
-        }
+    if (!gapiInited || !gisInited) {
+        console.log('GAPI or GIS not yet initialized. Waiting...');
+        return;
     }
-}
 
+    const existingToken = gapi.client.getToken();
+    const wasAuthenticatedInLocalStorage = loadAuthState();
 
-// دالة لحفظ حالة المصادقة
-function saveAuthState() {
-    if (isAuthenticated) {
-        localStorage.setItem('googleAuthState', 'authenticated');
+    if (existingToken && wasAuthenticatedInLocalStorage && isTokenValid()) {
+        isAuthenticated = true;
+        console.log('تم استعادة المصادقة السابقة بنجاح من الذاكرة المحلية والتوكن صالح.');
+        await loadInitialData();
     } else {
-        localStorage.removeItem('googleAuthState');
+        // إذا لم يكن هناك توكن صالح أو لم تتم المصادقة في localStorage
+        console.log('لا توجد مصادقة سارية أو التوكن غير صالح. جاري طلب المصادقة...');
+        handleAuthFailure(); // تأكد من مسح أي حالة مصادقة غير صالحة
+        await handleAuthClick(); // اطلب المصادقة
     }
 }
 
-// دالة لتحميل حالة المصادقة
-function loadAuthState() {
-    return localStorage.getItem('googleAuthState') === 'authenticated';
-}
-
-// تعديل الدالة maybeEnableButtons لاستخدام localStorage
-    async function maybeEnableButtons() {
-    if (gapiInited && gisInited) {
-        const existingToken = gapi.client.getToken();
-        const wasAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated';
-
-        // إذا كان هناك token سابق وحالة مصادقة محفوظة
-        if (existingToken && wasAuthenticated) {
-            // تحقق من صلاحية الـ token
-            if (existingToken.expires_at && existingToken.expires_at > Date.now()) {
-                isAuthenticated = true;
-                console.log('تم استعادة المصادقة السابقة بنجاح');
-                await loadInitialData();
-                return;
-            } else {
-                // الـ token منتهي الصلاحية، احذفها
-                gapi.client.setToken(null);
-                localStorage.removeItem('googleAuthState');
-                isAuthenticated = false;
-            }
-        }
-
-        // إذا لم يكن هناك مصادقة سارية، اطلب المصادقة
-        if (!isAuthenticated) {
-            console.log('جاري طلب المصادقة...');
-            await handleAuthClick();
-        }
+async function handleAuthClick() {
+    if (isAuthenticated) {
+        console.log('المستخدم مصادق عليه بالفعل، تخطي طلب المصادقة.');
+        return Promise.resolve();
     }
-
-
-
-        if (gapiInited && gisInited && !isAuthenticated) {
-            // تحقق من localStorage أولاً
-            const wasAuthenticated = loadAuthState();
-            
-            // Check if user was previously authenticated
-            const existingToken = gapi.client.getToken();
-            
-            if ((wasAuthenticated || existingToken) && existingToken && existingToken.expires_at && existingToken.expires_at > Date.now()) {
-                isAuthenticated = true;
-                console.log('User was previously authenticated, skipping popup');
-                await loadInitialData();
-                return;
-            }
-            
-            // فقط إذا لم يكن المستخدم مسجلاً مسبقًا، اطلب المصادقة
-            await handleAuthClick().then(() => {
-                isAuthenticated = true;
-                saveAuthState(); // حفظ حالة المصادقة
-                loadInitialData();
-            }).catch(error => {
-                console.error('Authentication failed:', error);
-                isAuthenticated = false;
-                saveAuthState();
-            });
-        }
-    }
-    
-               async function handleAuthClick() {
-    if (isAuthenticated) return Promise.resolve();
 
     return new Promise((resolve, reject) => {
         tokenClient.callback = async (resp) => {
             if (resp.error !== undefined) {
                 console.error('فشل المصادقة:', resp.error);
-                isAuthenticated = false;
-                localStorage.removeItem('googleAuthState');
+                handleAuthError(resp); // استخدم دالة معالجة الأخطاء الموحدة
                 reject(resp);
             } else {
-                isAuthenticated = true;
-                localStorage.setItem('googleAuthState', 'authenticated');
-                console.log('تمت المصادقة بنجاح');
-                
+                // المصادقة ناجحة
+                handleAuthSuccess(); // استخدم دالة النجاح الموحدة
+                console.log('تمت المصادقة بنجاح. جاري تحميل البيانات الأولية...');
+
                 // تحميل البيانات بعد المصادقة الناجحة
                 try {
                     await loadInitialData();
                     resolve();
                 } catch (error) {
                     console.error('فشل تحميل البيانات بعد المصادقة:', error);
+                    showMessage('فشل تحميل البيانات بعد المصادقة.', 'error');
                     reject(error);
                 }
             }
         };
 
-        // اطلب المصادقة مع إظهار نافذة الموافقة إذا لزم الأمر
+        // اطلب المصادقة.
+        // إذا كان هناك توكن سابق (حتى لو منتهي الصلاحية)، حاول تحديثه بصمت.
+        // إذا لم يكن هناك توكن أو فشل التحديث الصامت، اطلب موافقة المستخدم.
         if (gapi.client.getToken() === null) {
-            // أول مصادقة - اطلب موافقة المستخدم
+            console.log('لا يوجد توكن سابق، طلب موافقة المستخدم.');
             tokenClient.requestAccessToken({ prompt: 'consent' });
         } else {
-            // محاولة مصادقة تلقائية بدون نافذة
+            console.log('يوجد توكن سابق، محاولة تحديثه بصمت.');
             tokenClient.requestAccessToken({ prompt: 'none' });
         }
     });
@@ -295,17 +210,17 @@ window.addEventListener('beforeunload', () => {
     saveAuthState();
 });
 
-    function isTokenValid() {
+function isTokenValid() {
     const token = gapi.client.getToken();
     if (!token) return false;
-    
+
     // تحقق من وجود وقت انتهاء الصلاحية
     if (token.expires_at) {
-        // اترك هامش أمان 5 دقائق
+        // اترك هامش أمان 5 دقائق (300000 مللي ثانية)
         return token.expires_at > (Date.now() + 300000);
     }
-    
-    // إذا لم يكن هناك وقت انتهاء، افترض أنها صالحة
+
+    // إذا لم يكن هناك وقت انتهاء، افترض أنها صالحة (قد تحتاج إلى مراجعة هذا المنطق)
     return true;
 }
 
@@ -314,9 +229,13 @@ window.addEventListener('beforeunload', () => {
 async function readSheet(sheetName, range = 'A:Z') {
     try {
         if (!isAuthenticated) {
-            await handleAuthClick();
+            console.log(`Not authenticated for readSheet(${sheetName}). Attempting re-authentication.`);
+            await handleAuthClick(); // حاول المصادقة إذا لم تكن مصادقًا
+            if (!isAuthenticated) {
+                throw new Error('Authentication failed before reading sheet.');
+            }
         }
-        
+
         const fullRange = range ? `${sheetName}!${range}` : `${sheetName}!A:Z`;
         const response = await gapi.client.sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
@@ -333,9 +252,13 @@ async function readSheet(sheetName, range = 'A:Z') {
 async function appendToSheet(sheetName, values) {
     try {
         if (!isAuthenticated) {
+            console.log(`Not authenticated for appendToSheet(${sheetName}). Attempting re-authentication.`);
             await handleAuthClick();
+            if (!isAuthenticated) {
+                throw new Error('Authentication failed before appending to sheet.');
+            }
         }
-        
+
         const response = await gapi.client.sheets.spreadsheets.values.append({
             spreadsheetId: SPREADSHEET_ID,
             range: `${sheetName}!A:Z`,
@@ -354,9 +277,13 @@ async function appendToSheet(sheetName, values) {
 async function updateSheet(sheetName, range, values) {
     try {
         if (!isAuthenticated) {
+            console.log(`Not authenticated for updateSheet(${sheetName}). Attempting re-authentication.`);
             await handleAuthClick();
+            if (!isAuthenticated) {
+                throw new Error('Authentication failed before updating sheet.');
+            }
         }
-        
+
         const response = await gapi.client.sheets.spreadsheets.values.update({
             spreadsheetId: SPREADSHEET_ID,
             range: `${sheetName}!${range}`,
@@ -601,7 +528,7 @@ async function loadInitialData() {
 function populateUserDropdown() {
     const usernameSelect = document.getElementById('username');
     if (!usernameSelect) return;
-    
+
     usernameSelect.innerHTML = '<option value="">اختر المستخدم</option>';
     users.forEach(user => {
         const option = document.createElement('option');
@@ -615,14 +542,14 @@ function populateUserDropdown() {
 async function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
-    
+
     if (!username || !password) {
         showMessage('يرجى اختيار المستخدم وإدخال كلمة المرور.', 'warning');
         return;
     }
 
     const user = users.find(u => u.username === username && u.password === password);
-    
+
     if (user) {
         if (user.status === 'محظور') {
             showMessage('هذا المستخدم محظور. اتصل بالمدير.', 'error');
@@ -658,6 +585,7 @@ function logout() {
     currentUserName = '';
     currentUserRole = '';
     resetCashierDailyData();
+    handleAuthFailure(); // مسح حالة المصادقة عند تسجيل الخروج
     showMessage('تم تسجيل الخروج بنجاح.', 'success');
 }
 
@@ -687,7 +615,7 @@ function showTab(tabId) {
     if (targetTab) {
         targetTab.classList.add('active');
     }
-    
+
     const targetNavTab = document.querySelector(`[onclick="showTab('${tabId}')"]`);
     if (targetNavTab) {
         targetNavTab.classList.add('active');
@@ -701,11 +629,11 @@ function showTab(tabId) {
         populateExpenseCategoryFilter();
     } else if (tabId === 'customersTabCashier') {
         displayCustomers('customersTableBodyCashier');
-    } else if (tabId === 'customersTabAccountant') { 
+    } else if (tabId === 'customersTabAccountant') {
         displayCustomers('customersTableBodyAccountant');
         const customerDetailsAccountant = document.getElementById('customerDetailsAccountant');
-        if (customerDetailsAccountant) { 
-            customerDetailsAccountant.style.display = 'none'; 
+        if (customerDetailsAccountant) {
+            customerDetailsAccountant.style.display = 'none';
         }
     } else if (tabId === 'dashboardTabAccountant') {
         populateAccountantFilters();
@@ -715,9 +643,9 @@ function showTab(tabId) {
     } else if (tabId === 'reportsTabAccountant') {
         populateReportFilters();
         generateAccountantReport();
-        
+
     } else if (tabId === 'shiftCloseTabAccountant') {
-        populateAccountantShiftCashierFilter(); 
+        populateAccountantShiftCashierFilter();
         loadAccountantShiftClosuresHistory();
         resetAccountantShiftForm();
     }
@@ -730,7 +658,7 @@ async function showCashierPage() {
     document.getElementById('cashierPage').classList.add('active');
     document.getElementById('cashierNameDisplay').textContent = currentUserName;
     document.getElementById('currentDateCashier').textContent = new Date().toLocaleDateString('ar-EG');
-    
+
     await loadCategories();
     await loadCustomers();
     resetCashierDailyData();
@@ -753,29 +681,29 @@ function resetCashierDailyData() {
         shiftStartTime: null,
         shiftEndTime: null,
     };
-    
+
     const expenseTableBody = document.getElementById('expensesTableBodyCashier');
     if (expenseTableBody) {
         expenseTableBody.innerHTML = '';
     }
-    
+
     const shiftSummary = document.getElementById('shiftSummaryCashier');
     if (shiftSummary) {
         shiftSummary.style.display = 'none';
     }
-    
+
     const drawerCash = document.getElementById('drawerCashCashier');
     if (drawerCash) {
         drawerCash.value = '';
     }
-    
+
     setDefaultDatesAndTimes();
 }
 
 function setDefaultDatesAndTimes() {
     const today = new Date().toISOString().split('T')[0];
     const timeNow = new Date().toTimeString().split(' ')[0].substring(0, 5);
-    
+
     const elements = [
         'shiftDateFromCashier',
         'shiftDateToCashier',
@@ -788,19 +716,19 @@ function setDefaultDatesAndTimes() {
         'accountantShiftDateFrom',
         'accountantShiftDateTo'
     ];
-    
+
     elements.forEach(id => {
         const element = document.getElementById(id);
         if (element) element.value = today;
     });
-    
+
     const timeElements = [
         'shiftTimeFromCashier',
         'shiftTimeToCashier',
         'accountantShiftTimeFrom',
         'accountantShiftTimeTo'
     ];
-    
+
     timeElements.forEach(id => {
         const element = document.getElementById(id);
         if (element) element.value = timeNow;
@@ -811,7 +739,7 @@ function setDefaultDatesAndTimes() {
 function displayCategories(gridId) {
     const categoriesGrid = document.getElementById(gridId);
     if (!categoriesGrid) return;
-    
+
     categoriesGrid.innerHTML = '';
     if (categories.length === 0) {
         categoriesGrid.innerHTML = '<p>لا توجد تصنيفات مسجلة.</p>';
@@ -890,14 +818,14 @@ async function addCategory() {
 function showAddExpenseModal() {
     const form = document.getElementById('addExpenseForm');
     if (form) form.reset();
-    
+
     document.getElementById('expenseCategorySearch').value = '';
     document.getElementById('expenseCategorySuggestions').innerHTML = '';
     document.getElementById('selectedExpenseCategoryCode').value = '';
     document.getElementById('selectedExpenseCategoryName').value = '';
     document.getElementById('selectedExpenseCategoryFormType').value = '';
     document.getElementById('dynamicExpenseForm').innerHTML = '';
-    
+
     const modal = document.getElementById('addExpenseModal');
     if (modal) modal.classList.add('active');
 }
@@ -905,16 +833,16 @@ function showAddExpenseModal() {
 function searchExpenseCategories(searchTerm) {
     const suggestionsDiv = document.getElementById('expenseCategorySuggestions');
     if (!suggestionsDiv) return;
-    
+
     suggestionsDiv.innerHTML = '';
-    
+
     if (searchTerm.length < 2) {
         suggestionsDiv.style.display = 'none';
         return;
     }
 
-    const filtered = categories.filter(cat => 
-        cat.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const filtered = categories.filter(cat =>
+        cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         cat.code.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -931,7 +859,7 @@ function searchExpenseCategories(searchTerm) {
         item.onclick = () => selectExpenseCategory(cat);
         suggestionsDiv.appendChild(item);
     });
-    
+
     suggestionsDiv.style.display = 'block';
 }
 
@@ -941,14 +869,14 @@ function selectExpenseCategory(category) {
     document.getElementById('selectedExpenseCategoryName').value = category.name;
     document.getElementById('selectedExpenseCategoryFormType').value = category.formType;
     document.getElementById('expenseCategorySuggestions').style.display = 'none';
-    
+
     generateDynamicExpenseForm(category.formType);
 }
 
 function generateDynamicExpenseForm(formType) {
     const dynamicFormDiv = document.getElementById('dynamicExpenseForm');
     if (!dynamicFormDiv) return;
-    
+
     let formHtml = ``;
 
     // إضافة حقل رقم الفاتورة لجميع الأنواع التي تتطلبها، بما في ذلك "أجل"
@@ -971,7 +899,7 @@ function generateDynamicExpenseForm(formType) {
             <input type="text" id="expenseNotes" placeholder="أدخل ملاحظات">
         </div>
     `;
-    
+
     if (formType === 'فيزا') {
         formHtml += `
             <div class="form-group">
@@ -1038,16 +966,16 @@ function generateDynamicExpenseForm(formType) {
 function searchCustomersForExpense(searchTerm) {
     const suggestionsDiv = document.getElementById('customerSuggestions');
     if (!suggestionsDiv) return;
-    
+
     suggestionsDiv.innerHTML = '';
-    
+
     if (searchTerm.length < 2) {
         suggestionsDiv.style.display = 'none';
         return;
     }
 
-    const filtered = customers.filter(cust => 
-        cust.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const filtered = customers.filter(cust =>
+        cust.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         cust.phone.includes(searchTerm)
     );
 
@@ -1064,7 +992,7 @@ function searchCustomersForExpense(searchTerm) {
         item.onclick = () => selectCustomerForExpense(cust);
         suggestionsDiv.appendChild(item);
     });
-    
+
     suggestionsDiv.style.display = 'block';
 }
 
@@ -1084,7 +1012,7 @@ function showAddCustomerModalFromExpense() {
 
 async function addExpense() {
     const now = new Date();
-    
+
     const categoryCode = document.getElementById('selectedExpenseCategoryCode').value;
     const categoryName = document.getElementById('selectedExpenseCategoryName').value;
     const formType = document.getElementById('selectedExpenseCategoryFormType').value;
@@ -1111,12 +1039,12 @@ async function addExpense() {
             showMessage('يرجى اختيار العميل الآجل.', 'warning');
             return;
         }
-        
+
         const customerIndex = customers.findIndex(c => c.id === customerId);
         if (customerIndex !== -1) {
             const currentCustomer = customers[customerIndex];
             const newTotalCredit = currentCustomer.totalCredit + amount;
-            
+
             const rowIndex = await findRowIndex(SHEETS.CUSTOMERS, 0, customerId);
             if (rowIndex !== -1) {
                 const updateResult = await updateSheet(SHEETS.CUSTOMERS, `D${rowIndex}`, [newTotalCredit.toFixed(2)]);
@@ -1156,7 +1084,7 @@ async function addExpense() {
     }
 
     const expenseId = 'EXP_' + now.getTime();
-    
+
     let expenseData = [
         expenseId,
         categoryName,
@@ -1183,7 +1111,7 @@ async function addExpense() {
     if (result.success) {
         showMessage(`تم إضافة ${categoryName} بنجاح.`, 'success');
         closeModal('addExpenseModal');
-        
+
         const newEntry = {
             id: expenseId,
             category: categoryName,
@@ -1209,9 +1137,9 @@ async function addExpense() {
             cashierDailyData.expenses.push(newEntry);
             cashierDailyData.totalExpenses += amount;
         }
-        
+
         if (formType === 'اجل') {
-            await loadCustomers(); 
+            await loadCustomers();
             displayCustomers('customersTableBodyCashier');
         }
         loadCashierExpenses();
@@ -1222,7 +1150,7 @@ async function addExpense() {
 
 async function loadCashierExpenses() {
     const expenses = await loadExpenses({ cashier: currentUser.username });
-    
+
     // Reset cashier data
     cashierDailyData.expenses = [];
     cashierDailyData.insta = [];
@@ -1241,7 +1169,7 @@ async function loadCashierExpenses() {
             cashierDailyData.insta.push(expense);
             cashierDailyData.totalInsta += expense.amount;
         } else if (formType === 'فيزا') {
-            cashierDailyData.visa.push(expense);
+            cashierDailyData.visa.push(newEntry);
             cashierDailyData.totalVisa += expense.amount;
         } else if (formType === 'اونلاين') {
             cashierDailyData.online.push(expense);
@@ -1258,7 +1186,7 @@ async function loadCashierExpenses() {
 function populateExpenseCategoryFilter() {
     const filterSelect = document.getElementById('expenseCategoryFilterCashier');
     if (!filterSelect) return;
-    
+
     filterSelect.innerHTML = '<option value="">جميع التصنيفات</option>';
     categories.forEach(cat => {
         const option = document.createElement('option');
@@ -1273,9 +1201,9 @@ function filterCashierExpenses() {
     const dateFromFilter = document.getElementById('expenseDateFromFilterCashier')?.value || '';
     const dateToFilter = document.getElementById('expenseDateToFilterCashier')?.value || '';
     const tableBody = document.getElementById('expensesTableBodyCashier');
-    
+
     if (!tableBody) return;
-    
+
     tableBody.innerHTML = '';
 
     let filtered = [...cashierDailyData.expenses, ...cashierDailyData.insta, ...cashierDailyData.visa, ...cashierDailyData.online];
@@ -1316,11 +1244,11 @@ function clearCashierExpenseFilters() {
     const categoryFilter = document.getElementById('expenseCategoryFilterCashier');
     const dateFromFilter = document.getElementById('expenseDateFromFilterCashier');
     const dateToFilter = document.getElementById('expenseDateToFilterCashier');
-    
+
     if (categoryFilter) categoryFilter.value = '';
     if (dateFromFilter) dateFromFilter.value = '';
     if (dateToFilter) dateToFilter.value = '';
-    
+
     filterCashierExpenses();
 }
 
@@ -1328,7 +1256,7 @@ function clearCashierExpenseFilters() {
 function displayCustomers(tableBodyId) {
     const tableBody = document.getElementById(tableBodyId);
     if (!tableBody) return;
-    
+
     tableBody.innerHTML = '';
     if (customers.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="5">لا توجد عملاء مسجلين.</td></tr>';
@@ -1342,7 +1270,7 @@ function displayCustomers(tableBodyId) {
         row.insertCell().textContent = cust.totalCredit.toFixed(2);
         row.insertCell().textContent = new Date(cust.creationDate).toLocaleDateString('ar-EG');
         const actionsCell = row.insertCell();
-        
+
         if (tableBodyId === 'customersTableBodyAccountant') {
             actionsCell.innerHTML = `
                 <button class="edit-btn" onclick="showMessage('وظيفة تعديل العميل غير متاحة حالياً.', 'warning')"><i class="fas fa-edit"></i> تعديل</button>
@@ -1473,7 +1401,7 @@ async function processCustomerPayment() {
 function showAddCustomerModal(fromExpense = false) {
     const form = document.getElementById('addCustomerForm');
     if (form) form.reset();
-    
+
     const modal = document.getElementById('addCustomerModal');
     if (modal) {
         modal.classList.add('active');
@@ -1540,7 +1468,7 @@ async function calculateCashierShift() {
     }
 
     showLoading(true);
-    
+
     try {
         const filters = {
             dateFrom: dateFrom,
@@ -1551,7 +1479,7 @@ async function calculateCashierShift() {
         };
 
         const expenses = await loadExpenses(filters);
-        
+
         let categorizedExpenses = {
             expenses: [],
             insta: [],
@@ -1591,7 +1519,7 @@ async function calculateCashierShift() {
         document.getElementById('grandTotalCashier').textContent = grandTotal.toFixed(2);
 
         document.getElementById('shiftSummaryCashier').style.display = 'block';
-        
+
         showMessage('تم حساب الشيفت بنجاح.', 'success');
     } catch (error) {
         showMessage('حدث خطأ أثناء حساب الشيفت.', 'error');
@@ -1603,18 +1531,18 @@ async function calculateCashierShift() {
 
 async function finalizeCashierShiftCloseout() {
     const drawerCash = parseFloat(document.getElementById('drawerCashCashier').value);
-    
+
     if (isNaN(drawerCash) || drawerCash < 0) {
         showMessage('يرجى إدخال قيمة صحيحة للنقدية في الدرج.', 'warning');
         return;
     }
 
     showLoading(true);
-    
+
     try {
         const now = new Date();
         const shiftId = 'SHIFT_' + now.getTime();
-        
+
         const totalExpenses = parseFloat(document.getElementById('totalExpensesCashier').textContent) || 0;
         const expenseCount = parseInt(document.getElementById('expenseCountCashier').textContent) || 0;
         const totalInsta = parseFloat(document.getElementById('totalInstaCashier').textContent) || 0;
@@ -1674,7 +1602,7 @@ async function showAccountantPage() {
     document.getElementById('accountantPage').classList.add('active');
     document.getElementById('accountantNameDisplay').textContent = currentUserName;
     document.getElementById('currentDateAccountant').textContent = new Date().toLocaleDateString('ar-EG');
-    
+
     await loadUsers();
     await loadCategories();
     await loadCustomers();
@@ -1699,7 +1627,7 @@ function populateAccountantFilters() {
 
     // Populate cashier filter for shift closure
     populateAccountantShiftCashierFilter();
-    
+
     // Populate category filter for reports
     populateReportFilters();
 }
@@ -1782,11 +1710,11 @@ async function updateAccountantDashboard() {
         const activeCashiers = users.filter(u => u.role === 'كاشير' && u.status === 'نشط').length;
         const suspendedCashiers = users.filter(u => u.role === 'كاشير' && u.status === 'موقوف').length;
         const blockedCashiers = users.filter(u => u.role === 'كاشير' && u.status === 'محظور').length;
-        
+
         const totalActiveElement = document.getElementById('totalActiveCashiersAccountant');
         const totalInactiveElement = document.getElementById('totalInactiveCashiersAccountant');
         const totalBlockedElement = document.getElementById('totalBlockedCashiersAccountant');
-        
+
         if (totalActiveElement) totalActiveElement.textContent = activeCashiers;
         if (totalInactiveElement) totalInactiveElement.textContent = suspendedCashiers;
         if (totalBlockedElement) totalBlockedElement.textContent = blockedCashiers;
@@ -1796,12 +1724,12 @@ async function updateAccountantDashboard() {
         const customersWithCredit = customers.filter(c => c.totalCredit > 0).length;
         const totalCredit = customers.reduce((sum, c) => sum + c.totalCredit, 0);
         const zeroCreditCustomers = customers.filter(c => c.totalCredit === 0).length;
-        
+
         const totalCustomersElement = document.getElementById('totalCustomersAccountant');
         const customersWithCreditElement = document.getElementById('customersWithCreditAccountant');
         const totalCreditAmountElement = document.getElementById('totalCreditAmountAccountant');
         const customersWithZeroCreditElement = document.getElementById('customersWithZeroCreditAccountant');
-        
+
         if (totalCustomersElement) totalCustomersElement.textContent = totalCustomers;
         if (customersWithCreditElement) customersWithCreditElement.textContent = customersWithCredit;
         if (totalCreditAmountElement) totalCreditAmountElement.textContent = totalCredit.toFixed(2);
@@ -1826,7 +1754,7 @@ async function updateAccountantCashierOverview(filters) {
 
     for (const cashier of cashiers) {
         const expenses = await loadExpenses({ ...filters, cashier: cashier.username });
-        
+
         let normalExpenses = [];
         let visaExpenses = [];
         let instaExpenses = [];
@@ -1857,11 +1785,11 @@ async function updateAccountantCashierOverview(filters) {
         const onlineCount = onlineExpenses.length;
 
         // Get last activity date
-        const lastActivity = expenses.length > 0 ? 
-            Math.max(...expenses.map(exp => new Date(exp.date))) : 
+        const lastActivity = expenses.length > 0 ?
+            Math.max(...expenses.map(exp => new Date(exp.date))) :
             null;
-        const lastActivityStr = lastActivity ? 
-            new Date(lastActivity).toLocaleDateString('ar-EG') : 
+        const lastActivityStr = lastActivity ?
+            new Date(lastActivity).toLocaleDateString('ar-EG') :
             'لا يوجد نشاط';
 
         const row = tableBody.insertRow();
@@ -1875,7 +1803,7 @@ async function updateAccountantCashierOverview(filters) {
         row.insertCell().textContent = totalOnline.toFixed(2);
         row.insertCell().textContent = onlineCount;
         row.insertCell().textContent = lastActivityStr;
-        
+
         const statusCell = row.insertCell();
         statusCell.innerHTML = `<span class="status ${cashier.status === 'نشط' ? 'active' : 'inactive'}">${cashier.status}</span>`;
     }
@@ -1890,23 +1818,23 @@ async function searchInvoiceAccountant() {
     const searchInput = document.getElementById('searchInputAccountant');
     const invoiceNumber = searchInput?.value.trim();
     const resultDiv = document.getElementById('invoiceSearchResultAccountant');
-    
+
     if (!invoiceNumber) {
         showMessage('يرجى إدخال رقم الفاتورة للبحث.', 'warning');
         return;
     }
-    
+
     if (!resultDiv) return;
 
     showLoading(true);
     try {
         const allExpenses = await loadExpenses({});
-        const matchingExpenses = allExpenses.filter(exp => 
+        const matchingExpenses = allExpenses.filter(exp =>
             exp.invoiceNumber && exp.invoiceNumber.toLowerCase().includes(invoiceNumber.toLowerCase())
         );
 
         resultDiv.innerHTML = '';
-        
+
         if (matchingExpenses.length === 0) {
             resultDiv.innerHTML = '<p>لم يتم العثور على فواتير مطابقة لرقم الفاتورة المدخل.</p>';
             resultDiv.style.display = 'block';
@@ -1947,7 +1875,7 @@ async function searchInvoiceAccountant() {
         tableHtml += '</tbody></table>';
         resultDiv.innerHTML = tableHtml;
         resultDiv.style.display = 'block';
-        
+
         showMessage(`تم العثور على ${matchingExpenses.length} فاتورة مطابقة.`, 'success');
     } catch (error) {
         console.error('Error searching invoice:', error);
@@ -2018,7 +1946,7 @@ async function generateAccountantReport() {
                     online: []
                 };
             }
-            
+
             const category = categories.find(cat => cat.name === exp.category || cat.code === exp.categoryCode);
             const formType = category ? category.formType : 'عادي';
 
@@ -2056,7 +1984,7 @@ async function generateAccountantReport() {
             const totalVisa = cashierData.visa.reduce((sum, exp) => sum + exp.amount, 0);
             const totalInsta = cashierData.insta.reduce((sum, exp) => sum + exp.amount, 0);
             const totalOnline = cashierData.online.reduce((sum, exp) => sum + exp.amount, 0);
-            
+
             grandTotalNormal += totalNormal;
             grandTotalVisa += totalVisa;
             grandTotalInsta += totalInsta;
@@ -2093,7 +2021,7 @@ async function generateAccountantReport() {
                             </thead>
                             <tbody>
                     `;
-                    
+
                     allCashierExpenses.forEach(exp => {
                         reportHtml += `
                             <tr>
@@ -2106,11 +2034,11 @@ async function generateAccountantReport() {
                             </tr>
                         `;
                     });
-                    
+
                     reportHtml += '</tbody></table>';
                 }
             }
-            
+
             reportHtml += '</div>';
         });
 
@@ -2173,7 +2101,7 @@ function showWhatsAppModal() {
         showMessage('لا يوجد تقرير للإرسال. يرجى إنشاء التقرير أولاً.', 'warning');
         return;
     }
-    
+
     const modal = document.getElementById('whatsappModal');
     if (modal) {
         modal.classList.add('active');
@@ -2184,12 +2112,12 @@ function showWhatsAppModal() {
 function sendReportViaWhatsApp() {
     const phoneNumber = document.getElementById('whatsappNumber').value.trim();
     const reportContent = document.getElementById('reportContentAccountant');
-    
+
     if (!phoneNumber) {
         showMessage('يرجى إدخال رقم الواتساب.', 'warning');
         return;
     }
-    
+
     if (!reportContent || !reportContent.innerHTML.trim()) {
         showMessage('لا يوجد تقرير للإرسال.', 'error');
         return;
@@ -2199,11 +2127,11 @@ function sendReportViaWhatsApp() {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = reportContent.innerHTML;
     const reportText = tempDiv.textContent || tempDiv.innerText || '';
-    
+
     // Create WhatsApp URL
     const encodedText = encodeURIComponent(`تقرير المصروفات\n\n${reportText.substring(0, 1000)}...`);
     const whatsappUrl = `https://wa.me/${phoneNumber.replace(/\D/g, '')}?text=${encodedText}`;
-    
+
     window.open(whatsappUrl, '_blank');
     closeModal('whatsappModal');
     showMessage('تم فتح واتساب لإرسال التقرير.', 'success');
@@ -2227,12 +2155,12 @@ function displayUsers() {
         row.insertCell().textContent = user.phone;
         row.insertCell().textContent = user.username;
         row.insertCell().textContent = user.role;
-        
+
         const statusCell = row.insertCell();
         statusCell.innerHTML = `<span class="status ${user.status === 'نشط' ? 'active' : 'inactive'}">${user.status}</span>`;
-        
+
         row.insertCell().textContent = user.creationDate;
-        
+
         const actionsCell = row.insertCell();
         actionsCell.innerHTML = `
             <button class="edit-btn" onclick="editUser('${user.id}')"><i class="fas fa-edit"></i> تعديل</button>
@@ -2377,7 +2305,7 @@ async function saveNewPassword() {
 function showAddUserModal() {
     const form = document.getElementById('addUserForm');
     if (form) form.reset();
-    
+
     const modal = document.getElementById('addUserModal');
     if (modal) modal.classList.add('active');
 }
@@ -2440,29 +2368,29 @@ async function addUser() {
 // --- Shift Closure for Accountant ---
 function resetAccountantShiftForm() {
     const closureResultsAccountant = document.getElementById('closureResultsAccountant');
-    if (closureResultsAccountant) { 
+    if (closureResultsAccountant) {
         closureResultsAccountant.style.display = 'none';
     }
-    
+
     const differenceResultAccountant = document.getElementById('differenceResultAccountant');
-    if (differenceResultAccountant) { 
+    if (differenceResultAccountant) {
         differenceResultAccountant.style.display = 'none';
     }
-    
+
     const newmindTotalAccountant = document.getElementById('newmindTotalAccountant');
-    if (newmindTotalAccountant) { 
+    if (newmindTotalAccountant) {
         newmindTotalAccountant.value = '';
     }
-    
+
     // Reset form fields to current date/time
     setDefaultDatesAndTimes();
-    
+
     // Clear selected cashier
     const selectedCashier = document.getElementById('selectedCashierAccountant');
     if (selectedCashier) {
         selectedCashier.value = '';
     }
-    
+
     // Clear stored closure data
     window.currentClosureData = null;
 }
@@ -2527,7 +2455,7 @@ async function searchCashierClosuresAccountant() {
         let drawerCash = 0;
         if (closuresInPeriod.length > 0) {
             // رتب الإغلاقات تنازلياً بناءً على تاريخ الإغلاق (closureDate + closureTime)
-            const latestClosure = closuresInPeriod.sort((a, b) => 
+            const latestClosure = closuresInPeriod.sort((a, b) =>
                 new Date(`${b.closureDate}T${b.closureTime}:00`) - new Date(`${a.closureDate}T${a.closureTime}:00`)
             )[0];
             drawerCash = latestClosure.drawerCash || 0;
@@ -2579,14 +2507,14 @@ async function searchCashierClosuresAccountant() {
             visaCount: visaExpenses.length,
             totalInsta: totalInsta,
             instaCount: instaExpenses.length,
-            totalOnline: totalOnline,
+            totalOnline: onlineExpenses.length,
             onlineCount: onlineExpenses.length,
             drawerCash: drawerCash, // الآن من داخل الفترة
             grandTotal: grandTotal
         };
 
-        const cashierUser  = users.find(u => u.username === selectedCashier);
-        const cashierDisplayName = cashierUser  ? cashierUser .name : selectedCashier;
+        const cashierUser = users.find(u => u.username === selectedCashier);
+        const cashierDisplayName = cashierUser ? cashierUser.name : selectedCashier;
         const cashSource = closuresInPeriod.length > 0 ? ` (من آخر إغلاق داخل الفترة)` : ` (لا إغلاق داخل الفترة)`;
         showMessage(`تم البحث عن بيانات الكاشير ${cashierDisplayName} للفترة المحددة. إجمالي الكاش في الدرج: ${drawerCash.toFixed(2)}${cashSource}.`, 'success');
     } catch (error) {
@@ -2695,7 +2623,7 @@ async function closeCashierByAccountant() {
             const cashierUser = users.find(u => u.username === window.currentClosureData.cashier);
             const cashierDisplayName = cashierUser ? cashierUser.name : window.currentClosureData.cashier;
             showMessage(`تم تقفيل شيفت الكاشير ${cashierDisplayName} بنجاح بواسطة المحاسب.`, 'success');
-            
+
             // Reset form
             resetAccountantShiftForm();
             loadAccountantShiftClosuresHistory();
@@ -2727,20 +2655,20 @@ async function loadAccountantShiftClosuresHistory() {
 
     closures.forEach(closure => {
         const row = tableBody.insertRow();
-        
+
         // Get cashier display name
-        const cashierUser  = users.find(u => u.username === closure.cashier);
-        const cashierDisplayName = cashierUser  ? cashierUser .name : closure.cashier;
-        
+        const cashierUser = users.find(u => u.username === closure.cashier);
+        const cashierDisplayName = cashierUser ? cashierUser.name : closure.cashier;
+
         row.insertCell().textContent = cashierDisplayName;
         row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
-        
+
         // Calculate total cashier amount (expenses + visa + insta + online + drawer cash)
         const totalCashierAmount = closure.totalExpenses + closure.totalVisa + closure.totalInsta + closure.totalOnline + closure.drawerCash;
         row.insertCell().textContent = totalCashierAmount.toFixed(2);
-        
+
         row.insertCell().textContent = closure.newMindTotal.toFixed(2);
-        
+
         const differenceCell = row.insertCell();
         const diffValue = closure.difference;
         differenceCell.textContent = diffValue.toFixed(2);
@@ -2756,12 +2684,12 @@ async function loadAccountantShiftClosuresHistory() {
             differenceCell.style.color = 'blue';
             differenceCell.title = 'مطابق';
         }
-        
+
         const statusCell = row.insertCell();
         statusCell.innerHTML = `<span class="status ${closure.status === 'مغلق' || closure.status === 'مغلق بواسطة المحاسب' ? 'closed' : 'open'}">${closure.status}</span>`;
-        
+
         row.insertCell().textContent = `${closure.closureDate} ${closure.closureTime}`;
-        
+
         const actionsCell = row.insertCell();
         actionsCell.innerHTML = `
             <button class="view-btn" onclick="showMessage('عرض تفاصيل التقفيلة غير متاح حالياً.', 'info')">
@@ -2793,17 +2721,26 @@ function showMessage(message, type = 'info') {
     // Create message element
     const messageElement = document.createElement('div');
     messageElement.className = `message ${type}`;
-    
+
     // Add icon based on type
     let icon = '';
-    switch(type) {
-        case 'success': icon = '<i class="fas fa-check-circle"></i>'; break;
-        case 'error': icon = '<i class="fas fa-exclamation-circle"></i>'; break;
-        case 'warning': icon = '<i class="fas fa-exclamation-triangle"></i>'; break;
-        case 'info': icon = '<i class="fas fa-info-circle"></i>'; break;
-        default: icon = '<i class="fas fa-info-circle"></i>';
+    switch (type) {
+        case 'success':
+            icon = '<i class="fas fa-check-circle"></i>';
+            break;
+        case 'error':
+            icon = '<i class="fas fa-exclamation-circle"></i>';
+            break;
+        case 'warning':
+            icon = '<i class="fas fa-exclamation-triangle"></i>';
+            break;
+        case 'info':
+            icon = '<i class="fas fa-info-circle"></i>';
+            break;
+        default:
+            icon = '<i class="fas fa-info-circle"></i>';
     }
-    
+
     messageElement.innerHTML = `${icon} ${message}`;
     messageContainer.appendChild(messageElement);
 
@@ -2848,14 +2785,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }).catch(error => {
         console.error('Failed to load Google Scripts:', error);
         showMessage('فشل تحميل مكتبات Google. يرجى التحقق من الاتصال بالإنترنت.', 'error');
-        
+
         // إظهار زر لإعادة المحاولة
         const retryButton = document.createElement('button');
         retryButton.textContent = 'إعادة المحاولة';
         retryButton.onclick = () => location.reload();
         document.body.appendChild(retryButton);
     });
-    
+
     // Set default dates and times
     setDefaultDatesAndTimes();
 
@@ -2913,6 +2850,3 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
-
-
