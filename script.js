@@ -2361,6 +2361,7 @@ async function searchCashierClosuresAccountant() {
     }
 
     showLoading(true);
+
     try {
         const filters = {
             cashier: selectedCashier,
@@ -2392,18 +2393,24 @@ async function searchCashierClosuresAccountant() {
             }
         });
 
-        const closuresInPeriod = await loadShiftClosures({
-            cashier: selectedCashier,
-            dateFrom: dateFrom,
-            dateTo: dateTo,
-            timeFrom: timeFrom,
-            timeTo: timeTo
+        // Load all closures and filter them to find the latest drawerCash
+        const allClosures = await loadShiftClosures({}); // Load all closures without specific filters
+        
+        let drawerCash = 0;
+        const filteredClosuresForDrawerCash = allClosures.filter(closure => {
+            const closureStartDateTime = new Date(`${closure.dateFrom}T${closure.timeFrom}:00`);
+            const closureEndDateTime = new Date(`${closure.dateTo}T${closure.timeTo}:00`);
+            const searchStartDateTime = new Date(`${dateFrom}T${timeFrom}:00`);
+            const searchEndDateTime = new Date(`${dateTo}T${timeTo}:00`);
+
+            return closure.cashier === selectedCashier &&
+                   closureStartDateTime >= searchStartDateTime &&
+                   closureEndDateTime <= searchEndDateTime;
         });
 
-        let drawerCash = 0;
-        if (closuresInPeriod.length > 0) {
-            // Find the latest closure within the specified period
-            const latestClosure = closuresInPeriod.sort((a, b) =>
+        if (filteredClosuresForDrawerCash.length > 0) {
+            // Sort by closure date/time to get the latest one
+            const latestClosure = filteredClosuresForDrawerCash.sort((a, b) =>
                 new Date(`${b.closureDate}T${b.closureTime}:00`) - new Date(`${a.closureDate}T${a.closureTime}:00`)
             )[0];
             drawerCash = latestClosure.drawerCash || 0;
@@ -2455,7 +2462,7 @@ async function searchCashierClosuresAccountant() {
 
         const cashierUser = users.find(u => u.username === selectedCashier);
         const cashierDisplayName = cashierUser ? cashierUser.name : selectedCashier;
-        const cashSource = closuresInPeriod.length > 0 ? ` (من آخر إغلاق داخل الفترة)` : ` (لا إغلاق سابق في الفترة)`;
+        const cashSource = filteredClosuresForDrawerCash.length > 0 ? ` (من آخر إغلاق داخل الفترة)` : ` (لا إغلاق سابق في الفترة)`;
         showMessage(`تم البحث عن بيانات الكاشير ${cashierDisplayName} للفترة المحددة. إجمالي الكاش في الدرج: ${drawerCash.toFixed(2)}${cashSource}.`, 'success');
     } catch (error) {
         console.error('Error searching cashier closures:', error);
@@ -2635,33 +2642,42 @@ async function loadAccountantShiftClosuresHistory() {
 }
 
 // --- New Modal for Accountant Closure Details ---
-function showAccountantClosureModal(closureId) {
-    const closure = closures.find(c => c.id === closureId); // Assuming 'closures' is globally available or reloaded
-    if (!closure) {
-        showMessage('لم يتم العثور على تفاصيل التقفيلة.', 'error');
-        return;
+async function showAccountantClosureModal(closureId) { // Make it async
+    showLoading(true); // Show loading overlay
+    try {
+        const allClosures = await loadShiftClosures({}); // Load all closures
+        const closure = allClosures.find(c => c.id === closureId);
+        if (!closure) {
+            showMessage('لم يتم العثور على تفاصيل التقفيلة.', 'error');
+            return;
+        }
+
+        // Populate the modal with closure data
+        document.getElementById('accountantClosureModalCashierName').textContent = users.find(u => u.username === closure.cashier)?.name || closure.cashier;
+        document.getElementById('accountantClosureModalPeriod').textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
+        document.getElementById('accountantClosureModalTotalExpenses').textContent = closure.totalExpenses.toFixed(2);
+        document.getElementById('accountantClosureModalTotalInsta').textContent = closure.totalInsta.toFixed(2);
+        document.getElementById('accountantClosureModalTotalVisa').textContent = closure.totalVisa.toFixed(2);
+        document.getElementById('accountantClosureModalTotalOnline').textContent = closure.totalOnline.toFixed(2);
+        document.getElementById('accountantClosureModalDrawerCash').textContent = closure.drawerCash.toFixed(2);
+        document.getElementById('accountantClosureModalGrandTotal').textContent = (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash).toFixed(2);
+        
+        document.getElementById('accountantClosureModalNewMindTotal').value = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '';
+        document.getElementById('accountantClosureModalDifference').textContent = closure.difference.toFixed(2);
+        document.getElementById('accountantClosureModalStatus').textContent = closure.status;
+
+        // Store current closure data for processing
+        window.currentAccountantClosure = closure;
+
+        // Show the modal
+        document.getElementById('accountantClosureDetailsModal').classList.add('active');
+        updateAccountantClosureDifference(); // Calculate initial difference if newMindTotal is pre-filled
+    } catch (error) {
+        console.error('Error showing accountant closure modal:', error);
+        showMessage('حدث خطأ أثناء عرض تفاصيل تقفيل المحاسب.', 'error');
+    } finally {
+        showLoading(false); // Hide loading overlay
     }
-
-    // Populate the modal with closure data
-    document.getElementById('accountantClosureModalCashierName').textContent = users.find(u => u.username === closure.cashier)?.name || closure.cashier;
-    document.getElementById('accountantClosureModalPeriod').textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
-    document.getElementById('accountantClosureModalTotalExpenses').textContent = closure.totalExpenses.toFixed(2);
-    document.getElementById('accountantClosureModalTotalInsta').textContent = closure.totalInsta.toFixed(2);
-    document.getElementById('accountantClosureModalTotalVisa').textContent = closure.totalVisa.toFixed(2);
-    document.getElementById('accountantClosureModalTotalOnline').textContent = closure.totalOnline.toFixed(2);
-    document.getElementById('accountantClosureModalDrawerCash').textContent = closure.drawerCash.toFixed(2);
-    document.getElementById('accountantClosureModalGrandTotal').textContent = (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash).toFixed(2);
-    
-    document.getElementById('accountantClosureModalNewMindTotal').value = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '';
-    document.getElementById('accountantClosureModalDifference').textContent = closure.difference.toFixed(2);
-    document.getElementById('accountantClosureModalStatus').textContent = closure.status;
-
-    // Store current closure data for processing
-    window.currentAccountantClosure = closure;
-
-    // Show the modal
-    document.getElementById('accountantClosureDetailsModal').classList.add('active');
-    updateAccountantClosureDifference(); // Calculate initial difference if newMindTotal is pre-filled
 }
 
 function updateAccountantClosureDifference() {
@@ -2803,7 +2819,7 @@ async function viewClosureDetails(closureId) {
 
         // Display in a generic modal or a dedicated one
         const genericModal = document.getElementById('genericDetailsModal'); // Assuming you have a generic modal
-        const genericModalContent = document.getElementById('genericDetailsModalContent');
+        const genericModalContent = document.getElementById('genericModalContent');
         if (genericModal && genericModalContent) {
             genericModalContent.innerHTML = detailsHtml;
             genericModal.classList.add('active');
