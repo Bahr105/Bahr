@@ -2066,6 +2066,9 @@ function displayUsers() {
         `;
     });
 
+}
+
+
 function showEditUserModal(userId) {
     const user = users.find(u => u.id === userId);
     if (!user) {
@@ -2197,9 +2200,6 @@ async function saveNewPassword() {
         showMessage('فشل تغيير كلمة المرور.', 'error');
     }
 }
-
-}
-
 
 function showAddUserModal() {
     const form = document.getElementById('addUserForm');
