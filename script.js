@@ -6,10 +6,15 @@ function handleAuthSuccess() {
     isAuthenticated = true;
     localStorage.setItem('googleAuthState', 'authenticated');
     
-    // حفظ التوكن في localStorage
+    // حفظ التوكن في localStorage مع معلومات الوقت
     const token = gapi.client.getToken();
     if (token) {
+        // إضافة timestamp إذا لم يكن موجوداً
+        if (!token.created_at) {
+            token.created_at = Date.now();
+        }
         localStorage.setItem('googleAuthToken', JSON.stringify(token));
+        console.log('Token saved to localStorage');
     }
 }
 
@@ -119,7 +124,13 @@ async function initializeGapiClient() {
 
 function handleAuthError(error) {
     console.error('Authentication error:', error);
-    handleAuthFailure(); // استخدم الدالة الموحدة لمسح حالة المصادقة
+    handleAuthFailure();
+    
+    // تنظيف localStorage في حالة الأخطاء المحددة
+    if (error.error === 'invalid_grant' || error.error === 'unauthorized_client') {
+        localStorage.removeItem('googleAuthToken');
+        localStorage.removeItem('googleAuthState');
+    }
 
     if (error.error === 'popup_closed_by_user') {
         showMessage('تم إغلاق نافذة المصادقة. يرجى المحاولة مرة أخرى.', 'warning');
@@ -154,31 +165,39 @@ async function maybeEnableButtons() {
     }
 
     const wasAuthenticatedInLocalStorage = loadAuthState();
-    const savedToken = localStorage.getItem('googleAuthToken');
+    const savedTokenStr = localStorage.getItem('googleAuthToken');
 
-    if (wasAuthenticatedInLocalStorage && savedToken) {
+    console.log('Auth check:', {
+        wasAuthenticatedInLocalStorage,
+        hasSavedToken: !!savedTokenStr
+    });
+
+    if (wasAuthenticatedInLocalStorage && savedTokenStr) {
         try {
-            const token = JSON.parse(savedToken);
-            gapi.client.setToken(token);
-
+            const savedToken = JSON.parse(savedTokenStr);
+            console.log('Restoring token from localStorage:', savedToken);
+            
+            // تعيين التوكن المحفوظ
+            gapi.client.setToken(savedToken);
+            
             // التحقق من صلاحية التوكن
             if (isTokenValid()) {
                 isAuthenticated = true;
-                console.log('تم استعادة التوكن بنجاح من localStorage');
+                console.log('✅ تم استعادة التوكن بنجاح من localStorage');
                 await loadInitialData();
                 return;
             } else {
-                console.log('التوكن منتهي الصلاحية، جاري تجديده...');
-                // التوكن منتهي، نطلب تجديده بصمت
+                console.log('🔄 التوكن منتهي الصلاحية، جاري تجديده...');
+                // محاولة التجديد بصمت
                 await handleAuthClick();
             }
         } catch (error) {
-            console.error('خطأ في استعادة التوكن:', error);
+            console.error('❌ خطأ في استعادة التوكن:', error);
             await handleAuthClick();
         }
     } else {
         // لا يوجد توكن محفوظ، نطلب المصادقة
-        console.log('لا توجد مصادقة سابقة، جاري طلب المصادقة...');
+        console.log('🔐 لا توجد مصادقة سابقة، جاري طلب المصادقة...');
         await handleAuthClick();
     }
 }
@@ -233,16 +252,42 @@ window.addEventListener('beforeunload', () => {
 
 function isTokenValid() {
     const token = gapi.client.getToken();
-    if (!token) return false;
-
-    if (token.expires_at) {
-        // هامش أمان 5 دقائق
-        return token.expires_at > (Date.now() + 300000);
+    if (!token) {
+        console.log('No token found');
+        return false;
     }
 
-    // إذا لم يكن هناك expires_at، نعتبر التوكن صالحًا لمدة ساعة افتراضيًا
+    // إذا كان التوكن يحتوي على expires_in (بالثواني)
+    if (token.expires_in) {
+        const expiresAt = token.created_at + (token.expires_in * 1000);
+        const safetyMargin = 5 * 60 * 1000; // 5 دقائق هامش أمان
+        const isValid = expiresAt > (Date.now() + safetyMargin);
+        console.log('Token expiry check:', { 
+            created: new Date(token.created_at), 
+            expires: new Date(expiresAt),
+            now: new Date(),
+            isValid 
+        });
+        return isValid;
+    }
+
+    // إذا كان التوكن يحتوي على expires_at (بالمللي ثانية)
+    if (token.expires_at) {
+        const safetyMargin = 5 * 60 * 1000; // 5 دقائق هامش أمان
+        const isValid = token.expires_at > (Date.now() + safetyMargin);
+        console.log('Token expiry check with expires_at:', {
+            expires: new Date(token.expires_at),
+            now: new Date(),
+            isValid
+        });
+        return isValid;
+    }
+
+    // إذا لم توجد معلومات انتهاء الصلاحية، نعتبره صالحاً لمدة ساعة
     const oneHour = 60 * 60 * 1000;
-    return (Date.now() - token.created_at) < oneHour;
+    const isValid = (Date.now() - (token.created_at || Date.now())) < oneHour;
+    console.log('Token fallback validity check:', { isValid });
+    return isValid;
 }
 
 
