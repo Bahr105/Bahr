@@ -2060,16 +2060,14 @@ function displayUsers() {
         
         const actionsCell = row.insertCell();
         actionsCell.innerHTML = `
-            <button class="edit-btn" onclick="showEditUserModal('${user.id}')"><i class="fas fa-edit"></i> تعديل</button>
+            <button class="edit-btn" onclick="editUser('${user.id}')"><i class="fas fa-edit"></i> تعديل</button>
             <button class="delete-btn" onclick="showMessage('وظيفة حذف المستخدم غير متاحة حالياً.', 'warning')"><i class="fas fa-trash"></i> حذف</button>
-            <button class="block-btn" onclick="showChangePasswordModal('${user.id}')"><i class="fas fa-key"></i> كلمة المرور</button>
+            <button class="block-btn" onclick="changeUserPassword('${user.id}')"><i class="fas fa-key"></i> كلمة المرور</button>
         `;
     });
-
 }
 
-
-function showEditUserModal(userId) {
+function editUser(userId) {
     const user = users.find(u => u.id === userId);
     if (!user) {
         showMessage('المستخدم غير موجود.', 'error');
@@ -2089,7 +2087,7 @@ function showEditUserModal(userId) {
     }
 }
 
-function showChangePasswordModal(userId) {
+function changeUserPassword(userId) {
     const user = users.find(u => u.id === userId);
     if (!user) {
         showMessage('المستخدم غير موجود.', 'error');
@@ -2258,7 +2256,6 @@ async function addUser() {
         showMessage('فشل إضافة المستخدم.', 'error');
     }
 }
-
 
 
 
