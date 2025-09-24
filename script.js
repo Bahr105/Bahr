@@ -28,10 +28,17 @@ function handleAuthFailure() {
     }
 }
 
-// في بداية script.js - حل بديل
-// في بداية script.js - حل محسن
+// Flag to ensure DOMContentLoaded logic runs only once
+let domContentLoadedFired = false;
+
 function loadGoogleScripts() {
     return new Promise((resolve, reject) => {
+        if (domContentLoadedFired) { // Prevent re-execution if already loaded
+            console.log('Google scripts already loaded, skipping.');
+            resolve();
+            return;
+        }
+
         // تحميل GAPI أولاً
         const gapiScript = document.createElement('script');
         gapiScript.src = 'https://apis.google.com/js/api.js';
@@ -53,6 +60,7 @@ function loadGoogleScripts() {
                         gisLoaded();
 
                         console.log('Both GAPI and GIS initialized successfully');
+                        domContentLoadedFired = true; // Set flag after successful initialization
                         resolve();
                     } catch (error) {
                         console.error('Error during initialization:', error);
@@ -115,12 +123,6 @@ let currentUserName = '';
 let currentUserRole = '';
 let currentSelectedCustomerId = null;
 
-// متغيرات جديدة لمنع التكرار
-let initialDataLoaded = false;
-let expenseSubmissionInProgress = false;
-window.authInProgress = false;
-window.authClickInProgress = false;
-
 let cashierDailyData = {
     expenses: [],
     insta: [],
@@ -170,9 +172,8 @@ function checkInitializationStatus() {
         if (gapiInited && gisInited) {
             clearInterval(checkInterval);
             console.log('Both APIs initialized, proceeding with authentication...');
-            setTimeout(() => {
-                maybeEnableButtons();
-            }, 1000);
+            // Call maybeEnableButtons only once after full initialization
+            maybeEnableButtons();
         }
     }, 1000);
 
@@ -214,7 +215,7 @@ function gisLoaded() {
         });
         gisInited = true;
         console.log('GIS client initialized.');
-        maybeEnableButtons(); // استدعاء maybeEnableButtons بعد تهيئة GIS
+        // maybeEnableButtons(); // Removed redundant call
     } catch (error) {
         console.error('Error initializing GIS:', error);
         showMessage('فشل تهيئة Google Identity Services', 'error');
@@ -228,22 +229,13 @@ async function maybeEnableButtons() {
         return;
     }
 
-    // منع التكرار - إذا كانت المصادقة جارية بالفعل
-    if (window.authInProgress) {
-        console.log('Authentication already in progress, skipping...');
-        return;
-    }
-    
-    window.authInProgress = true;
-
     // تأكد من تهيئة GAPI client قبل المتابعة
     if (!gapi.client) {
         console.log('GAPI client not yet available. Waiting...');
-        await initializeGapiClient();
+        await initializeGapiClient(); // حاول التهيئة مرة أخرى إذا لم تكن متاحة
         if (!gapi.client) {
             console.error('Failed to initialize GAPI client after retry.');
             showMessage('فشل تهيئة Google API. يرجى تحديث الصفحة.', 'error');
-            window.authInProgress = false;
             return;
         }
     }
@@ -260,9 +252,10 @@ async function maybeEnableButtons() {
 
     // إعادة تعيين حالة المصادقة للتأكد من الدقة
     isAuthenticated = false;
-    if (gapi.client) {
+    if (gapi.client) { // فحص gapi.client قبل الاستخدام
         gapi.client.setToken(null);
     }
+
 
     if (wasAuthenticatedInLocalStorage && savedTokenStr) {
         try {
@@ -270,9 +263,10 @@ async function maybeEnableButtons() {
             console.log('Restoring token from localStorage:', savedToken);
 
             // تعيين التوكن المحفوظ
-            if (gapi.client) {
+            if (gapi.client) { // فحص gapi.client قبل الاستخدام
                 gapi.client.setToken(savedToken);
             }
+
 
             // التحقق من صلاحية التوكن
             if (isTokenValid()) {
@@ -280,10 +274,11 @@ async function maybeEnableButtons() {
                 console.log('✅ تم استعادة التوكن بنجاح من localStorage');
                 await loadInitialData();
                 checkAuthStatus();
-                window.authInProgress = false;
                 return;
+
             } else {
                 console.log('🔄 التوكن منتهي الصلاحية، جاري تجديده...');
+                // محاولة التجديد بصمت
                 await handleAuthClick();
             }
         } catch (error) {
@@ -295,30 +290,18 @@ async function maybeEnableButtons() {
         console.log('🔐 لا توجد مصادقة سابقة، جاري طلب المصادقة...');
         await handleAuthClick();
     }
-    
-    window.authInProgress = false;
 }
 
 
 async function handleAuthClick() {
     // إذا كان المستخدم مصادقاً بالفعل، تأكد من صحة التوكن
-    if (isAuthenticated && typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken() && isTokenValid()) {
+    if (isAuthenticated && typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken() && isTokenValid()) { // فحص gapi.client
         console.log('المستخدم مصادق عليه بالفعل، تخطي طلب المصادقة.');
         return Promise.resolve();
     }
 
-    // منع التكرار
-    if (window.authClickInProgress) {
-        console.log('Auth click already in progress, skipping...');
-        return Promise.resolve();
-    }
-    
-    window.authClickInProgress = true;
-
     return new Promise((resolve, reject) => {
         tokenClient.callback = async (resp) => {
-            window.authClickInProgress = false;
-            
             if (resp.error !== undefined) {
                 console.error('فشل المصادقة:', resp.error);
                 handleAuthError(resp);
@@ -340,16 +323,15 @@ async function handleAuthClick() {
         };
 
         // اطلب المصادقة
-        if (typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken() === null) {
+        if (typeof gapi !== 'undefined' && gapi.client && gapi.client.getToken() === null) { // فحص gapi.client
             console.log('لا يوجد توكن سابق، طلب موافقة المستخدم.');
             tokenClient.requestAccessToken({ prompt: 'consent' });
-        } else if (typeof gapi !== 'undefined' && gapi.client) {
+        } else if (typeof gapi !== 'undefined' && gapi.client) { // فحص gapi.client
             console.log('يوجد توكن سابق، محاولة تحديثه بصمت.');
             tokenClient.requestAccessToken({ prompt: 'none' });
         } else {
             console.error('GAPI client not available for authentication request.');
             showMessage('فشل المصادقة: Google API غير متاح.', 'error');
-            window.authClickInProgress = false;
             reject(new Error('GAPI client not available'));
         }
     });
@@ -704,14 +686,7 @@ async function loadShiftClosures(filters = {}) {
 }
 
 // --- Initial Data Loading ---
-
 async function loadInitialData() {
-    // منع تكرار تحميل البيانات
-    if (initialDataLoaded) {
-        console.log('Initial data already loaded, skipping...');
-        return;
-    }
-    
     try {
         showLoading(true);
         await Promise.all([
@@ -720,8 +695,7 @@ async function loadInitialData() {
             loadCustomers()
         ]);
         populateUserDropdown();
-        initialDataLoaded = true; // وضع علامة أن البيانات تم تحميلها
-        console.log('✅ تم تحميل البيانات الأولية بنجاح');
+        showMessage('تم تحميل البيانات بنجاح', 'success');
     } catch (error) {
         console.error('Error loading initial data:', error);
         showMessage('حدث خطأ أثناء تحميل البيانات', 'error');
@@ -729,7 +703,6 @@ async function loadInitialData() {
         showLoading(false);
     }
 }
-
 
 function populateUserDropdown() {
     const usernameSelect = document.getElementById('username');
@@ -1216,18 +1189,8 @@ function showAddCustomerModalFromExpense() {
     }, 300);
 }
 
-
 async function addExpense() {
-    if (event) event.preventDefault();
-    
-    // منع التكرار
-    if (expenseSubmissionInProgress) {
-        console.log('Expense submission already in progress, skipping...');
-        return;
-    }
-    
-    expenseSubmissionInProgress = true;
-
+    // Removed `if (event) event.preventDefault();` as it's handled by the form's onsubmit
     const now = new Date();
 
     const categoryCode = document.getElementById('selectedExpenseCategoryCode').value;
@@ -1239,7 +1202,6 @@ async function addExpense() {
 
     if (!categoryCode || isNaN(amount) || amount <= 0) {
         showMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة.', 'warning');
-        expenseSubmissionInProgress = false;
         return;
     }
 
@@ -1321,7 +1283,7 @@ async function addExpense() {
             return;
         }
     }
- try {
+
     const expenseId = 'EXP_' + now.getTime();
 
     let expenseData = [
@@ -1383,13 +1345,7 @@ async function addExpense() {
         }
         loadCashierExpenses();
     } else {
-            showMessage('فشل إضافة المصروف.', 'error');
-        }
-    } catch (error) {
-        console.error('Error adding expense:', error);
-        showMessage('حدث خطأ أثناء إضافة المصروف.', 'error');
-    } finally {
-        expenseSubmissionInProgress = false; // إعادة تعيين حالة الإرسال
+        showMessage('فشل إضافة المصروف.', 'error');
     }
 }
 
