@@ -534,6 +534,87 @@
                         </tbody>
                     </table>
                 </div>
+
+                    <!-- نافذة تعديل المستخدم -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-edit"></i> تعديل بيانات المستخدم</h3>
+                <button class="close-btn" onclick="closeModal('editUserModal')">&times;</button>
+            </div>
+            <form id="editUserForm" onsubmit="event.preventDefault(); saveEditedUser();">
+                <input type="hidden" id="editUserId">
+                <div class="form-group">
+                    <label for="editUserName">الاسم:</label>
+                    <input type="text" id="editUserName" required placeholder="أدخل اسم المستخدم">
+                </div>
+                <div class="form-group">
+                    <label for="editUserPhone">رقم التليفون:</label>
+                    <input type="tel" id="editUserPhone" required placeholder="أدخل رقم التليفون">
+                </div>
+                <div class="form-group">
+                    <label for="editUserUsername">اسم المستخدم:</label>
+                    <input type="text" id="editUserUsername" required placeholder="أدخل اسم المستخدم للدخول" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="editUserRole">الدور:</label>
+                    <select id="editUserRole" required>
+                        <option value="كاشير">كاشير</option>
+                        <option value="محاسب">محاسب</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editUserStatus">الحالة:</label>
+                    <select id="editUserStatus" required>
+                        <option value="نشط">نشط</option>
+                        <option value="موقوف">موقوف</option>
+                        <option value="محظور">محظور</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="save-btn">
+                        <i class="fas fa-save"></i>
+                        حفظ التعديلات
+                    </button>
+                    <button type="button" class="cancel-btn" onclick="closeModal('editUserModal')">
+                        <i class="fas fa-times"></i>
+                        إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة تغيير كلمة المرور -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-key"></i> تغيير كلمة المرور</h3>
+                <button class="close-btn" onclick="closeModal('changePasswordModal')">&times;</button>
+            </div>
+            <form id="changePasswordForm" onsubmit="event.preventDefault(); saveNewPassword();">
+                <input type="hidden" id="changePasswordUserId">
+                <div class="form-group">
+                    <label for="newPassword">كلمة المرور الجديدة:</label>
+                    <input type="password" id="newPassword" required placeholder="أدخل كلمة المرور الجديدة">
+                </div>
+                <div class="form-group">
+                    <label for="confirmNewPassword">تأكيد كلمة المرور الجديدة:</label>
+                    <input type="password" id="confirmNewPassword" required placeholder="أعد إدخال كلمة المرور الجديدة">
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="save-btn">
+                        <i class="fas fa-save"></i>
+                        حفظ كلمة المرور
+                    </button>
+                    <button type="button" class="cancel-btn" onclick="closeModal('changePasswordModal')">
+                        <i class="fas fa-times"></i>
+                        إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
             </div>
 
             <!-- قسم التقارير للمحاسب -->
