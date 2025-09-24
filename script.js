@@ -1597,7 +1597,9 @@ async function calculateCashierShift() {
         const visaCount = categorizedExpenses.visa.length;
         const totalOnline = categorizedExpenses.online.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = categorizedExpenses.online.length;
-        const grandTotal = totalExpenses + totalInsta + totalVisa + totalOnline;
+        // Corrected: grandTotal for cashier should include drawerCash
+        // For calculation, we assume drawerCash is 0 initially, it's added later by the cashier
+        const grandTotal = totalExpenses + totalInsta + totalVisa + totalOnline; 
 
         document.getElementById('totalExpensesCashier').textContent = totalExpenses.toFixed(2);
         document.getElementById('expenseCountCashier').textContent = expenseCount;
@@ -1607,7 +1609,7 @@ async function calculateCashierShift() {
         document.getElementById('visaCountCashier').textContent = visaCount;
         document.getElementById('totalOnlineCashier').textContent = totalOnline.toFixed(2);
         document.getElementById('onlineCountCashier').textContent = onlineCount;
-        document.getElementById('grandTotalCashier').textContent = grandTotal.toFixed(2);
+        document.getElementById('grandTotalCashier').textContent = grandTotal.toFixed(2); // This is the sum of transactions only
 
         document.getElementById('shiftSummaryCashier').style.display = 'block';
 
@@ -1642,7 +1644,11 @@ async function finalizeCashierShiftCloseout() {
         const visaCount = parseInt(document.getElementById('visaCountCashier').textContent) || 0;
         const totalOnline = parseFloat(document.getElementById('totalOnlineCashier').textContent) || 0;
         const onlineCount = parseInt(document.getElementById('onlineCountCashier').textContent) || 0;
-        const grandTotal = parseFloat(document.getElementById('grandTotalCashier').textContent) || 0;
+        
+        // Corrected: grandTotal for cashier closure should include drawerCash
+        const grandTotalTransactions = totalExpenses + totalInsta + totalVisa + totalOnline;
+        const grandTotalWithDrawerCash = grandTotalTransactions + drawerCash;
+
 
         const shiftClosureData = [
             shiftId,
@@ -1659,7 +1665,7 @@ async function finalizeCashierShiftCloseout() {
             visaCount,
             totalOnline.toFixed(2), // تنسيق القيمة
             onlineCount,
-            grandTotal.toFixed(2), // تنسيق القيمة
+            grandTotalWithDrawerCash.toFixed(2), // Corrected: grandTotal for closure
             drawerCash.toFixed(2), // تنسيق القيمة
             0, // newMindTotal (not used for cashier self-closure)
             0, // difference (not calculated for cashier)
@@ -2364,11 +2370,11 @@ async function searchCashierClosuresAccountant() {
 
     try {
         const filters = {
-            cashier: selectedCashier,
             dateFrom: dateFrom,
             dateTo: dateTo,
             timeFrom: timeFrom,
-            timeTo: timeTo
+            timeTo: timeTo,
+            cashier: selectedCashier
         };
 
         const expenses = await loadExpenses(filters);
@@ -2424,7 +2430,8 @@ async function searchCashierClosuresAccountant() {
         const totalVisa = visaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalInsta = instaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash; // إضافة الكاش في الدرج هنا
+        // Corrected: grandTotal for accountant search should include drawerCash
+        const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash; 
 
         document.getElementById('closureResultsAccountant').style.display = 'block';
 
@@ -2645,7 +2652,7 @@ async function loadAccountantShiftClosuresHistory() {
 async function showAccountantClosureModal(closureId) { // Make it async
     showLoading(true); // Show loading overlay
     try {
-        const allClosures = await loadShiftClosures({}); // Load all closures
+        const allClosures = await loadShiftClosures({}); // Load all closures to ensure 'closures' is defined
         const closure = allClosures.find(c => c.id === closureId);
         if (!closure) {
             showMessage('لم يتم العثور على تفاصيل التقفيلة.', 'error');
@@ -2660,6 +2667,7 @@ async function showAccountantClosureModal(closureId) { // Make it async
         document.getElementById('accountantClosureModalTotalVisa').textContent = closure.totalVisa.toFixed(2);
         document.getElementById('accountantClosureModalTotalOnline').textContent = closure.totalOnline.toFixed(2);
         document.getElementById('accountantClosureModalDrawerCash').textContent = closure.drawerCash.toFixed(2);
+        // Corrected: grandTotal for modal should include drawerCash
         document.getElementById('accountantClosureModalGrandTotal').textContent = (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash).toFixed(2);
         
         document.getElementById('accountantClosureModalNewMindTotal').value = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '';
@@ -2756,7 +2764,7 @@ async function saveAccountantClosure() {
             closure.visaCount,
             closure.totalOnline.toFixed(2),
             closure.onlineCount,
-            cashierTotal.toFixed(2), // grandTotal
+            cashierTotal.toFixed(2), // grandTotal (now includes drawerCash)
             closure.drawerCash.toFixed(2), // drawerCash
             newMindTotal.toFixed(2), // newMindTotal
             difference.toFixed(2), // difference
@@ -2809,7 +2817,7 @@ async function viewClosureDetails(closureId) {
             <p><strong>إجمالي الفيزا:</strong> ${closure.totalVisa.toFixed(2)} (${closure.visaCount} فاتورة)</p>
             <p><strong>إجمالي الأونلاين:</strong> ${closure.totalOnline.toFixed(2)} (${closure.onlineCount} فاتورة)</p>
             <p><strong>إجمالي الكاش في الدرج:</strong> ${closure.drawerCash.toFixed(2)}</p>
-            <p><strong>الإجمالي الكلي للكاشير:</strong> ${closure.grandTotal.toFixed(2)}</p>
+            <p><strong>الإجمالي الكلي للكاشير:</strong> ${(closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash).toFixed(2)}</p>
             <p><strong>إجمالي نيو مايند:</strong> ${closure.newMindTotal.toFixed(2)}</p>
             <p><strong>الفرق:</strong> ${closure.difference.toFixed(2)}</p>
             <p><strong>الحالة:</strong> ${closure.status}</p>
@@ -2819,7 +2827,7 @@ async function viewClosureDetails(closureId) {
 
         // Display in a generic modal or a dedicated one
         const genericModal = document.getElementById('genericDetailsModal'); // Assuming you have a generic modal
-        const genericModalContent = document.getElementById('genericModalContent');
+        const genericModalContent = document.getElementById('genericDetailsModalContent');
         if (genericModal && genericModalContent) {
             genericModalContent.innerHTML = detailsHtml;
             genericModal.classList.add('active');
