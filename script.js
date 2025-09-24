@@ -2353,7 +2353,59 @@ function resetAccountantShiftForm() {
         closeCashierBtn.style.display = 'none';
     }
 }
+// --- حساب الفرق للمحاسب ---
+function calculateDifferenceAccountant() {
+    if (!window.currentClosureData) {
+        showMessage('يرجى البحث عن بيانات الكاشير أولاً.', 'warning');
+        return;
+    }
 
+    const newMindTotal = parseFloat(document.getElementById('newmindTotalAccountant').value);
+    if (isNaN(newMindTotal) || newMindTotal < 0) {
+        showMessage('يرجى إدخال قيمة صحيحة لإجمالي نيو مايند.', 'warning');
+        return;
+    }
+
+    const cashierTotal = window.currentClosureData.grandTotal;
+    const difference = newMindTotal - cashierTotal;
+
+    const differenceResult = document.getElementById('differenceResultAccountant');
+    if (!differenceResult) return;
+
+    let statusText = '';
+    let statusClass = '';
+    
+    if (difference === 0) {
+        statusText = 'مطابق ✓';
+        statusClass = 'status-match';
+    } else if (difference > 0) {
+        statusText = `عجز على الكاشير: +${difference.toFixed(2)}`;
+        statusClass = 'status-deficit';
+    } else {
+        statusText = `زيادة عند الكاشير: ${difference.toFixed(2)}`;
+        statusClass = 'status-surplus';
+    }
+
+    differenceResult.innerHTML = `
+        <div class="difference-card ${statusClass}">
+            <h4>نتيجة المقارنة</h4>
+            <p><strong>إجمالي الكاشير:</strong> ${cashierTotal.toFixed(2)}</p>
+            <p><strong>إجمالي نيو مايند:</strong> ${newMindTotal.toFixed(2)}</p>
+            <p><strong>الفرق:</strong> ${difference.toFixed(2)}</p>
+            <p><strong>الحالة:</strong> ${statusText}</p>
+        </div>
+    `;
+
+    differenceResult.style.display = 'block';
+
+    // إظهار زر تقفيل الكاشير
+    const closeCashierBtn = document.querySelector('.close-cashier-btn');
+    if (closeCashierBtn) {
+        closeCashierBtn.style.display = 'block';
+    }
+
+    showMessage('تم حساب الفرق بنجاح.', 'success');
+}
 // دالة مساعدة لتحويل AM/PM إلى 24 ساعة (محدثة للتعامل مع الثواني إذا وُجدت)
 function convertTo24HourFormat(timeStr) {
     // timeStr مثل "09:52 ص" أو "09:52:00 م" أو "21:00:00"
