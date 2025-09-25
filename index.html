@@ -400,17 +400,6 @@
 
                     <div class="stat-card">
                         <div class="stat-icon">
-                            <i class="fas fa-undo-alt"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3>إجمالي المرتجعات</h3>
-                            <div class="stat-value" id="totalReturnsAccountant">0.00</div>
-                            <div class="stat-period">عدد الفواتير: <span id="countReturnsAccountant">0</span></div>
-                        </div>
-                    </div>
-
-                    <div class="stat-card">
-                        <div class="stat-icon">
                             <i class="fas fa-users"></i>
                         </div>
                         <div class="stat-content">
@@ -432,7 +421,17 @@
                     </div>
                 </div>
             </div>
-            
+            <!-- في قسم إحصائيات المصروفات في لوحة تحكم المحاسب -->
+<div class="stat-card">
+    <div class="stat-icon" style="background-color: #ff6b6b;">
+        <i class="fas fa-undo-alt"></i>
+    </div>
+    <div class="stat-info">
+        <h3 id="totalReturnsAccountant">0.00</h3>
+        <p>إجمالي المرتجعات</p>
+        <span class="stat-count" id="countReturnsAccountant">0</span>
+    </div>
+</div>
             <div class="dashboard-filters">
                 <div class="filter-group">
                     <label for="dashboardDateFromAccountant">من تاريخ:</label>
@@ -477,8 +476,6 @@
                                 <th>عدد فواتير (إنستا)</th>
                                 <th>إجمالي الأونلاين</th>
                                 <th>عدد فواتير (أونلاين)</th>
-                                <th>إجمالي المرتجعات</th>
-                                <th>عدد فواتير (مرتجعات)</th>
                                 <th>آخر نشاط</th>
                                 <th>الحالة</th>
                             </tr>
@@ -1003,7 +1000,7 @@
                 </div>
                 <p><strong>إجمالي الكاش في الدرج:</strong> <span id="accountantClosureModalDrawerCash">0.00</span></p>
                 <p><strong>الإجمالي الكلي للكاشير:</strong> <span id="accountantClosureModalGrandTotal">0.00</span></p>
-                <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع: <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></strong></p>
+                <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></p>
                 <hr style="margin: 20px 0;">
 
                 <div class="form-group">
