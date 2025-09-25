@@ -2924,7 +2924,7 @@ function updateAccountantClosureDisplay() {
     } else {
         grandTotalAfterReturnsContainer.style.display = 'none';
         accGrandTotalCashier.style.textDecoration = 'none'; // إزالة الشطب
-        accGrandTotalCashier.style.color = '#2c3e50';
+        accClosureModalGrandTotal.style.color = '#2c3e50'; // Reset color
     }
 
     // تحديث حساب الفرق إذا كان حقل نيو مايند مملوءًا
@@ -3684,3 +3684,4 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
