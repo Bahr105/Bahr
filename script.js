@@ -2879,10 +2879,11 @@ function updateAccountantClosureDisplay() {
     const accGrandTotalCashier = document.getElementById('accGrandTotalCashier');
 
     let currentGrandTotal = window.currentClosureData.grandTotal; // This is (expenses + insta + visa + online + drawerCash)
+    const totalReturns = window.currentClosureData.totalReturns;
     let grandTotalAfterDeduction = currentGrandTotal;
 
     if (deductReturns) {
-        grandTotalAfterDeduction = currentGrandTotal - window.currentClosureData.totalReturns;
+        grandTotalAfterDeduction = currentGrandTotal - totalReturns;
         grandTotalAfterReturnsContainer.style.display = 'block';
         grandTotalAfterReturnsDisplay.textContent = grandTotalAfterDeduction.toFixed(2);
         accGrandTotalCashier.style.textDecoration = 'line-through'; // شطب الإجمالي الأصلي
