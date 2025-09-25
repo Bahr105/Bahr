@@ -539,7 +539,7 @@ async function loadShiftClosures(filters = {}) {
             closureDate: row[19] || '',
             closureTime: row[20] || '',
             accountant: row[21] || '',
-            deductedReturns: parseFloat((row[22] || '0').replace(/,/g, '')), // إضافة حقل المرتجعات المخصومة
+            totalReturns: parseFloat((row[22] || '0').replace(/,/g, '')), // إضافة حقل إجمالي المرتجعات
             grandTotalAfterReturns: parseFloat((row[23] || '0').replace(/,/g, '')) // إضافة حقل الإجمالي بعد خصم المرتجعات
         }));
 
@@ -1624,8 +1624,7 @@ async function calculateCashierShift() {
         const totalReturns = categorizedExpenses.returns.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
         const returnsCount = categorizedExpenses.returns.length; // عدد فواتير المرتجعات
 
-        // Corrected: grandTotal for cashier should include drawerCash
-        // For calculation, we assume drawerCash is 0 initially, it's added later by the cashier
+        // grandTotal for cashier should be the sum of all transactions *excluding* returns for comparison with New Mind
         const grandTotal = totalExpenses + totalInsta + totalVisa + totalOnline; 
 
         document.getElementById('totalExpensesCashier').textContent = totalExpenses.toFixed(2);
@@ -1639,22 +1638,8 @@ async function calculateCashierShift() {
         document.getElementById('grandTotalCashier').textContent = grandTotal.toFixed(2); // This is the sum of transactions only
 
         // إضافة عرض المرتجعات في ملخص الشيفت
-        let returnsHtml = `
-            <div class="summary-card">
-                <h3>إجمالي المرتجعات</h3>
-                <div class="summary-value" id="totalReturnsCashier">${totalReturns.toFixed(2)}</div>
-                <div class="summary-count">عدد الفواتير: <span id="returnsCountCashier">${returnsCount}</span></div>
-            </div>
-        `;
-        // البحث عن العنصر الذي يحتوي على summary-grid وإضافة المرتجعات إليه
-        const summaryGrid = document.querySelector('#shiftSummaryCashier .summary-grid');
-        if (summaryGrid && !document.getElementById('totalReturnsCashier')) { // تجنب الإضافة المتكررة
-            summaryGrid.insertAdjacentHTML('beforeend', returnsHtml);
-        } else if (document.getElementById('totalReturnsCashier')) { // تحديث القيم إذا كان العنصر موجودًا
-            document.getElementById('totalReturnsCashier').textContent = totalReturns.toFixed(2);
-            document.getElementById('returnsCountCashier').textContent = returnsCount;
-        }
-
+        document.getElementById('totalReturnsCashier').textContent = totalReturns.toFixed(2);
+        document.getElementById('returnsCountCashier').textContent = returnsCount;
 
         document.getElementById('shiftSummaryCashier').style.display = 'block';
 
@@ -1692,9 +1677,12 @@ async function finalizeCashierShiftCloseout() {
         const totalReturns = parseFloat(document.getElementById('totalReturnsCashier')?.textContent) || 0; // إضافة المرتجعات
         const returnsCount = parseInt(document.getElementById('returnsCountCashier')?.textContent) || 0; // إضافة عدد المرتجعات
         
-        // Corrected: grandTotal for cashier closure should include drawerCash
+        // grandTotal for cashier closure should include drawerCash and all transactions *excluding* returns
         const grandTotalTransactions = totalExpenses + totalInsta + totalVisa + totalOnline;
         const grandTotalWithDrawerCash = grandTotalTransactions + drawerCash;
+
+        // الإجمالي بعد خصم المرتجعات (للحفظ في الشيت)
+        const grandTotalAfterReturns = grandTotalWithDrawerCash - totalReturns;
 
 
         const shiftClosureData = [
@@ -1712,7 +1700,7 @@ async function finalizeCashierShiftCloseout() {
             visaCount,
             totalOnline.toFixed(2), // تنسيق القيمة
             onlineCount,
-            grandTotalWithDrawerCash.toFixed(2), // Corrected: grandTotal for closure
+            grandTotalWithDrawerCash.toFixed(2), // grandTotal for closure (includes drawer cash, excludes returns)
             drawerCash.toFixed(2), // تنسيق القيمة
             0, // newMindTotal (not used for cashier self-closure)
             0, // difference (not calculated for cashier)
@@ -1721,7 +1709,7 @@ async function finalizeCashierShiftCloseout() {
             now.toTimeString().split(' ')[0],
             '', // accountant (empty for self-closure)
             totalReturns.toFixed(2), // إضافة إجمالي المرتجعات
-            (grandTotalWithDrawerCash - totalReturns).toFixed(2) // الإجمالي بعد خصم المرتجعات
+            grandTotalAfterReturns.toFixed(2) // الإجمالي بعد خصم المرتجعات
         ];
 
         const result = await appendToSheet(SHEETS.SHIFT_CLOSURES, shiftClosureData);
@@ -2237,7 +2225,7 @@ async function generateAccountantReport() {
                         <p>إجمالي الإنستا: ${totalInsta.toFixed(2)} (${cashierData.insta.length} فاتورة)</p>
                         <p>إجمالي الأونلاين: ${totalOnline.toFixed(2)} (${cashierData.online.length} فاتورة)</p>
                         <p>إجمالي المرتجعات: ${totalReturns.toFixed(2)} (${cashierData.returns.length} فاتورة)</p>
-                        <p><strong>الإجمالي الكلي (بدون الكاش في الدرج): ${(totalNormal + totalVisa + totalInsta + totalOnline - totalReturns).toFixed(2)}</strong></p>
+                        <p><strong>الإجمالي الكلي (بدون الكاش في الدرج والمرتجعات): ${(totalNormal + totalVisa + totalInsta + totalOnline).toFixed(2)}</strong></p>
                     </div>
             `;
 
@@ -2312,7 +2300,7 @@ async function generateAccountantReport() {
                 <p>إجمالي الأونلاين: ${grandTotalOnline.toFixed(2)}</p>
                 <p>إجمالي المرتجعات: ${grandTotalReturns.toFixed(2)}</p>
                 <p><strong>إجمالي الكاش في الدرج: ${grandTotalDrawerCash.toFixed(2)}</strong></p>
-                <p><strong>الإجمالي الكلي الصافي: ${(grandTotalNormal + grandTotalVisa + grandTotalInsta + grandTotalOnline - grandTotalReturns + grandTotalDrawerCash).toFixed(2)}</strong></p>
+                <p><strong>الإجمالي الكلي الصافي (المصروفات + الكاش في الدرج - المرتجعات): ${(grandTotalNormal + grandTotalVisa + grandTotalInsta + grandTotalOnline - grandTotalReturns + grandTotalDrawerCash).toFixed(2)}</strong></p>
             </div>
         `;
 
@@ -2569,14 +2557,17 @@ function calculateDifferenceAccountant() {
     }
 
     const deductReturns = document.getElementById('deductReturnsAccountant')?.checked || false;
-    let cashierTotal = window.currentClosureData.grandTotal;
-    let grandTotalAfterReturns = cashierTotal;
+    let cashierTotal = window.currentClosureData.grandTotal; // This grandTotal already includes drawerCash and excludes returns
+    let grandTotalForComparison = cashierTotal;
 
     if (deductReturns) {
-        grandTotalAfterReturns = cashierTotal - window.currentClosureData.totalReturns;
+        // If deducting returns, the comparison total should be the grandTotal (excluding returns) minus the returns
+        // However, the grandTotal in currentClosureData is already (expenses + insta + visa + online + drawerCash)
+        // So, if deductReturns is checked, we need to subtract returns from this grandTotal.
+        grandTotalForComparison = cashierTotal - window.currentClosureData.totalReturns;
     }
 
-    const difference = newMindTotal - grandTotalAfterReturns; // نيو مايند - إجمالي الكاشير بعد خصم المرتجع
+    const difference = newMindTotal - grandTotalForComparison; // نيو مايند - إجمالي الكاشير بعد خصم المرتجع
 
     const differenceResult = document.getElementById('differenceResultAccountant');
     if (!differenceResult) return;
@@ -2598,9 +2589,9 @@ function calculateDifferenceAccountant() {
     differenceResult.innerHTML = `
         <div class="difference-card ${statusClass}">
             <h4>نتيجة المقارنة</h4>
-            <p><strong>إجمالي الكاشير:</strong> ${cashierTotal.toFixed(2)}</p>
+            <p><strong>إجمالي الكاشير (شامل الكاش في الدرج، قبل خصم المرتجع):</strong> ${window.currentClosureData.grandTotal.toFixed(2)}</p>
             ${deductReturns ? `<p><strong>إجمالي المرتجعات المخصومة:</strong> ${window.currentClosureData.totalReturns.toFixed(2)}</p>` : ''}
-            <p><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> ${grandTotalAfterReturns.toFixed(2)}</p>
+            <p><strong>الإجمالي الكلي للكاشير للمقارنة (بعد خصم المرتجع إذا تم التحديد):</strong> ${grandTotalForComparison.toFixed(2)}</p>
             <p><strong>إجمالي نيو مايند:</strong> ${newMindTotal.toFixed(2)}</p>
             <p><strong>الفرق:</strong> ${difference.toFixed(2)}</p>
             <p><strong>الحالة:</strong> ${statusText}</p>
@@ -2813,6 +2804,7 @@ async function searchCashierClosuresAccountant() {
         const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
         const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
         
+        // grandTotal for accountant should include all transactions *excluding* returns, plus drawer cash
         const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash; 
 
         // عرض النتائج
@@ -2853,7 +2845,7 @@ async function searchCashierClosuresAccountant() {
             returnsCount: returnsCount, // إضافة عدد المرتجعات
             drawerCash: drawerCash,
             drawerCashCount: drawerCashCount, // إضافة عدد إدخالات الكاش في الدرج
-            grandTotal: grandTotal
+            grandTotal: grandTotal // هذا الإجمالي يشمل الكاش في الدرج ويستثني المرتجعات
         };
 
         updateAccountantClosureDisplay(); // تحديث العرض بعد تحميل البيانات
@@ -2886,7 +2878,7 @@ function updateAccountantClosureDisplay() {
     const grandTotalAfterReturnsDisplay = document.getElementById('accGrandTotalAfterReturns');
     const accGrandTotalCashier = document.getElementById('accGrandTotalCashier');
 
-    let currentGrandTotal = window.currentClosureData.grandTotal;
+    let currentGrandTotal = window.currentClosureData.grandTotal; // This is (expenses + insta + visa + online + drawerCash)
     let grandTotalAfterDeduction = currentGrandTotal;
 
     if (deductReturns) {
@@ -2936,8 +2928,8 @@ async function closeCashierByAccountant() {
     }
 
     const deductReturns = document.getElementById('deductReturnsAccountant')?.checked || false;
-    let cashierTotalForComparison = window.currentClosureData.grandTotal;
-    let grandTotalAfterReturns = cashierTotalForComparison;
+    let cashierTotalForComparison = window.currentClosureData.grandTotal; // This is (expenses + insta + visa + online + drawerCash)
+    let grandTotalAfterReturns = cashierTotalForComparison; // Default to cashierTotalForComparison
 
     if (deductReturns) {
         grandTotalAfterReturns = cashierTotalForComparison - window.currentClosureData.totalReturns;
@@ -3084,7 +3076,7 @@ async function showAccountantClosureModal(closureId, isEdit = false) { // Make i
         document.getElementById('accountantClosureModalGrandTotal').textContent = (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash).toFixed(2);
         
         // إضافة حقول المرتجعات والإجمالي بعد خصم المرتجعات
-        document.getElementById('accountantClosureModalTotalReturns').textContent = closure.deductedReturns.toFixed(2);
+        document.getElementById('accountantClosureModalTotalReturns').textContent = closure.totalReturns.toFixed(2);
 
         // Set the state of the deduct returns switch based on the saved closure data
         const deductReturnsSwitch = document.getElementById('accountantClosureModalDeductReturns');
@@ -3139,7 +3131,7 @@ function updateAccountantClosureDifference() {
 
     if (!window.currentAccountantClosure) return;
 
-    const cashierTotal = parseFloat(accClosureModalGrandTotal.textContent);
+    const cashierTotal = parseFloat(accClosureModalGrandTotal.textContent); // This is (expenses + insta + visa + online + drawerCash)
     const totalReturns = parseFloat(document.getElementById('accountantClosureModalTotalReturns').textContent);
     const newMindTotal = parseFloat(newMindTotalInput.value);
 
@@ -3195,18 +3187,18 @@ async function saveAccountantClosure() {
     showLoading(true);
     try {
         const closure = window.currentAccountantClosure;
-        const cashierTotal = parseFloat(document.getElementById('accountantClosureModalGrandTotal').textContent);
+        const cashierTotal = parseFloat(document.getElementById('accountantClosureModalGrandTotal').textContent); // This is (expenses + insta + visa + online + drawerCash)
         const totalReturns = parseFloat(document.getElementById('accountantClosureModalTotalReturns').textContent);
         const deductReturns = document.getElementById('accountantClosureModalDeductReturns')?.checked || false;
 
         let grandTotalForComparison = cashierTotal;
-        let grandTotalAfterReturns = cashierTotal;
+        let grandTotalAfterReturns = cashierTotal; // Default to cashierTotal
 
         if (deductReturns) {
             grandTotalForComparison = cashierTotal - totalReturns;
             grandTotalAfterReturns = grandTotalForComparison;
         } else {
-            grandTotalAfterReturns = cashierTotal; // إذا لم يتم الخصم، الإجمالي بعد الخصم هو نفسه الإجمالي الأصلي
+            grandTotalAfterReturns = cashierTotal; // If not deducting, grandTotalAfterReturns is the same as cashierTotal
         }
 
         const difference = newMindTotal - grandTotalForComparison; // نيو مايند - إجمالي الكاشير بعد خصم المرتجع
@@ -3291,12 +3283,12 @@ async function saveEditedAccountantClosure() {
     showLoading(true);
     try {
         const closure = window.currentAccountantClosure;
-        const cashierTotal = parseFloat(document.getElementById('accountantClosureModalGrandTotal').textContent);
+        const cashierTotal = parseFloat(document.getElementById('accountantClosureModalGrandTotal').textContent); // This is (expenses + insta + visa + online + drawerCash)
         const totalReturns = parseFloat(document.getElementById('accountantClosureModalTotalReturns').textContent);
         const deductReturns = document.getElementById('accountantClosureModalDeductReturns')?.checked || false;
 
         let grandTotalForComparison = cashierTotal;
-        let grandTotalAfterReturns = cashierTotal;
+        let grandTotalAfterReturns = cashierTotal; // Default to cashierTotal
 
         if (deductReturns) {
             grandTotalForComparison = cashierTotal - totalReturns;
@@ -3383,10 +3375,10 @@ async function viewClosureDetails(closureId) {
             <p><strong>إجمالي الإنستا:</strong> ${closure.totalInsta.toFixed(2)} (${closure.instaCount} فاتورة) <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'إنستا'); return false;"><i class="fas fa-eye"></i></a></p>
             <p><strong>إجمالي الفيزا:</strong> ${closure.totalVisa.toFixed(2)} (${closure.visaCount} فاتورة) <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'فيزا'); return false;"><i class="fas fa-eye"></i></a></p>
             <p><strong>إجمالي الأونلاين:</strong> ${closure.totalOnline.toFixed(2)} (${closure.onlineCount} فاتورة) <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'اونلاين'); return false;"><i class="fas fa-eye"></i></a></p>
-            <p><strong>إجمالي المرتجعات:</strong> ${closure.deductedReturns.toFixed(2)} <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'مرتجع'); return false;"><i class="fas fa-eye"></i></a></p>
+            <p><strong>إجمالي المرتجعات:</strong> ${closure.totalReturns.toFixed(2)} <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'مرتجع'); return false;"><i class="fas fa-eye"></i></a></p>
             <p><strong>إجمالي الكاش في الدرج:</strong> ${closure.drawerCash.toFixed(2)}</p>
             <p><strong>الإجمالي الكلي للكاشير:</strong> ${(closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash).toFixed(2)}</p>
-            ${closure.deductedReturns > 0 && closure.grandTotalAfterReturns !== (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash) ? `<p><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> ${closure.grandTotalAfterReturns.toFixed(2)}</p>` : ''}
+            ${closure.totalReturns > 0 && closure.grandTotalAfterReturns !== (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash) ? `<p><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> ${closure.grandTotalAfterReturns.toFixed(2)}</p>` : ''}
             <p><strong>إجمالي نيو مايند:</strong> ${closure.newMindTotal.toFixed(2)}</p>
             <p><strong>الفرق:</strong> ${closure.difference.toFixed(2)}</p>
             <p><strong>الحالة:</strong> ${closure.status}</p>
