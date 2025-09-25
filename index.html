@@ -684,9 +684,16 @@
                         <p>إجمالي الفيزا: <span id="accTotalVisa">0</span></p>
                         <p>إجمالي الإنستا: <span id="accTotalInsta">0</span></p>
                         <p>إجمالي الأونلاين: <span id="accTotalOnline">0</span></p>
+                        <p>إجمالي المرتجعات: <span id="accTotalReturns">0.00</span> (<span class="invoice-count" id="accReturnsCount">0 فاتورة</span>)</p>
+                        <div class="form-group">
+                            <label class="switch">
+                                <input type="checkbox" id="deductReturnsAccountant" onchange="updateAccountantClosureDisplay()">
+                                <span class="slider round"></span>
+                            </label>
+                            <label for="deductReturnsAccountant" style="display: inline-block; margin-right: 10px;">خصم المرتجعات من الإجمالي</label>
+                        </div>
                         <p>إجمالي الكاش في الدرج: <span id="accDrawerCash">0</span></p>
                         <p><strong>الإجمالي الكلي للكاشير: <span id="accGrandTotalCashier">0</span></strong></p>
-                        <!-- سيتم إضافة حقل المرتجعات وزر التبديل هنا بواسطة JS -->
                         <p id="accGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع: <span id="accGrandTotalAfterReturns">0.00</span></strong></p>
                     </div>
                     
@@ -973,9 +980,17 @@
                 <p><strong>إجمالي الإنستا:</strong> <span id="accountantClosureModalTotalInsta">0.00</span></p>
                 <p><strong>إجمالي الفيزا:</strong> <span id="accountantClosureModalTotalVisa">0.00</span></p>
                 <p><strong>إجمالي الأونلاين:</strong> <span id="accountantClosureModalTotalOnline">0.00</span></p>
+                <p><strong>إجمالي المرتجعات:</strong> <span id="accountantClosureModalTotalReturns">0.00</span></p>
+                <div class="form-group">
+                    <label class="switch">
+                        <input type="checkbox" id="accountantClosureModalDeductReturns" onchange="updateAccountantClosureDifference()">
+                        <span class="slider round"></span>
+                    </label>
+                    <label for="accountantClosureModalDeductReturns" style="display: inline-block; margin-right: 10px;">خصم المرتجعات من الإجمالي</label>
+                </div>
                 <p><strong>إجمالي الكاش في الدرج:</strong> <span id="accountantClosureModalDrawerCash">0.00</span></p>
                 <p><strong>الإجمالي الكلي للكاشير:</strong> <span id="accountantClosureModalGrandTotal">0.00</span></p>
-                <!-- سيتم إضافة حقول المرتجعات وزر التبديل هنا بواسطة JS -->
+                <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></p>
                 <hr style="margin: 20px 0;">
 
                 <div class="form-group">
