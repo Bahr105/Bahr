@@ -1889,10 +1889,10 @@ async function updateAccountantDashboard() {
         const instaCount = instaExpenses.length;
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = onlineExpenses.length;
-        // const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
-        // const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
+        const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
+        const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
 
-        // Update stats grid
+        // Update stats grid - إضافة تحديث إحصائيات المرتجعات
         document.getElementById('totalNormalExpensesAccountant').textContent = totalNormal.toFixed(2);
         document.getElementById('countNormalExpensesAccountant').textContent = normalCount;
         document.getElementById('totalVisaAccountant').textContent = totalVisa.toFixed(2);
@@ -1901,6 +1901,10 @@ async function updateAccountantDashboard() {
         document.getElementById('countInstaAccountant').textContent = instaCount;
         document.getElementById('totalOnlineAccountant').textContent = totalOnline.toFixed(2);
         document.getElementById('countOnlineAccountant').textContent = onlineCount;
+        
+        // إضافة تحديث إحصائيات المرتجعات
+        document.getElementById('totalReturnsAccountant').textContent = totalReturns.toFixed(2);
+        document.getElementById('countReturnsAccountant').textContent = returnsCount;
 
         // Cashiers stats
         const activeCashiers = users.filter(u => u.role === 'كاشير' && u.status === 'نشط').length;
@@ -1946,7 +1950,7 @@ async function updateAccountantCashierOverview(filters) {
         let visaExpenses = [];
         let instaExpenses = [];
         let onlineExpenses = [];
-        // let returnExpenses = []; // إضافة للمرتجعات
+        let returnExpenses = []; // إضافة للمرتجعات
 
         expenses.forEach(expense => {
             const category = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
@@ -1959,7 +1963,7 @@ async function updateAccountantCashierOverview(filters) {
             } else if (formType === 'اونلاين') {
                 onlineExpenses.push(expense);
             } else if (formType === 'مرتجع') { // إضافة للمرتجعات
-                // returnExpenses.push(expense); // لا يتم عرض المرتجعات في هذا الجدول
+                returnExpenses.push(expense);
             } else {
                 normalExpenses.push(expense);
             }
@@ -1973,8 +1977,8 @@ async function updateAccountantCashierOverview(filters) {
         const instaCount = instaExpenses.length;
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = onlineExpenses.length;
-        // const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
-        // const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
+        const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
+        const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
 
         // Get last activity date
         const lastActivity = expenses.length > 0 ?
@@ -1994,6 +1998,9 @@ async function updateAccountantCashierOverview(filters) {
         row.insertCell().textContent = instaCount;
         row.insertCell().textContent = totalOnline.toFixed(2);
         row.insertCell().textContent = onlineCount;
+        // إضافة خلايا المرتجعات
+        row.insertCell().textContent = totalReturns.toFixed(2);
+        row.insertCell().textContent = returnsCount;
         row.insertCell().textContent = lastActivityStr;
 
         const statusCell = row.insertCell();
@@ -2001,7 +2008,8 @@ async function updateAccountantCashierOverview(filters) {
     }
 
     if (tableBody.rows.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="11">لا توجد بيانات للكاشيرز.</td></tr>';
+        // تحديث عدد الأعمدة ليشمل المرتجعات
+        tableBody.innerHTML = '<tr><td colspan="13">لا توجد بيانات للكاشيرز.</td></tr>';
     }
 }
 
@@ -2194,7 +2202,7 @@ async function generateAccountantReport() {
         let grandTotalVisa = 0;
         let grandTotalInsta = 0;
         let grandTotalOnline = 0;
-        let grandTotalReturns = 0; // إجمالي المرتجعات
+        let grandTotalReturns = 0; // إضافة إجمالي المرتجعات
         let grandTotalDrawerCash = 0; // إجمالي الكاش في الدرج
 
         const allCashiersInReport = new Set([...Object.keys(expensesByCashier), ...Object.keys(drawerCashByCashierAndDate)]);
@@ -2839,7 +2847,7 @@ async function searchCashierClosuresAccountant() {
             visaCount: visaCount,
             totalInsta: totalInsta,
             instaCount: instaCount,
-            totalOnline: totalOnline,
+            totalOnline: onlineCount,
             onlineCount: onlineCount,
             totalReturns: totalReturns, // إضافة المرتجعات
             returnsCount: returnsCount, // إضافة عدد المرتجعات
