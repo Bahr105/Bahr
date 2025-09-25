@@ -1213,16 +1213,20 @@ async function addExpense() {
                 cashier: currentUser.username
             };
 
-            if (formType === 'إنستا') {
+            // تحديث cashierDailyData بناءً على formType
+            const categoryObj = categories.find(c => c.code === categoryCode);
+            const actualFormType = categoryObj ? categoryObj.formType : 'عادي';
+
+            if (actualFormType === 'إنستا') {
                 cashierDailyData.insta.push(newEntry);
                 cashierDailyData.totalInsta += amount;
-            } else if (formType === 'فيزا') {
+            } else if (actualFormType === 'فيزا') {
                 cashierDailyData.visa.push(newEntry);
                 cashierDailyData.totalVisa += amount;
-            } else if (formType === 'اونلاين') {
+            } else if (actualFormType === 'اونلاين') {
                 cashierDailyData.online.push(newEntry);
                 cashierDailyData.totalOnline += amount;
-            } else if (formType === 'مرتجع') { // إضافة للمرتجعات
+            } else if (actualFormType === 'مرتجع') { // إضافة للمرتجعات
                 cashierDailyData.returns.push(newEntry);
                 cashierDailyData.totalReturns += amount;
             } else {
@@ -1230,7 +1234,7 @@ async function addExpense() {
                 cashierDailyData.totalExpenses += amount;
             }
 
-            if (formType === 'اجل') {
+            if (actualFormType === 'اجل') {
                 await loadCustomers();
                 displayCustomers('customersTableBodyCashier');
             }
@@ -1351,7 +1355,7 @@ function clearCashierExpenseFilters() {
 
     if (categoryFilter) categoryFilter.value = '';
     if (dateFromFilter) dateFromFilter.value = '';
-    if (dateToFilter) dateToToFilter.value = '';
+    if (dateToFilter) dateToFilter.value = ''; // Fix: Changed dateToToFilter to dateToFilter
 
     filterCashierExpenses();
 }
@@ -1897,8 +1901,8 @@ async function updateAccountantDashboard() {
         const instaCount = instaExpenses.length;
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = onlineExpenses.length;
-        const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
-        const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
+        // const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
+        // const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
 
         // Update stats grid
         document.getElementById('totalNormalExpensesAccountant').textContent = totalNormal.toFixed(2);
@@ -1954,7 +1958,7 @@ async function updateAccountantCashierOverview(filters) {
         let visaExpenses = [];
         let instaExpenses = [];
         let onlineExpenses = [];
-        let returnExpenses = []; // إضافة للمرتجعات
+        // let returnExpenses = []; // إضافة للمرتجعات
 
         expenses.forEach(expense => {
             const category = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
@@ -1967,7 +1971,7 @@ async function updateAccountantCashierOverview(filters) {
             } else if (formType === 'اونلاين') {
                 onlineExpenses.push(expense);
             } else if (formType === 'مرتجع') { // إضافة للمرتجعات
-                returnExpenses.push(expense);
+                // returnExpenses.push(expense); // لا يتم عرض المرتجعات في هذا الجدول
             } else {
                 normalExpenses.push(expense);
             }
@@ -1981,8 +1985,8 @@ async function updateAccountantCashierOverview(filters) {
         const instaCount = instaExpenses.length;
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = onlineExpenses.length;
-        const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
-        const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
+        // const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
+        // const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
 
         // Get last activity date
         const lastActivity = expenses.length > 0 ?
@@ -2125,13 +2129,14 @@ async function generateAccountantReport() {
     showLoading(true);
     try {
         const expenses = await loadExpenses(filters);
-        const closures = await loadShiftClosures({ dateFrom: dateFrom, dateTo: dateTo, cashier: cashierFilter }); // تحميل التقفيلات للكاش في الدرج
+        // تحميل جميع التقفيلات لتجميع الكاش في الدرج
+        const allClosures = await loadShiftClosures({}); 
         const reportContent = document.getElementById('reportContentAccountant');
         if (!reportContent) return;
 
         reportContent.innerHTML = '';
 
-        if (expenses.length === 0 && closures.length === 0) {
+        if (expenses.length === 0 && allClosures.length === 0) { // Changed to allClosures
             reportContent.innerHTML = '<p>لا توجد بيانات مطابقة لمعايير التقرير المحددة.</p>';
             return;
         }
@@ -2165,16 +2170,26 @@ async function generateAccountantReport() {
             }
         });
 
-        // Group drawer cash by cashier and date
+        // Group drawer cash by cashier and date for the specified period
         const drawerCashByCashierAndDate = {};
-        closures.forEach(closure => {
+        const fromDateObj = dateFrom ? new Date(dateFrom) : null;
+        const toDateObj = dateTo ? new Date(dateTo) : null;
+        if (toDateObj) toDateObj.setHours(23, 59, 59, 999); // Include the whole end day
+
+        allClosures.forEach(closure => {
+            const closureDate = new Date(closure.closureDate);
+            if (fromDateObj && closureDate < fromDateObj) return;
+            if (toDateObj && closureDate > toDateObj) return;
+            if (cashierFilter && closure.cashier !== cashierFilter) return; // Apply cashier filter
+
             if (!drawerCashByCashierAndDate[closure.cashier]) {
                 drawerCashByCashierAndDate[closure.cashier] = {};
             }
-            if (!drawerCashByCashierAndDate[closure.cashier][closure.dateTo]) {
-                drawerCashByCashierAndDate[closure.cashier][closure.dateTo] = [];
+            const dateKey = closure.closureDate; // Use closureDate for grouping
+            if (!drawerCashByCashierAndDate[closure.cashier][dateKey]) {
+                drawerCashByCashierAndDate[closure.cashier][dateKey] = [];
             }
-            drawerCashByCashierAndDate[closure.cashier][closure.dateTo].push(closure.drawerCash);
+            drawerCashByCashierAndDate[closure.cashier][dateKey].push(parseFloat(closure.drawerCash) || 0);
         });
 
 
@@ -2222,7 +2237,7 @@ async function generateAccountantReport() {
                         <p>إجمالي الإنستا: ${totalInsta.toFixed(2)} (${cashierData.insta.length} فاتورة)</p>
                         <p>إجمالي الأونلاين: ${totalOnline.toFixed(2)} (${cashierData.online.length} فاتورة)</p>
                         <p>إجمالي المرتجعات: ${totalReturns.toFixed(2)} (${cashierData.returns.length} فاتورة)</p>
-                        <p><strong>الإجمالي الكلي: ${(totalNormal + totalVisa + totalInsta + totalOnline - totalReturns).toFixed(2)}</strong></p>
+                        <p><strong>الإجمالي الكلي (بدون الكاش في الدرج): ${(totalNormal + totalVisa + totalInsta + totalOnline - totalReturns).toFixed(2)}</strong></p>
                     </div>
             `;
 
@@ -2233,6 +2248,7 @@ async function generateAccountantReport() {
                     <ul>
                 `;
                 let dailyDrawerCashTotal = 0;
+                // Sort dates for consistent display
                 Object.keys(drawerCashByCashierAndDate[cashierName]).sort().forEach(date => {
                     const dailyCashValues = drawerCashByCashierAndDate[cashierName][date];
                     const sumDailyCash = dailyCashValues.reduce((sum, val) => sum + parseFloat(val), 0);
@@ -2526,6 +2542,17 @@ function resetAccountantShiftForm() {
     if (deductReturnsSwitch) {
         deductReturnsSwitch.checked = false;
     }
+    // Hide the container for grand total after returns
+    const grandTotalAfterReturnsContainer = document.getElementById('accGrandTotalAfterReturnsContainer');
+    if (grandTotalAfterReturnsContainer) {
+        grandTotalAfterReturnsContainer.style.display = 'none';
+    }
+    // Reset strikethrough for original grand total
+    const accGrandTotalCashier = document.getElementById('accGrandTotalCashier');
+    if (accGrandTotalCashier) {
+        accGrandTotalCashier.style.textDecoration = 'none';
+        accGrandTotalCashier.style.color = '#2c3e50';
+    }
 }
 
 // --- حساب الفرق للمحاسب ---
@@ -2811,11 +2838,18 @@ async function searchCashierClosuresAccountant() {
             <p id="accGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع: <span id="accGrandTotalAfterReturns">0.00</span></strong></p>
         `;
         const closureSummary = document.getElementById('closureSummaryAccountant');
-        if (closureSummary && !document.getElementById('accTotalReturns')) { // تجنب الإضافة المتكررة
-            closureSummary.insertAdjacentHTML('beforeend', returnsHtml);
-        } else if (document.getElementById('accTotalReturns')) { // تحديث القيم إذا كان العنصر موجودًا
-            document.getElementById('accTotalReturns').textContent = totalReturns.toFixed(2);
-            document.getElementById('accTotalReturns').nextElementSibling.textContent = `${returnsCount} فاتورة`;
+        // Remove existing returns elements if they exist to prevent duplication
+        const existingReturnsP = document.getElementById('accTotalReturns')?.closest('p');
+        const existingDeductSwitch = document.getElementById('deductReturnsAccountant')?.closest('.form-group');
+        const existingGrandTotalAfterReturns = document.getElementById('accGrandTotalAfterReturnsContainer');
+        if (existingReturnsP) existingReturnsP.remove();
+        if (existingDeductSwitch) existingDeductSwitch.remove();
+        if (existingGrandTotalAfterReturns) existingGrandTotalAfterReturns.remove();
+
+        // Insert new returns HTML before the newmind-input section
+        const newmindInputSection = document.querySelector('#closureResultsAccountant .newmind-input');
+        if (closureSummary && newmindInputSection) {
+            newmindInputSection.insertAdjacentHTML('beforebegin', returnsHtml);
         }
 
 
@@ -3088,10 +3122,19 @@ async function showAccountantClosureModal(closureId, isEdit = false) { // Make i
             <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></p>
         `;
         const hrElement = document.querySelector('#accountantClosureDetailsModal .modal-body hr');
-        if (hrElement && !document.getElementById('accountantClosureModalTotalReturns')) {
+        // Remove existing returns elements if they exist to prevent duplication
+        const existingModalReturnsP = document.getElementById('accountantClosureModalTotalReturns')?.closest('p');
+        const existingModalDeductSwitch = document.getElementById('accountantClosureModalDeductReturns')?.closest('.form-group');
+        const existingModalGrandTotalAfterReturns = document.getElementById('accountantClosureModalGrandTotalAfterReturnsContainer');
+        if (existingModalReturnsP) existingModalReturnsP.remove();
+        if (existingModalDeductSwitch) existingModalDeductSwitch.remove();
+        if (existingModalGrandTotalAfterReturns) existingModalGrandTotalAfterReturns.remove();
+
+        if (hrElement) {
             hrElement.insertAdjacentHTML('beforebegin', returnsHtml);
-        } else if (document.getElementById('accountantClosureModalTotalReturns')) {
-            document.getElementById('accountantClosureModalTotalReturns').textContent = closure.deductedReturns.toFixed(2);
+        } else {
+            // Fallback if hrElement is not found, append to modal-body
+            document.querySelector('#accountantClosureDetailsModal .modal-body').insertAdjacentHTML('beforeend', returnsHtml);
         }
 
         document.getElementById('accountantClosureModalNewMindTotal').value = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '';
@@ -3394,7 +3437,7 @@ async function viewClosureDetails(closureId) {
             <p><strong>إجمالي المرتجعات:</strong> ${closure.deductedReturns.toFixed(2)} <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'مرتجع'); return false;"><i class="fas fa-eye"></i></a></p>
             <p><strong>إجمالي الكاش في الدرج:</strong> ${closure.drawerCash.toFixed(2)}</p>
             <p><strong>الإجمالي الكلي للكاشير:</strong> ${(closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash).toFixed(2)}</p>
-            ${closure.deductedReturns > 0 ? `<p><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> ${closure.grandTotalAfterReturns.toFixed(2)}</p>` : ''}
+            ${closure.deductedReturns > 0 && closure.grandTotalAfterReturns !== (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash) ? `<p><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> ${closure.grandTotalAfterReturns.toFixed(2)}</p>` : ''}
             <p><strong>إجمالي نيو مايند:</strong> ${closure.newMindTotal.toFixed(2)}</p>
             <p><strong>الفرق:</strong> ${closure.difference.toFixed(2)}</p>
             <p><strong>الحالة:</strong> ${closure.status}</p>
@@ -3437,7 +3480,7 @@ async function viewExpenseDetails(cashierUsername, dateFrom, timeFrom, dateTo, t
         if (formType === 'normal') {
             filteredExpenses = expenses.filter(exp => {
                 const category = categories.find(c => c.name === exp.category || c.code === exp.categoryCode);
-                return category && !['فيزا', 'إنستا', 'اونلاين', 'مرتجع'].includes(category.formType);
+                return category && !['فيزا', 'إنستا', 'اونلاين', 'مرتجع', 'اجل'].includes(category.formType); // Exclude 'اجل' from normal
             });
         } else {
             filteredExpenses = expenses.filter(exp => {
