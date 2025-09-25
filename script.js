@@ -3091,7 +3091,9 @@ async function showAccountantClosureModal(closureId, isEdit = false) { // Make i
         const deductReturnsSwitch = document.getElementById('accountantClosureModalDeductReturns');
         if (deductReturnsSwitch) {
             // إذا كان الإجمالي بعد خصم المرتجعات لا يساوي الإجمالي الأصلي، نفترض أنه تم خصم المرتجعات
-            deductReturnsSwitch.checked = (closure.grandTotalAfterReturns !== (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash));
+            // يجب أن نقارن grandTotalAfterReturns مع الإجمالي الكلي قبل خصم المرتجعات (totalExpenses + totalInsta + totalVisa + totalOnline + drawerCash)
+            const grandTotalBeforeDeduction = closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash;
+            deductReturnsSwitch.checked = (closure.grandTotalAfterReturns !== grandTotalBeforeDeduction);
         }
 
         document.getElementById('accountantClosureModalNewMindTotal').value = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '';
