@@ -22,7 +22,7 @@
                     <p>New Mind POS Management System</p>
                 </div>
                 
-                <form id="loginForm" class="login-form">
+                <form id="loginForm" class="login-form" onsubmit="event.preventDefault(); login();">
                     <div class="form-group">
                         <label for="username">اسم المستخدم</label>
                         <div class="input-group">
@@ -279,7 +279,7 @@
                     </div>
                 </div>
                 <!-- قسم عرض التقفيلات السابقة للكاشير -->
-                <div id="cashierPreviousClosures" class="closures-history" style="margin-top: 30px; display: none;">
+                <div id="cashierPreviousClosures" class="closures-history" style="display: none;">
                     <h3><i class="fas fa-history"></i> تقفيلاتك السابقة</h3>
                     <div class="closures-table">
                         <table>
@@ -422,16 +422,16 @@
                 </div>
             </div>
             <!-- في قسم إحصائيات المصروفات في لوحة تحكم المحاسب -->
-<div class="stat-card">
-    <div class="stat-icon" style="background-color: #ff6b6b;">
-        <i class="fas fa-undo-alt"></i>
-    </div>
-    <div class="stat-content">
-        <h3>إجمالي المرتجعات</h3>
-        <div class="stat-value" id="totalReturnsAccountant">0.00</div>
-        <div class="stat-period">عدد الفواتير: <span id="countReturnsAccountant">0</span></div>
-    </div>
-</div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background-color: #ff6b6b;">
+                    <i class="fas fa-undo-alt"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>إجمالي المرتجعات</h3>
+                    <div class="stat-value" id="totalReturnsAccountant">0.00</div>
+                    <div class="stat-period">عدد الفواتير: <span id="countReturnsAccountant">0</span></div>
+                </div>
+            </div>
             <div class="dashboard-filters">
                 <div class="filter-group">
                     <label for="dashboardDateFromAccountant">من تاريخ:</label>
@@ -459,7 +459,7 @@
                     بحث
                 </button>
             </div>
-            <div id="invoiceSearchResultAccountant" class="report-content" style="margin-top: 20px; display: none;"></div>
+            <div id="invoiceSearchResultAccountant" class="report-content" style="display: none;"></div>
             
             <div class="cashiers-overview">
                 <h3><i class="fas fa-users"></i> نظرة عامة على الكاشيرز</h3>
@@ -616,9 +616,9 @@
                 </table>
             </div>
             <!-- تفاصيل الأجل والسداد للعميل -->
-            <div id="customerDetailsAccountant" class="report-content" style="margin-top: 20px; display: none;">
+            <div id="customerDetailsAccountant" class="report-content" style="display: none;">
                 <h3>تفاصيل أجل العميل: <span id="customerDetailsName"></span></h3>
-                <div class="form-row" style="margin-bottom: 20px;">
+                <div class="form-row">
                     <div class="form-group">
                         <label for="customerPaymentAmount">مبلغ السداد:</label>
                         <input type="number" id="customerPaymentAmount" step="0.01" placeholder="أدخل مبلغ السداد">
@@ -653,7 +653,7 @@
             
             <div class="accountant-shift-form">
                 <div class="form-row">
-                    <div class="filter-group">
+                    <div class="form-group">
                         <label for="selectedCashierAccountant">البحث عن الكاشير:</label>
                         <select id="selectedCashierAccountant" onchange="searchCashierClosuresAccountant()">
                             <option value="">اختر الكاشير</option>
@@ -661,22 +661,22 @@
                         </select>
                     </div>
                     
-                    <div class="filter-group">
+                    <div class="form-group">
                         <label for="accountantShiftDateFrom">من تاريخ:</label>
                         <input type="date" id="accountantShiftDateFrom">
                     </div>
                     
-                    <div class="filter-group">
+                    <div class="form-group">
                         <label for="accountantShiftDateTo">إلى تاريخ:</label>
                         <input type="date" id="accountantShiftDateTo">
                     </div>
                     
-                    <div class="filter-group">
+                    <div class="form-group">
                         <label for="accountantShiftTimeFrom">من الساعة:</label>
                         <input type="time" id="accountantShiftTimeFrom">
                     </div>
                     
-                    <div class="filter-group">
+                    <div class="form-group">
                         <label for="accountantShiftTimeTo">إلى الساعة:</label>
                         <input type="time" id="accountantShiftTimeTo">
                     </div>
@@ -765,7 +765,7 @@
                 <h3><i class="fas fa-plus"></i> إضافة تصنيف جديد</h3>
                 <button class="close-btn" onclick="closeModal('addCategoryModal')">&times;</button>
             </div>
-            <form id="addCategoryForm">
+            <form id="addCategoryForm" onsubmit="event.preventDefault(); addCategory();">
                 <div class="form-group">
                     <label for="categoryCode">كود التصنيف:</label>
                     <input type="text" id="categoryCode" required placeholder="مثال: BG001">
@@ -816,7 +816,7 @@
                 <h3><i class="fas fa-plus"></i> إضافة مصروف جديد</h3>
                 <button class="close-btn" onclick="closeModal('addExpenseModal')">&times;</button>
             </div>
-            <form id="addExpenseForm">
+            <form id="addExpenseForm" onsubmit="event.preventDefault(); addExpense();">
                 <div class="form-group">
                     <label for="expenseCategorySearch">البحث عن التصنيف:</label>
                     <div class="input-group">
@@ -854,7 +854,7 @@
                 <h3><i class="fas fa-plus"></i> إضافة عميل جديد</h3>
                 <button class="close-btn" onclick="closeModal('addCustomerModal')">&times;</button>
             </div>
-            <form id="addCustomerForm">
+            <form id="addCustomerForm" onsubmit="event.preventDefault(); addCustomer();">
                 <div class="form-group">
                     <label for="customerName">اسم العميل:</label>
                     <input type="text" id="customerName" required placeholder="أدخل اسم العميل">
@@ -882,11 +882,11 @@
     <!-- نافذة إضافة مستخدم -->
     <div id="addUserModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class-header">
                 <h3><i class="fas fa-plus"></i> إضافة مستخدم جديد</h3>
                 <button class="close-btn" onclick="closeModal('addUserModal')">&times;</button>
             </div>
-            <form id="addUserForm">
+            <form id="addUserForm" onsubmit="event.preventDefault(); addUser();">
                 <div class="form-group">
                     <label for="userName">الاسم:</label>
                     <input type="text" id="userName" required placeholder="أدخل اسم المستخدم">
@@ -937,7 +937,7 @@
                 <h3><i class="fab fa-whatsapp"></i> إرسال التقرير عبر واتساب</h3>
                 <button class="close-btn" onclick="closeModal('whatsappModal')">&times;</button>
             </div>
-            <form id="whatsappForm">
+            <form id="whatsappForm" onsubmit="event.preventDefault(); sendReportViaWhatsApp();">
                 <div class="form-group">
                     <label for="whatsappNumber">رقم الواتساب:</label>
                     <input type="tel" id="whatsappNumber" required placeholder="أدخل رقم الواتساب">
@@ -964,7 +964,7 @@
                 <h3><i class="fas fa-info-circle"></i> تفاصيل التقفيلة</h3>
                 <button class="close-btn" onclick="closeModal('genericDetailsModal')">&times;</button>
             </div>
-            <div class="modal-body" id="genericDetailsModalContent" style="padding: 25px;">
+            <div class="modal-body" id="genericDetailsModalContent">
                 <!-- سيتم ملء المحتوى هنا ديناميكياً -->
             </div>
             <div class="modal-actions">
@@ -983,7 +983,7 @@
                 <h3><i class="fas fa-check-double"></i> تقفيل المحاسب للشيفت</h3>
                 <button class="close-btn" onclick="closeModal('accountantClosureDetailsModal')">&times;</button>
             </div>
-            <div class="modal-body" style="padding: 25px;">
+            <div class="modal-body">
                 <h4>بيانات الشيفت:</h4>
                 <p><strong>الكاشير:</strong> <span id="accountantClosureModalCashierName"></span></p>
                 <p><strong>الفترة:</strong> <span id="accountantClosureModalPeriod"></span></p>
@@ -1001,7 +1001,7 @@
                 </div>
                 <p><strong>إجمالي الكلي للكاشير:</strong> <span id="accountantClosureModalGrandTotal">0.00</span></p>
                 <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد إضافة المرتجع:</strong> <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></p>
-                <hr style="margin: 20px 0;">
+                <hr>
 
                 <div class="form-group">
                     <label for="accountantClosureModalNewMindTotal">إجمالي نيو مايند:</label>
@@ -1012,7 +1012,7 @@
                 <p><strong>الحالة:</strong> <span id="accountantClosureModalStatus" class="status open">في انتظار الإدخال</span></p>
             </div>
             <div class="modal-actions">
-                <button type="button" class="save-btn" id="saveAccountantClosureBtn" disabled>
+                <button type="button" class="save-btn" id="saveAccountantClosureBtn" onclick="saveAccountantClosure()" disabled>
                     <i class="fas fa-check"></i>
                     حفظ التقفيل
                 </button>
@@ -1025,7 +1025,7 @@
     </div>
 
     <!-- تراكب التحميل -->
-    <div id="loadingOverlay" class="loading-overlay">
+    <div id="loadingOverlay" class="loading-overlay hidden">
         <div class="loading-spinner">
             <i class="fas fa-spinner fa-spin"></i>
             <p>جار التحميل...</p>
@@ -1033,8 +1033,6 @@
     </div>
 
     <!-- تحميل الملفات -->
-    <script src="https://apis.google.com/js/api.js" defer></script>
-    <script src="https://accounts.google.com/gsi/client" defer></script>
     <script src="script.js"></script>
 </body>
 </html>
