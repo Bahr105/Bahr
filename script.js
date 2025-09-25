@@ -385,6 +385,7 @@ async function loadUsers() {
     }
 }
 
+// في نهاية دالة loadCategories
 async function loadCategories() {
     try {
         const data = await readSheet(SHEETS.CATEGORIES);
@@ -398,6 +399,14 @@ async function loadCategories() {
             }));
         } else {
             categories = [];
+        }
+        
+        // التحقق من وجود تصنيف المرتجعات
+        const returnsCategory = categories.find(cat => cat.formType === 'مرتجع');
+        if (!returnsCategory) {
+            console.warn('تحذير: لم يتم العثور على تصنيف المرتجعات في البيانات');
+        } else {
+            console.log('تم العثور على تصنيف المرتجعات:', returnsCategory);
         }
     } catch (error) {
         console.error('Error loading categories:', error);
@@ -1269,6 +1278,7 @@ async function addExpense() {
     }
 }
 
+// تحسين دالة loadCashierExpenses
 async function loadCashierExpenses() {
     const expenses = await loadExpenses({ cashier: currentUser.username });
 
@@ -1277,16 +1287,18 @@ async function loadCashierExpenses() {
     cashierDailyData.insta = [];
     cashierDailyData.visa = [];
     cashierDailyData.online = [];
-    cashierDailyData.returns = []; // إضافة للمرتجعات
+    cashierDailyData.returns = [];
     cashierDailyData.totalExpenses = 0;
     cashierDailyData.totalInsta = 0;
     cashierDailyData.totalVisa = 0;
     cashierDailyData.totalOnline = 0;
-    cashierDailyData.totalReturns = 0; // إضافة لإجمالي المرتجعات
+    cashierDailyData.totalReturns = 0;
 
     expenses.forEach(expense => {
         const category = categories.find(c => c.name === expense.category || c.code === expense.categoryCode);
         const formType = category ? category.formType : 'عادي';
+
+        console.log(`Expense: ${expense.category}, Category Code: ${expense.categoryCode}, Form Type: ${formType}, Amount: ${expense.amount}`); // Debug log
 
         if (formType === 'إنستا') {
             cashierDailyData.insta.push(expense);
@@ -1297,7 +1309,7 @@ async function loadCashierExpenses() {
         } else if (formType === 'اونلاين') {
             cashierDailyData.online.push(expense);
             cashierDailyData.totalOnline += expense.amount;
-        } else if (formType === 'مرتجع') { // إضافة للمرتجعات
+        } else if (formType === 'مرتجع') {
             cashierDailyData.returns.push(expense);
             cashierDailyData.totalReturns += expense.amount;
         } else {
@@ -1305,6 +1317,9 @@ async function loadCashierExpenses() {
             cashierDailyData.totalExpenses += expense.amount;
         }
     });
+
+    console.log('Returns data:', cashierDailyData.returns); // Debug log
+    console.log('Total returns:', cashierDailyData.totalReturns); // Debug log
 
     filterCashierExpenses();
 }
@@ -1586,6 +1601,7 @@ async function addCustomer() {
 }
 
 // --- Shift Management ---
+// تحسين دالة calculateCashierShift
 async function calculateCashierShift() {
     const dateFrom = document.getElementById('shiftDateFromCashier')?.value;
     const dateTo = document.getElementById('shiftDateToCashier')?.value;
@@ -1615,12 +1631,14 @@ async function calculateCashierShift() {
             insta: [],
             visa: [],
             online: [],
-            returns: [] // إضافة للمرتجعات
+            returns: []
         };
 
         expenses.forEach(expense => {
             const category = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
             const formType = category ? category.formType : 'عادي';
+
+            console.log(`Expense: ${expense.invoiceNumber}, Category: ${expense.category}, FormType: ${formType}, Amount: ${expense.amount}`); // Debug log
 
             if (formType === 'إنستا') {
                 categorizedExpenses.insta.push(expense);
@@ -1628,7 +1646,7 @@ async function calculateCashierShift() {
                 categorizedExpenses.visa.push(expense);
             } else if (formType === 'اونلاين') {
                 categorizedExpenses.online.push(expense);
-            } else if (formType === 'مرتجع') { // إضافة للمرتجعات
+            } else if (formType === 'مرتجع') {
                 categorizedExpenses.returns.push(expense);
             } else {
                 categorizedExpenses.expenses.push(expense);
@@ -1643,12 +1661,12 @@ async function calculateCashierShift() {
         const visaCount = categorizedExpenses.visa.length;
         const totalOnline = categorizedExpenses.online.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = categorizedExpenses.online.length;
-        const totalReturns = categorizedExpenses.returns.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
-        const returnsCount = categorizedExpenses.returns.length; // عدد فواتير المرتجعات
+        const totalReturns = categorizedExpenses.returns.reduce((sum, exp) => sum + exp.amount, 0);
+        const returnsCount = categorizedExpenses.returns.length;
 
-        // grandTotal for cashier should be the sum of all transactions *excluding* returns for comparison with New Mind
-        const grandTotal = totalExpenses + totalInsta + totalVisa + totalOnline; 
+        const grandTotal = totalExpenses + totalInsta + totalVisa + totalOnline;
 
+        // تحديث واجهة المستخدم
         const totalExpensesCashier = document.getElementById('totalExpensesCashier');
         if (totalExpensesCashier) totalExpensesCashier.textContent = totalExpenses.toFixed(2);
         const expenseCountCashier = document.getElementById('expenseCountCashier');
@@ -1666,9 +1684,9 @@ async function calculateCashierShift() {
         const onlineCountCashier = document.getElementById('onlineCountCashier');
         if (onlineCountCashier) onlineCountCashier.textContent = onlineCount;
         const grandTotalCashier = document.getElementById('grandTotalCashier');
-        if (grandTotalCashier) grandTotalCashier.textContent = grandTotal.toFixed(2); // This is the sum of transactions only
+        if (grandTotalCashier) grandTotalCashier.textContent = grandTotal.toFixed(2);
 
-        // إضافة عرض المرتجعات في ملخص الشيفت - هذا هو التصحيح المطلوب
+        // تحديث بيانات المرتجعات
         const totalReturnsCashier = document.getElementById('totalReturnsCashier');
         if (totalReturnsCashier) totalReturnsCashier.textContent = totalReturns.toFixed(2);
         const returnsCountCashier = document.getElementById('returnsCountCashier');
@@ -1676,6 +1694,10 @@ async function calculateCashierShift() {
 
         const shiftSummaryCashier = document.getElementById('shiftSummaryCashier');
         if (shiftSummaryCashier) shiftSummaryCashier.style.display = 'block';
+
+        console.log('Shift calculation completed:'); // Debug log
+        console.log('Total Returns:', totalReturns); // Debug log
+        console.log('Returns Count:', returnsCount); // Debug log
 
         showMessage('تم حساب الشيفت بنجاح.', 'success');
     } catch (error) {
@@ -1685,7 +1707,6 @@ async function calculateCashierShift() {
         showLoading(false);
     }
 }
-
 async function finalizeCashierShiftCloseout() {
     const drawerCashInput = document.getElementById('drawerCashCashier');
     const drawerCash = drawerCashInput ? parseFloat(drawerCashInput.value) : NaN;
