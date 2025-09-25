@@ -1564,6 +1564,7 @@ async function addCustomer() {
 }
 
 // --- Shift Management ---
+
 async function calculateCashierShift() {
     const dateFrom = document.getElementById('shiftDateFromCashier').value;
     const dateTo = document.getElementById('shiftDateToCashier').value;
@@ -1666,6 +1667,9 @@ async function calculateCashierShift() {
         showLoading(false);
     }
 }
+
+
+
 
 async function finalizeCashierShiftCloseout() {
     const drawerCash = parseFloat(document.getElementById('drawerCashCashier').value);
