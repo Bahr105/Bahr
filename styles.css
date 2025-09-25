@@ -12,6 +12,8 @@ body {
     color: #333;
     direction: rtl;
     text-align: right;
+    font-size: 16px; /* Base font size */
+    line-height: 1.6;
 }
 
 /* Page Management */
@@ -24,17 +26,28 @@ body {
 }
 
 /* Messages */
+#messageContainer {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .message {
     padding: 15px 20px;
     border-radius: 8px;
-    margin-bottom: 10px;
     font-weight: 500;
     display: flex;
     align-items: center;
     gap: 10px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    animation: slideIn 0.3s ease;
+    animation: slideIn 0.3s ease forwards; /* Use forwards to keep the final state */
     position: relative;
+    cursor: pointer; /* Make messages clickable to dismiss */
 }
 
 @keyframes slideIn {
@@ -51,25 +64,25 @@ body {
 .message.success {
     background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
     color: #155724;
-    border-left: 4px solid #28a745;
+    border-right: 4px solid #28a745; /* Changed to right border for RTL */
 }
 
 .message.error {
     background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
     color: #721c24;
-    border-left: 4px solid #dc3545;
+    border-right: 4px solid #dc3545; /* Changed to right border for RTL */
 }
 
 .message.warning {
     background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
     color: #856404;
-    border-left: 4px solid #ffc107;
+    border-right: 4px solid #ffc107; /* Changed to right border for RTL */
 }
 
 .message.info {
     background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
     color: #0c5460;
-    border-left: 4px solid #17a2b8;
+    border-right: 4px solid #17a2b8; /* Changed to right border for RTL */
 }
 
 /* Login Page */
@@ -140,7 +153,7 @@ body {
 
 .input-group i {
     position: absolute;
-    right: 15px;
+    right: 15px; /* Icon on the right for RTL */
     color: #999;
     z-index: 2;
 }
@@ -148,7 +161,7 @@ body {
 .input-group input,
 .input-group select {
     width: 100%;
-    padding: 15px 45px 15px 15px;
+    padding: 15px 45px 15px 15px; /* Adjust padding for RTL icon */
     border: 2px solid #e1e5e9;
     border-radius: 10px;
     font-size: 1rem;
@@ -166,7 +179,7 @@ body {
 
 .show-password {
     position: absolute;
-    left: 15px;
+    left: 15px; /* Button on the left for RTL */
     background: none;
     border: none;
     color: #999;
@@ -187,8 +200,8 @@ body {
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 10px;
+    justify-content: center;
 }
 
 .login-btn:hover {
@@ -264,6 +277,7 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* For smooth scrolling on iOS */
 }
 
 .nav-tab {
@@ -297,10 +311,12 @@ body {
 /* Main Content */
 .main-content {
     background: #f8f9fa;
-    min-height: calc(100vh - 140px);
+    min-height: calc(100vh - 140px); /* Adjust based on header/nav height */
     padding: 30px;
     max-width: 1200px;
     margin: 0 auto;
+    border-radius: 0 0 10px 10px; /* Rounded bottom corners */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
 }
 
 .tab-content {
@@ -309,7 +325,7 @@ body {
 
 .tab-content.active {
     display: block;
-    animation: fadeIn 0.3s ease;
+    animation: fadeIn 0.3s ease forwards;
 }
 
 @keyframes fadeIn {
@@ -338,7 +354,7 @@ body {
 }
 
 /* Buttons */
-.add-btn, .save-btn, .calculate-btn, .generate-report-btn, .search-btn, .close-shift-btn, .close-cashier-btn {
+.add-btn, .save-btn, .calculate-btn, .generate-report-btn, .search-btn, .close-shift-btn, .close-cashier-btn, .send-btn {
     background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
     color: white;
     border: none;
@@ -351,9 +367,10 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    justify-content: center;
 }
 
-.add-btn:hover, .save-btn:hover, .calculate-btn:hover, .generate-report-btn:hover, .search-btn:hover, .close-shift-btn:hover, .close-cashier-btn:hover {
+.add-btn:hover, .save-btn:hover, .calculate-btn:hover, .generate-report-btn:hover, .search-btn:hover, .close-shift-btn:hover, .close-cashier-btn:hover, .send-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
 }
@@ -371,6 +388,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    justify-content: center;
 }
 
 .cancel-btn:hover {
@@ -390,6 +408,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    justify-content: center;
 }
 
 .print-btn:hover, .view-btn:hover {
@@ -397,7 +416,7 @@ body {
     transform: translateY(-2px);
 }
 
-.whatsapp-btn, .send-btn {
+.whatsapp-btn {
     background: #25d366;
     color: white;
     border: none;
@@ -410,9 +429,10 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    justify-content: center;
 }
 
-.whatsapp-btn:hover, .send-btn:hover {
+.whatsapp-btn:hover {
     background: #128c7e;
     transform: translateY(-2px);
 }
@@ -429,6 +449,7 @@ body {
     display: flex;
     align-items: center;
     gap: 5px;
+    justify-content: center;
 }
 
 .clear-filters-btn:hover {
@@ -448,6 +469,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    justify-content: center;
 }
 
 .calculate-difference-btn:hover {
@@ -468,6 +490,7 @@ body {
     display: flex;
     align-items: center;
     gap: 5px;
+    justify-content: center;
 }
 
 .edit-btn:hover {
@@ -487,10 +510,51 @@ body {
     display: flex;
     align-items: center;
     gap: 5px;
+    justify-content: center;
 }
 
 .delete-btn:hover {
     background: #c82333;
+}
+
+.block-btn { /* Style for user block/password button */
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: center;
+}
+
+.block-btn:hover {
+    background: #0056b3;
+}
+
+.accountant-close-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: center;
+}
+
+.accountant-close-btn:hover {
+    background: #218838;
 }
 
 /* Categories Grid */
@@ -506,7 +570,7 @@ body {
     padding: 20px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
     transition: all 0.3s ease;
-    border-left: 4px solid #4CAF50;
+    border-right: 4px solid #4CAF50; /* Changed to right border for RTL */
 }
 
 .category-card:hover {
@@ -545,10 +609,11 @@ body {
 .category-actions {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap; /* Allow actions to wrap on smaller screens */
 }
 
 /* Filters */
-.expenses-filters, .dashboard-filters, .reports-filters {
+.expenses-filters, .dashboard-filters, .reports-filters, .accountant-shift-form {
     background: white;
     padding: 20px;
     border-radius: 10px;
@@ -557,7 +622,7 @@ body {
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
-    align-items: end;
+    align-items: flex-end; /* Align items to the bottom */
 }
 
 .filter-group {
@@ -565,6 +630,7 @@ body {
     flex-direction: column;
     gap: 5px;
     min-width: 150px;
+    flex: 1; /* Allow filter groups to grow */
 }
 
 .filter-group label {
@@ -580,6 +646,7 @@ body {
     font-size: 0.9rem;
     transition: all 0.3s ease;
     background: white;
+    width: 100%; /* Ensure inputs take full width of their group */
 }
 
 .filter-group input:focus, .filter-group select:focus {
@@ -607,7 +674,7 @@ body {
     padding: 12px 15px;
     border: 2px solid #e1e5e9;
     border-radius: 8px;
-    font-size: 16px;
+    font-size: 1rem;
     transition: all 0.3s ease;
     background: white;
 }
@@ -631,13 +698,14 @@ body {
 .expenses-table, .customers-table, .users-table, .cashiers-table, .closures-table {
     background: white;
     border-radius: 10px;
-    overflow: hidden;
+    overflow-x: auto; /* Allow horizontal scrolling for tables */
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
+    min-width: 700px; /* Ensure table is not too narrow on small screens */
 }
 
 table th {
@@ -647,12 +715,14 @@ table th {
     font-weight: 600;
     color: #495057;
     border-bottom: 1px solid #dee2e6;
+    white-space: nowrap; /* Prevent header text from wrapping */
 }
 
 table td {
     padding: 12px;
     border-bottom: 1px solid #f1f3f4;
     vertical-align: middle;
+    white-space: nowrap; /* Prevent cell content from wrapping */
 }
 
 table tr:hover {
@@ -669,24 +739,20 @@ table tr:hover {
     display: inline-block;
 }
 
-.status.active {
+.status.active, .status.closed, .status-match {
     background: #d4edda;
     color: #155724;
 }
 
-.status.inactive {
+.status.inactive, .status.open, .status-deficit {
     background: #f8d7da;
     color: #721c24;
 }
 
-.status.closed {
-    background: #d4edda;
-    color: #155724;
-}
-
-.status.open {
-    background: #fff3cd;
-    color: #856404;
+.status-surplus {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb; /* Added border for consistency */
 }
 
 /* Dashboard Stats */
@@ -729,6 +795,14 @@ table tr:hover {
     background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
 }
 
+.stat-card .stat-icon[style*="background-color: #ff6b6b;"] { /* Specific style for returns icon */
+    background: linear-gradient(135deg, #ff6b6b 0%, #e74c3c 100%) !important;
+}
+
+.stat-content {
+    flex-grow: 1; /* Allow content to take available space */
+}
+
 .stat-content h3 {
     font-size: 0.9rem;
     color: #6c757d;
@@ -750,7 +824,7 @@ table tr:hover {
 }
 
 /* Shift Forms */
-.shift-close-form, .accountant-shift-form {
+.shift-close-form {
     background: white;
     padding: 25px;
     border-radius: 10px;
@@ -779,13 +853,13 @@ table tr:hover {
     padding: 20px;
     border-radius: 8px;
     text-align: center;
-    border-left: 4px solid #4CAF50;
+    border-right: 4px solid #4CAF50; /* Changed to right border for RTL */
 }
 
 .summary-card.total {
     background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
     color: white;
-    border-left: 44px solid #2e7d32;
+    border-right: 4px solid #2e7d32; /* Changed to right border for RTL */
 }
 
 .summary-card h3 {
@@ -823,11 +897,13 @@ table tr:hover {
     padding-top: 20px;
     display: flex;
     gap: 20px;
-    align-items: end;
+    align-items: flex-end; /* Align items to the bottom */
+    flex-wrap: wrap;
 }
 
 .drawer-cash-section .form-group {
     flex: 1;
+    min-width: 200px;
 }
 
 /* Cashiers Overview */
@@ -836,6 +912,7 @@ table tr:hover {
     padding: 25px;
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    margin-top: 30px; /* Added margin-top */
 }
 
 .cashiers-overview h3 {
@@ -863,7 +940,7 @@ table tr:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: modalFadeIn 0.3s ease;
+    animation: modalFadeIn 0.3s ease forwards;
 }
 
 @keyframes modalFadeIn {
@@ -883,7 +960,7 @@ table tr:hover {
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    animation: modalSlideIn 0.3s ease;
+    animation: modalSlideIn 0.3s ease forwards;
 }
 
 .modal-content.large {
@@ -909,6 +986,9 @@ table tr:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: sticky; /* Make header sticky for scrollable modals */
+    top: 0;
+    z-index: 10;
 }
 
 .modal-header h3 {
@@ -948,6 +1028,14 @@ table tr:hover {
     margin-top: 25px;
     padding-top: 20px;
     border-top: 1px solid #dee2e6;
+    padding-left: 25px; /* Match modal padding */
+    padding-right: 25px; /* Match modal padding */
+    padding-bottom: 25px; /* Add bottom padding */
+    position: sticky; /* Make actions sticky for scrollable modals */
+    bottom: 0;
+    background: white;
+    border-radius: 0 0 12px 12px;
+    z-index: 10;
 }
 
 /* Dynamic Form */
@@ -968,8 +1056,9 @@ table tr:hover {
 .suggestions {
     position: absolute;
     top: 100%;
-    left: 0;
-    right: 0;
+    right: 0; /* Position to the right for RTL */
+    left: auto; /* Reset left */
+    width: 100%;
     background: white;
     border: 1px solid #dee2e6;
     border-top: none;
@@ -1002,6 +1091,7 @@ table tr:hover {
     gap: 15px;
     margin-bottom: 20px;
     flex-wrap: wrap;
+    justify-content: flex-start; /* Align buttons to the right for RTL */
 }
 
 .report-content {
@@ -1010,6 +1100,7 @@ table tr:hover {
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
     min-height: 300px;
+    overflow-x: auto; /* Allow horizontal scrolling for report content */
 }
 
 .report-header {
@@ -1056,6 +1147,22 @@ table tr:hover {
     gap: 10px;
 }
 
+.closure-summary p {
+    margin-bottom: 8px;
+    font-size: 1rem;
+    color: #495057;
+}
+
+.closure-summary strong {
+    color: #2c3e50;
+}
+
+.invoice-count {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-right: 5px;
+}
+
 .newmind-input {
     margin: 20px 0;
     padding: 20px;
@@ -1063,11 +1170,13 @@ table tr:hover {
     border-radius: 8px;
     display: flex;
     gap: 15px;
-    align-items: end;
+    align-items: flex-end; /* Align items to the bottom */
+    flex-wrap: wrap;
 }
 
 .newmind-input .form-group {
     flex: 1;
+    min-width: 200px;
 }
 
 .difference-result {
@@ -1079,22 +1188,37 @@ table tr:hover {
     font-weight: 600;
 }
 
-.difference-result.surplus {
+.difference-result .difference-card {
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.difference-result .difference-card h4 {
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+}
+
+.difference-result .difference-card p {
+    margin-bottom: 5px;
+    font-size: 1rem;
+}
+
+.difference-result .difference-card.status-match {
     background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
     color: #155724;
     border: 1px solid #c3e6cb;
 }
 
-.difference-result.deficit {
-    background: linear-gradient(135deg, #f8d7da 0%, #f1aeb5 100%);
-    color: #721c24;
-    border: 1px solid #f1aeb5;
-}
-
-.difference-result.balanced {
+.difference-result .difference-card.status-surplus {
     background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
     color: #0c5460;
     border: 1px solid #bee5eb;
+}
+
+.difference-result .difference-card.status-deficit {
+    background: linear-gradient(135deg, #f8d7da 0%, #f1aeb5 100%);
+    color: #721c24;
+    border: 1px solid #f1aeb5;
 }
 
 /* Closures History */
@@ -1103,6 +1227,7 @@ table tr:hover {
     padding: 25px;
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    margin-top: 25px; /* Added margin-top for spacing */
 }
 
 .closures-history h3 {
@@ -1126,10 +1251,14 @@ table tr:hover {
     justify-content: center;
     z-index: 9999;
     backdrop-filter: blur(3px);
+    opacity: 0; /* Start hidden */
+    visibility: hidden; /* Start hidden */
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
-.loading-overlay.hidden {
-    display: none;
+.loading-overlay.visible {
+    opacity: 1;
+    visibility: visible;
 }
 
 .loading-spinner {
@@ -1138,20 +1267,118 @@ table tr:hover {
     border-radius: 10px;
     text-align: center;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
 }
 
 .loading-spinner i {
-    font-size: 2rem;
+    font-size: 2.5rem; /* Slightly larger icon */
     color: #4CAF50;
-    margin-bottom: 15px;
+    animation: spin 1.5s linear infinite; /* Add spin animation */
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .loading-spinner p {
     color: #6c757d;
     font-weight: 500;
+    font-size: 1.1rem;
+}
+
+/* Switch Toggle for Deduct Returns */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 24px;
+    margin-left: 10px; /* Adjust margin for RTL */
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: .4s;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    -webkit-transition: .4s;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #4CAF50;
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #4CAF50;
+}
+
+input:checked + .slider:before {
+    -webkit-transform: translateX(16px);
+    -ms-transform: translateX(16px);
+    transform: translateX(16px);
+}
+
+/* Rounded sliders */
+.slider.round {
+    border-radius: 24px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
 }
 
 /* Responsive Design */
+@media (max-width: 992px) {
+    .main-content {
+        padding: 20px;
+    }
+    .nav-tab {
+        padding: 15px 20px;
+    }
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .filter-group {
+        min-width: 120px;
+    }
+    .form-row {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .summary-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .drawer-cash-section .form-group, .newmind-input .form-group {
+        min-width: 180px;
+    }
+}
+
 @media (max-width: 768px) {
     .main-content {
         padding: 15px;
@@ -1171,7 +1398,7 @@ table tr:hover {
         grid-template-columns: 1fr;
     }
     
-    .expenses-filters, .dashboard-filters, .reports-filters {
+    .expenses-filters, .dashboard-filters, .reports-filters, .accountant-shift-form {
         flex-direction: column;
         align-items: stretch;
     }
@@ -1282,29 +1509,123 @@ table tr:hover {
     .report-content {
         padding: 15px;
     }
+    .login-header h1 {
+        font-size: 1.5rem;
+    }
+    .login-header i {
+        font-size: 2.5rem;
+    }
+    .input-group input, .input-group select {
+        padding: 12px 40px 12px 12px;
+    }
+    .input-group i {
+        right: 10px;
+    }
+    .show-password {
+        left: 10px;
+    }
 }
 
 /* Print Styles */
 @media print {
     body {
         background: white;
+        color: black;
+        -webkit-print-color-adjust: exact !important; /* Ensure background colors are printed */
+        print-color-adjust: exact !important;
     }
     
-    .main-header, .nav-tabs, .section-header, .report-actions {
-        display: none;
+    .main-header, .nav-tabs, .section-header, .report-actions, .logout-btn, .add-btn, .clear-filters-btn, .calculate-btn, .search-btn, .close-shift-btn, .close-cashier-btn, .edit-btn, .delete-btn, .block-btn, .accountant-close-btn, .modal, #messageContainer, #loadingOverlay {
+        display: none !important;
     }
     
-    .report-content {
-        box-shadow: none;
-        padding: 0;
+    .page.active {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        min-height: auto !important;
     }
-    
+
+    .main-content {
+        background: white !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    .report-content, .closures-history, .cashiers-overview, .expenses-table, .customers-table, .users-table {
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin-top: 10px !important;
+        border: none !important;
+    }
+
     table {
-        border: 1px solid #000;
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin: 10px 0 !important;
+        font-size: 10pt !important;
+        min-width: auto !important; /* Reset min-width for printing */
     }
     
     table th, table td {
-        border: 1px solid #000;
-        padding: 5px;
+        border: 1px solid #000 !important;
+        padding: 5px !important;
+        text-align: right !important;
+        white-space: normal !important; /* Allow text to wrap in print */
+    }
+    table th {
+        background-color: #f2f2f2 !important;
+    }
+    table tr:nth-child(even) {
+        background-color: #f9f9f9 !important;
+    }
+
+    .report-header, .report-footer, .cashier-section {
+        page-break-inside: avoid; /* Avoid breaking these sections across pages */
+        margin-bottom: 15px !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid #eee !important;
+    }
+    .report-header h3, .report-footer h4, .cashier-section h4 {
+        color: #333 !important;
+        font-size: 14pt !important;
+    }
+    .report-header p, .report-footer p, .cashier-section p {
+        font-size: 10pt !important;
+    }
+    .stats-summary {
+        background: #f0f0f0 !important;
+        padding: 10px !important;
+        border-radius: 5px !important;
+        margin-bottom: 10px !important;
+    }
+    .status {
+        border: 1px solid #ccc !important;
+        background: #eee !important;
+        color: #333 !important;
+    }
+    .difference-result .difference-card {
+        border: 1px solid #ccc !important;
+        background: #f0f0f0 !important;
+        color: #333 !important;
+    }
+    .difference-result .difference-card.status-match {
+        background: #d4edda !important;
+        color: #155724 !important;
+        border-color: #c3e6cb !important;
+    }
+    .difference-result .difference-card.status-surplus {
+        background: #d1ecf1 !important;
+        color: #0c5460 !important;
+        border-color: #bee5eb !important;
+    }
+    .difference-result .difference-card.status-deficit {
+        background: #f8d7da !important;
+        color: #721c24 !important;
+        border-color: #f1aeb5 !important;
     }
 }
