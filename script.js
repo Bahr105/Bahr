@@ -160,7 +160,7 @@ function gisLoaded() {
 }
 
 // دالة موحدة لبدء المصادقة وتحميل البيانات الأولية
-async function maybePerformAuthAndLoadData() {
+async function maybePerformAuthAndAndLoadData() {
     if (!gapiInited || !gisInited) {
         console.log('GAPI or GIS not yet initialized. Waiting...');
         return;
@@ -2129,14 +2129,13 @@ async function generateAccountantReport() {
     showLoading(true);
     try {
         const expenses = await loadExpenses(filters);
-        // تحميل جميع التقفيلات لتجميع الكاش في الدرج
-        const allClosures = await loadShiftClosures({}); 
+        const allClosures = await loadShiftClosures({}); // تحميل جميع التقفيلات لتجميع الكاش في الدرج
         const reportContent = document.getElementById('reportContentAccountant');
         if (!reportContent) return;
 
         reportContent.innerHTML = '';
 
-        if (expenses.length === 0 && allClosures.length === 0) { // Changed to allClosures
+        if (expenses.length === 0 && allClosures.length === 0) {
             reportContent.innerHTML = '<p>لا توجد بيانات مطابقة لمعايير التقرير المحددة.</p>';
             return;
         }
@@ -2150,7 +2149,7 @@ async function generateAccountantReport() {
                     visa: [],
                     insta: [],
                     online: [],
-                    returns: [] // إضافة للمرتجعات
+                    returns: []
                 };
             }
 
@@ -2163,7 +2162,7 @@ async function generateAccountantReport() {
                 expensesByCashier[exp.cashier].insta.push(exp);
             } else if (formType === 'اونلاين') {
                 expensesByCashier[exp.cashier].online.push(exp);
-            } else if (formType === 'مرتجع') { // إضافة للمرتجعات
+            } else if (formType === 'مرتجع') {
                 expensesByCashier[exp.cashier].returns.push(exp);
             } else {
                 expensesByCashier[exp.cashier].normal.push(exp);
@@ -2206,8 +2205,8 @@ async function generateAccountantReport() {
         let grandTotalVisa = 0;
         let grandTotalInsta = 0;
         let grandTotalOnline = 0;
-        let grandTotalReturns = 0; // إجمالي المرتجعات
-        let grandTotalDrawerCash = 0; // إجمالي الكاش في الدرج
+        let grandTotalReturns = 0;
+        let grandTotalDrawerCash = 0;
 
         const allCashiersInReport = new Set([...Object.keys(expensesByCashier), ...Object.keys(drawerCashByCashierAndDate)]);
 
@@ -2220,7 +2219,7 @@ async function generateAccountantReport() {
             const totalVisa = cashierData.visa.reduce((sum, exp) => sum + exp.amount, 0);
             const totalInsta = cashierData.insta.reduce((sum, exp) => sum + exp.amount, 0);
             const totalOnline = cashierData.online.reduce((sum, exp) => sum + exp.amount, 0);
-            const totalReturns = cashierData.returns.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
+            const totalReturns = cashierData.returns.reduce((sum, exp) => sum + exp.amount, 0);
 
             grandTotalNormal += totalNormal;
             grandTotalVisa += totalVisa;
@@ -2924,7 +2923,7 @@ function updateAccountantClosureDisplay() {
     } else {
         grandTotalAfterReturnsContainer.style.display = 'none';
         accGrandTotalCashier.style.textDecoration = 'none'; // إزالة الشطب
-        accClosureModalGrandTotal.style.color = '#2c3e50'; // Reset color
+        accGrandTotalCashier.style.color = '#2c3e50'; // Reset color
     }
 
     // تحديث حساب الفرق إذا كان حقل نيو مايند مملوءًا
@@ -3684,4 +3683,3 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
