@@ -68,10 +68,12 @@ let cashierDailyData = {
     insta: [],
     visa: [],
     online: [],
+    returns: [], // إضافة للمرتجعات
     totalExpenses: 0,
     totalInsta: 0,
     totalVisa: 0,
     totalOnline: 0,
+    totalReturns: 0, // إضافة لإجمالي المرتجعات
     drawerCash: 0,
     shiftStartDate: null,
     shiftEndDate: null,
@@ -536,7 +538,9 @@ async function loadShiftClosures(filters = {}) {
             status: row[18] || '',
             closureDate: row[19] || '',
             closureTime: row[20] || '',
-            accountant: row[21] || ''
+            accountant: row[21] || '',
+            deductedReturns: parseFloat((row[22] || '0').replace(/,/g, '')), // إضافة حقل المرتجعات المخصومة
+            grandTotalAfterReturns: parseFloat((row[23] || '0').replace(/,/g, '')) // إضافة حقل الإجمالي بعد خصم المرتجعات
         }));
 
         // Apply filters
@@ -731,10 +735,12 @@ function resetCashierDailyData() {
         insta: [],
         visa: [],
         online: [],
+        returns: [], // إضافة للمرتجعات
         totalExpenses: 0,
         totalInsta: 0,
         totalVisa: 0,
         totalOnline: 0,
+        totalReturns: 0, // إضافة لإجمالي المرتجعات
         drawerCash: 0,
         shiftStartDate: null,
         shiftEndDate: null,
@@ -1213,6 +1219,9 @@ async function addExpense() {
             } else if (formType === 'اونلاين') {
                 cashierDailyData.online.push(newEntry);
                 cashierDailyData.totalOnline += amount;
+            } else if (formType === 'مرتجع') { // إضافة للمرتجعات
+                cashierDailyData.returns.push(newEntry);
+                cashierDailyData.totalReturns += amount;
             } else {
                 cashierDailyData.expenses.push(newEntry);
                 cashierDailyData.totalExpenses += amount;
@@ -1243,10 +1252,12 @@ async function loadCashierExpenses() {
     cashierDailyData.insta = [];
     cashierDailyData.visa = [];
     cashierDailyData.online = [];
+    cashierDailyData.returns = []; // إضافة للمرتجعات
     cashierDailyData.totalExpenses = 0;
     cashierDailyData.totalInsta = 0;
     cashierDailyData.totalVisa = 0;
     cashierDailyData.totalOnline = 0;
+    cashierDailyData.totalReturns = 0; // إضافة لإجمالي المرتجعات
 
     expenses.forEach(expense => {
         const category = categories.find(c => c.name === expense.category || c.code === expense.categoryCode);
@@ -1261,6 +1272,9 @@ async function loadCashierExpenses() {
         } else if (formType === 'اونلاين') {
             cashierDailyData.online.push(expense);
             cashierDailyData.totalOnline += expense.amount;
+        } else if (formType === 'مرتجع') { // إضافة للمرتجعات
+            cashierDailyData.returns.push(expense);
+            cashierDailyData.totalReturns += expense.amount;
         } else {
             cashierDailyData.expenses.push(expense);
             cashierDailyData.totalExpenses += expense.amount;
@@ -1293,7 +1307,7 @@ function filterCashierExpenses() {
 
     tableBody.innerHTML = '';
 
-    let filtered = [...cashierDailyData.expenses, ...cashierDailyData.insta, ...cashierDailyData.visa, ...cashierDailyData.online];
+    let filtered = [...cashierDailyData.expenses, ...cashierDailyData.insta, ...cashierDailyData.visa, ...cashierDailyData.online, ...cashierDailyData.returns]; // إضافة المرتجعات
 
     if (categoryFilter) {
         filtered = filtered.filter(exp => exp.category === categoryFilter);
@@ -1334,7 +1348,7 @@ function clearCashierExpenseFilters() {
 
     if (categoryFilter) categoryFilter.value = '';
     if (dateFromFilter) dateFromFilter.value = '';
-    if (dateToFilter) dateToFilter.value = '';
+    if (dateToFilter) dateToToFilter.value = '';
 
     filterCashierExpenses();
 }
@@ -1571,7 +1585,8 @@ async function calculateCashierShift() {
             expenses: [],
             insta: [],
             visa: [],
-            online: []
+            online: [],
+            returns: [] // إضافة للمرتجعات
         };
 
         expenses.forEach(expense => {
@@ -1584,6 +1599,8 @@ async function calculateCashierShift() {
                 categorizedExpenses.visa.push(expense);
             } else if (formType === 'اونلاين') {
                 categorizedExpenses.online.push(expense);
+            } else if (formType === 'مرتجع') { // إضافة للمرتجعات
+                categorizedExpenses.returns.push(expense);
             } else {
                 categorizedExpenses.expenses.push(expense);
             }
@@ -1597,6 +1614,9 @@ async function calculateCashierShift() {
         const visaCount = categorizedExpenses.visa.length;
         const totalOnline = categorizedExpenses.online.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = categorizedExpenses.online.length;
+        const totalReturns = categorizedExpenses.returns.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
+        const returnsCount = categorizedExpenses.returns.length; // عدد فواتير المرتجعات
+
         // Corrected: grandTotal for cashier should include drawerCash
         // For calculation, we assume drawerCash is 0 initially, it's added later by the cashier
         const grandTotal = totalExpenses + totalInsta + totalVisa + totalOnline; 
@@ -1610,6 +1630,24 @@ async function calculateCashierShift() {
         document.getElementById('totalOnlineCashier').textContent = totalOnline.toFixed(2);
         document.getElementById('onlineCountCashier').textContent = onlineCount;
         document.getElementById('grandTotalCashier').textContent = grandTotal.toFixed(2); // This is the sum of transactions only
+
+        // إضافة عرض المرتجعات في ملخص الشيفت
+        let returnsHtml = `
+            <div class="summary-card">
+                <h3>إجمالي المرتجعات</h3>
+                <div class="summary-value" id="totalReturnsCashier">${totalReturns.toFixed(2)}</div>
+                <div class="summary-count">عدد الفواتير: <span id="returnsCountCashier">${returnsCount}</span></div>
+            </div>
+        `;
+        // البحث عن العنصر الذي يحتوي على summary-grid وإضافة المرتجعات إليه
+        const summaryGrid = document.querySelector('#shiftSummaryCashier .summary-grid');
+        if (summaryGrid && !document.getElementById('totalReturnsCashier')) { // تجنب الإضافة المتكررة
+            summaryGrid.insertAdjacentHTML('beforeend', returnsHtml);
+        } else if (document.getElementById('totalReturnsCashier')) { // تحديث القيم إذا كان العنصر موجودًا
+            document.getElementById('totalReturnsCashier').textContent = totalReturns.toFixed(2);
+            document.getElementById('returnsCountCashier').textContent = returnsCount;
+        }
+
 
         document.getElementById('shiftSummaryCashier').style.display = 'block';
 
@@ -1644,6 +1682,8 @@ async function finalizeCashierShiftCloseout() {
         const visaCount = parseInt(document.getElementById('visaCountCashier').textContent) || 0;
         const totalOnline = parseFloat(document.getElementById('totalOnlineCashier').textContent) || 0;
         const onlineCount = parseInt(document.getElementById('onlineCountCashier').textContent) || 0;
+        const totalReturns = parseFloat(document.getElementById('totalReturnsCashier')?.textContent) || 0; // إضافة المرتجعات
+        const returnsCount = parseInt(document.getElementById('returnsCountCashier')?.textContent) || 0; // إضافة عدد المرتجعات
         
         // Corrected: grandTotal for cashier closure should include drawerCash
         const grandTotalTransactions = totalExpenses + totalInsta + totalVisa + totalOnline;
@@ -1672,7 +1712,9 @@ async function finalizeCashierShiftCloseout() {
             'مغلق', // status
             now.toISOString().split('T')[0],
             now.toTimeString().split(' ')[0],
-            '' // accountant (empty for self-closure)
+            '', // accountant (empty for self-closure)
+            totalReturns.toFixed(2), // إضافة إجمالي المرتجعات
+            (grandTotalWithDrawerCash - totalReturns).toFixed(2) // الإجمالي بعد خصم المرتجعات
         ];
 
         const result = await appendToSheet(SHEETS.SHIFT_CLOSURES, shiftClosureData);
@@ -1759,6 +1801,7 @@ async function updateAccountantDashboard() {
         let visaExpenses = [];
         let instaExpenses = [];
         let onlineExpenses = [];
+        let returnExpenses = []; // إضافة للمرتجعات
 
         allExpenses.forEach(expense => {
             const category = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
@@ -1770,6 +1813,8 @@ async function updateAccountantDashboard() {
                 instaExpenses.push(expense);
             } else if (formType === 'اونلاين') {
                 onlineExpenses.push(expense);
+            } else if (formType === 'مرتجع') { // إضافة للمرتجعات
+                returnExpenses.push(expense);
             } else {
                 normalExpenses.push(expense);
             }
@@ -1783,6 +1828,8 @@ async function updateAccountantDashboard() {
         const instaCount = instaExpenses.length;
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = onlineExpenses.length;
+        const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
+        const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
 
         // Update stats grid
         document.getElementById('totalNormalExpensesAccountant').textContent = totalNormal.toFixed(2);
@@ -1838,6 +1885,7 @@ async function updateAccountantCashierOverview(filters) {
         let visaExpenses = [];
         let instaExpenses = [];
         let onlineExpenses = [];
+        let returnExpenses = []; // إضافة للمرتجعات
 
         expenses.forEach(expense => {
             const category = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
@@ -1849,6 +1897,8 @@ async function updateAccountantCashierOverview(filters) {
                 instaExpenses.push(expense);
             } else if (formType === 'اونلاين') {
                 onlineExpenses.push(expense);
+            } else if (formType === 'مرتجع') { // إضافة للمرتجعات
+                returnExpenses.push(expense);
             } else {
                 normalExpenses.push(expense);
             }
@@ -1862,6 +1912,8 @@ async function updateAccountantCashierOverview(filters) {
         const instaCount = instaExpenses.length;
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const onlineCount = onlineExpenses.length;
+        const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
+        const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
 
         // Get last activity date
         const lastActivity = expenses.length > 0 ?
@@ -2004,12 +2056,13 @@ async function generateAccountantReport() {
     showLoading(true);
     try {
         const expenses = await loadExpenses(filters);
+        const closures = await loadShiftClosures({ dateFrom: dateFrom, dateTo: dateTo, cashier: cashierFilter }); // تحميل التقفيلات للكاش في الدرج
         const reportContent = document.getElementById('reportContentAccountant');
         if (!reportContent) return;
 
         reportContent.innerHTML = '';
 
-        if (expenses.length === 0) {
+        if (expenses.length === 0 && closures.length === 0) {
             reportContent.innerHTML = '<p>لا توجد بيانات مطابقة لمعايير التقرير المحددة.</p>';
             return;
         }
@@ -2022,7 +2075,8 @@ async function generateAccountantReport() {
                     normal: [],
                     visa: [],
                     insta: [],
-                    online: []
+                    online: [],
+                    returns: [] // إضافة للمرتجعات
                 };
             }
 
@@ -2035,16 +2089,31 @@ async function generateAccountantReport() {
                 expensesByCashier[exp.cashier].insta.push(exp);
             } else if (formType === 'اونلاين') {
                 expensesByCashier[exp.cashier].online.push(exp);
+            } else if (formType === 'مرتجع') { // إضافة للمرتجعات
+                expensesByCashier[exp.cashier].returns.push(exp);
             } else {
                 expensesByCashier[exp.cashier].normal.push(exp);
             }
         });
 
+        // Group drawer cash by cashier and date
+        const drawerCashByCashierAndDate = {};
+        closures.forEach(closure => {
+            if (!drawerCashByCashierAndDate[closure.cashier]) {
+                drawerCashByCashierAndDate[closure.cashier] = {};
+            }
+            if (!drawerCashByCashierAndDate[closure.cashier][closure.dateTo]) {
+                drawerCashByCashierAndDate[closure.cashier][closure.dateTo] = [];
+            }
+            drawerCashByCashierAndDate[closure.cashier][closure.dateTo].push(closure.drawerCash);
+        });
+
+
         let reportHtml = `
             <div class="report-header">
                 <h3>تقرير المصروفات</h3>
                 <p>من ${dateFrom || 'البداية'} إلى ${dateTo || 'النهاية'}</p>
-                ${cashierFilter ? `<p>الكاشير: ${cashierFilter}</p>` : ''}
+                ${cashierFilter ? `<p>الكاشير: ${users.find(u => u.username === cashierFilter)?.name || cashierFilter}</p>` : ''}
                 ${categoryFilter ? `<p>التصنيف: ${categoryFilter}</p>` : ''}
             </div>
         `;
@@ -2053,9 +2122,13 @@ async function generateAccountantReport() {
         let grandTotalVisa = 0;
         let grandTotalInsta = 0;
         let grandTotalOnline = 0;
+        let grandTotalReturns = 0; // إجمالي المرتجعات
+        let grandTotalDrawerCash = 0; // إجمالي الكاش في الدرج
 
-        Object.keys(expensesByCashier).forEach(cashierName => {
-            const cashierData = expensesByCashier[cashierName];
+        const allCashiersInReport = new Set([...Object.keys(expensesByCashier), ...Object.keys(drawerCashByCashierAndDate)]);
+
+        allCashiersInReport.forEach(cashierName => {
+            const cashierData = expensesByCashier[cashierName] || { normal: [], visa: [], insta: [], online: [], returns: [] };
             const cashierUser = users.find(u => u.username === cashierName);
             const displayName = cashierUser ? cashierUser.name : cashierName;
 
@@ -2063,11 +2136,13 @@ async function generateAccountantReport() {
             const totalVisa = cashierData.visa.reduce((sum, exp) => sum + exp.amount, 0);
             const totalInsta = cashierData.insta.reduce((sum, exp) => sum + exp.amount, 0);
             const totalOnline = cashierData.online.reduce((sum, exp) => sum + exp.amount, 0);
+            const totalReturns = cashierData.returns.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
 
             grandTotalNormal += totalNormal;
             grandTotalVisa += totalVisa;
             grandTotalInsta += totalInsta;
             grandTotalOnline += totalOnline;
+            grandTotalReturns += totalReturns;
 
             reportHtml += `
                 <div class="cashier-section">
@@ -2077,12 +2152,34 @@ async function generateAccountantReport() {
                         <p>إجمالي الفيزا: ${totalVisa.toFixed(2)} (${cashierData.visa.length} فاتورة)</p>
                         <p>إجمالي الإنستا: ${totalInsta.toFixed(2)} (${cashierData.insta.length} فاتورة)</p>
                         <p>إجمالي الأونلاين: ${totalOnline.toFixed(2)} (${cashierData.online.length} فاتورة)</p>
-                        <p><strong>الإجمالي الكلي: ${(totalNormal + totalVisa + totalInsta + totalOnline).toFixed(2)}</strong></p>
+                        <p>إجمالي المرتجعات: ${totalReturns.toFixed(2)} (${cashierData.returns.length} فاتورة)</p>
+                        <p><strong>الإجمالي الكلي: ${(totalNormal + totalVisa + totalInsta + totalOnline - totalReturns).toFixed(2)}</strong></p>
                     </div>
             `;
 
+            // تفاصيل الكاش في الدرج لكل يوم
+            if (drawerCashByCashierAndDate[cashierName]) {
+                reportHtml += `
+                    <h5>تفاصيل الكاش في الدرج:</h5>
+                    <ul>
+                `;
+                let dailyDrawerCashTotal = 0;
+                Object.keys(drawerCashByCashierAndDate[cashierName]).sort().forEach(date => {
+                    const dailyCashValues = drawerCashByCashierAndDate[cashierName][date];
+                    const sumDailyCash = dailyCashValues.reduce((sum, val) => sum + parseFloat(val), 0);
+                    dailyDrawerCashTotal += sumDailyCash;
+                    reportHtml += `<li>${date}: ${sumDailyCash.toFixed(2)} (${dailyCashValues.length} إدخال)</li>`;
+                });
+                reportHtml += `
+                    </ul>
+                    <p><strong>إجمالي الكاش في الدرج للفترة: ${dailyDrawerCashTotal.toFixed(2)}</strong></p>
+                `;
+                grandTotalDrawerCash += dailyDrawerCashTotal;
+            }
+
+
             if (cashierFilter === cashierName || !cashierFilter) {
-                const allCashierExpenses = [...cashierData.normal, ...cashierData.visa, ...cashierData.insta, ...cashierData.online];
+                const allCashierExpenses = [...cashierData.normal, ...cashierData.visa, ...cashierData.insta, ...cashierData.online, ...cashierData.returns];
                 allCashierExpenses.sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.date}`));
 
                 if (allCashierExpenses.length > 0) {
@@ -2128,7 +2225,9 @@ async function generateAccountantReport() {
                 <p>إجمالي الفيزا: ${grandTotalVisa.toFixed(2)}</p>
                 <p>إجمالي الإنستا: ${grandTotalInsta.toFixed(2)}</p>
                 <p>إجمالي الأونلاين: ${grandTotalOnline.toFixed(2)}</p>
-                <p><strong>الإجمالي الكلي: ${(grandTotalNormal + grandTotalVisa + grandTotalInsta + grandTotalOnline).toFixed(2)}</strong></p>
+                <p>إجمالي المرتجعات: ${grandTotalReturns.toFixed(2)}</p>
+                <p><strong>إجمالي الكاش في الدرج: ${grandTotalDrawerCash.toFixed(2)}</strong></p>
+                <p><strong>الإجمالي الكلي الصافي: ${(grandTotalNormal + grandTotalVisa + grandTotalInsta + grandTotalOnline - grandTotalReturns + grandTotalDrawerCash).toFixed(2)}</strong></p>
             </div>
         `;
 
@@ -2352,7 +2451,14 @@ function resetAccountantShiftForm() {
     if (closeCashierBtn) {
         closeCashierBtn.style.display = 'none';
     }
+
+    // Reset the return deduction switch
+    const deductReturnsSwitch = document.getElementById('deductReturnsAccountant');
+    if (deductReturnsSwitch) {
+        deductReturnsSwitch.checked = false;
+    }
 }
+
 // --- حساب الفرق للمحاسب ---
 function calculateDifferenceAccountant() {
     if (!window.currentClosureData) {
@@ -2366,8 +2472,15 @@ function calculateDifferenceAccountant() {
         return;
     }
 
-    const cashierTotal = window.currentClosureData.grandTotal;
-    const difference = newMindTotal - cashierTotal;
+    const deductReturns = document.getElementById('deductReturnsAccountant')?.checked || false;
+    let cashierTotal = window.currentClosureData.grandTotal;
+    let grandTotalAfterReturns = cashierTotal;
+
+    if (deductReturns) {
+        grandTotalAfterReturns = cashierTotal - window.currentClosureData.totalReturns;
+    }
+
+    const difference = newMindTotal - grandTotalAfterReturns; // نيو مايند - إجمالي الكاشير بعد خصم المرتجع
 
     const differenceResult = document.getElementById('differenceResultAccountant');
     if (!differenceResult) return;
@@ -2378,18 +2491,20 @@ function calculateDifferenceAccountant() {
     if (difference === 0) {
         statusText = 'مطابق ✓';
         statusClass = 'status-match';
-    } else if (difference > 0) {
-        statusText = `عجز على الكاشير: +${difference.toFixed(2)}`;
-        statusClass = 'status-deficit';
-    } else {
-        statusText = `زيادة عند الكاشير: ${difference.toFixed(2)}`;
-        statusClass = 'status-surplus';
+    } else if (difference < 0) { // إذا كان نيو مايند أقل من الكاشير (الكاشير أعلى)
+        statusText = `زيادة عند الكاشير: ${Math.abs(difference).toFixed(2)}`;
+        statusClass = 'status-surplus'; // أخضر
+    } else { // إذا كان نيو مايند أعلى من الكاشير (الكاشير أقل)
+        statusText = `عجز على الكاشير: -${difference.toFixed(2)}`;
+        statusClass = 'status-deficit'; // أحمر
     }
 
     differenceResult.innerHTML = `
         <div class="difference-card ${statusClass}">
             <h4>نتيجة المقارنة</h4>
             <p><strong>إجمالي الكاشير:</strong> ${cashierTotal.toFixed(2)}</p>
+            ${deductReturns ? `<p><strong>إجمالي المرتجعات المخصومة:</strong> ${window.currentClosureData.totalReturns.toFixed(2)}</p>` : ''}
+            <p><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> ${grandTotalAfterReturns.toFixed(2)}</p>
             <p><strong>إجمالي نيو مايند:</strong> ${newMindTotal.toFixed(2)}</p>
             <p><strong>الفرق:</strong> ${difference.toFixed(2)}</p>
             <p><strong>الحالة:</strong> ${statusText}</p>
@@ -2406,84 +2521,46 @@ function calculateDifferenceAccountant() {
 
     showMessage('تم حساب الفرق بنجاح.', 'success');
 }
-// دالة مساعدة لتحويل AM/PM إلى 24 ساعة (محدثة للتعامل مع الثواني إذا وُجدت)
-function convertTo24HourFormat(timeStr) {
-    // timeStr مثل "09:52 ص" أو "09:52:00 م" أو "21:00:00"
-    let period = '';
-    let timePart = timeStr;
 
-    // فصل الفترة (ص/م) إذا وُجدت
-    if (timeStr.includes('ص') || timeStr.includes('م')) {
-        const match = timeStr.match(/(\d{1,2}:\d{2}(:\d{2})?)\s*(ص|م)/);
-        if (match) {
-            timePart = match[1];
-            period = match[3];
-        }
-    }
-
-    let [hours, minutes, seconds = '00'] = timePart.split(':').map(Number);
-    
-    // تحويل إلى 24 ساعة
-    if (period.includes('م') && hours !== 12) {
-        hours += 12;
-    } else if (period.includes('ص') && hours === 12) {
-        hours = 0;
-    }
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds}`;
-}
-
-// دالة جديدة لتنظيف الوقت إلى HH:MM:SS دائمًا (تجنب الإضافة الزائدة)
 // دالة محسنة لتنظيف الوقت إلى HH:MM:SS
 function normalizeTimeToHHMMSS(timeStr) {
     if (!timeStr || typeof timeStr !== 'string') {
         return '00:00:00';
     }
     
-    // تنظيف السلسلة من المسافات الزائدة
-    timeStr = timeStr.trim();
-    
-    // إذا كان الوقت فارغاً
-    if (timeStr === '') {
+    // إذا كان الوقت بالفعل بتنسيق 24 ساعة
+    if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/)) {
+        const parts = timeStr.split(':');
+        if (parts.length === 3) return timeStr;
+        if (parts.length === 2) return timeStr + ':00';
         return '00:00:00';
     }
     
-    // معالجة الوقت إذا كان بتنسيق AM/PM عربي
-    if (timeStr.includes('ص') || timeStr.includes('م')) {
-        const match = timeStr.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(ص|م)/);
-        if (match) {
-            let hours = parseInt(match[1]);
-            let minutes = parseInt(match[2]);
-            let seconds = match[3] ? parseInt(match[3]) : 0;
-            const period = match[4];
-            
-            // تحويل من 12 ساعة إلى 24 ساعة
-            if (period.includes('م') && hours !== 12) {
-                hours += 12;
-            } else if (period.includes('ص') && hours === 12) {
-                hours = 0;
-            }
-            
-            // التأكد من أن الأرقام ضمن النطاق الصحيح
-            hours = Math.max(0, Math.min(23, hours));
-            minutes = Math.max(0, Math.min(59, minutes));
-            seconds = Math.max(0, Math.min(59, seconds));
-            
-            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-    }
-    
-    // معالجة الوقت بتنسيق 24 ساعة
-    const timeParts = timeStr.split(':').filter(part => part !== '');
-    
-    if (timeParts.length >= 2) {
-        let hours = parseInt(timeParts[0]) || 0;
-        let minutes = parseInt(timeParts[1]) || 0;
-        let seconds = timeParts[2] ? parseInt(timeParts[2]) || 0 : 0;
+    // تحويل من AM/PM إلى 24 ساعة
+    try {
+        let period = '';
+        let timePart = timeStr.trim();
         
-        // إصلاح المشكلة: إذا كانت الثواني مكتوبة كـ "0" بدلاً من "00"
-        if (seconds === 0 && timeParts[2] === '0') {
-            seconds = 0; // هذا صحيح، ولكن سنضمن أنه يُنسق كـ "00"
+        // فصل الفترة (ص/م) إذا وُجدت
+        if (timeStr.includes('ص') || timeStr.includes('م')) {
+            const match = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(ص|م)/);
+            if (match) {
+                timePart = match[1] + ':' + match[2] + (match[3] ? ':' + match[3] : '');
+                period = match[4];
+            }
+        }
+        
+        let [hours, minutes, seconds = '00'] = timePart.split(':').map(Number);
+        
+        if (isNaN(hours) || isNaN(minutes)) {
+            return '00:00:00';
+        }
+        
+        // تحويل إلى 24 ساعة
+        if (period.includes('م') && hours !== 12) {
+            hours += 12;
+        } else if (period.includes('ص') && hours === 12) {
+            hours = 0;
         }
         
         // التأكد من أن الأرقام ضمن النطاق الصحيح
@@ -2492,11 +2569,10 @@ function normalizeTimeToHHMMSS(timeStr) {
         seconds = Math.max(0, Math.min(59, seconds));
         
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    } catch (error) {
+        console.error('Error normalizing time:', error, timeStr);
+        return '00:00:00';
     }
-    
-    // إذا فشل كل شيء، إرجاع الوقت الافتراضي
-    console.warn(`تعذر تحليل الوقت: "${timeStr}"، سيتم استخدام 00:00:00`);
-    return '00:00:00';
 }
 
 async function searchCashierClosuresAccountant() {
@@ -2553,6 +2629,7 @@ async function searchCashierClosuresAccountant() {
         let visaExpenses = [];
         let instaExpenses = [];
         let onlineExpenses = [];
+        let returnExpenses = []; // إضافة للمرتجعات
 
         expenses.forEach(expense => {
             const category = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
@@ -2564,6 +2641,8 @@ async function searchCashierClosuresAccountant() {
                 instaExpenses.push(expense);
             } else if (formType === 'اونلاين') {
                 onlineExpenses.push(expense);
+            } else if (formType === 'مرتجع') { // إضافة للمرتجعات
+                returnExpenses.push(expense);
             } else {
                 normalExpenses.push(expense);
             }
@@ -2571,16 +2650,8 @@ async function searchCashierClosuresAccountant() {
 
         // --- MODIFIED LOGIC FOR DRAWER CASH: البحث داخل الفترة أولاً ---
         let drawerCash = 0;
+        let drawerCashCount = 0; // عدد مرات تسجيل الكاش في الدرج
         const allClosures = await loadShiftClosures({});
-
-        // طباعة جميع الإغلاقات للتشخيص
-        console.log('جميع الإغلاقات المحملة:', allClosures.map(c => ({ 
-            id: c.id, 
-            cashier: c.cashier, 
-            dateTo: c.dateTo, 
-            timeTo: c.timeTo, 
-            drawerCash: c.drawerCash 
-        })));
 
         // 1. البحث عن الإغلاقات داخل الفترة
         const closuresInPeriod = allClosures.filter(closure => {
@@ -2602,22 +2673,14 @@ async function searchCashierClosuresAccountant() {
                                closureEndDateTime >= searchStartDateTime && 
                                closureEndDateTime <= searchEndDateTime;
             
-            console.log(`فحص إغلاق ${closure.id}: انتهى في ${closureEndDateTime.toISOString()}, normalizedTime: ${normalizedClosureTimeTo}, هل داخل الفترة؟ ${isInPeriod}, drawerCash: ${closure.drawerCash}`);
-            
             return isInPeriod;
         });
 
-        let drawerCashFromPeriod = 0;
         if (closuresInPeriod.length > 0) {
-            drawerCashFromPeriod = closuresInPeriod.reduce((sum, closure) => sum + (parseFloat(closure.drawerCash) || 0), 0);
-            console.log(`وُجد ${closuresInPeriod.length} إغلاق داخل الفترة، drawerCash المجموع = ${drawerCashFromPeriod}`);
-            drawerCash = drawerCashFromPeriod;
+            drawerCash = closuresInPeriod.reduce((sum, closure) => sum + (parseFloat(closure.drawerCash) || 0), 0);
+            drawerCashCount = closuresInPeriod.length;
         } else {
-            console.log(`لا يوجد إغلاق داخل الفترة ${dateFrom} ${formattedTimeFrom.slice(0,5)} إلى ${dateTo} ${formattedTimeTo.slice(0,5)}`);
-        }
-
-        // 2. Fallback: آخر إغلاق قبل الفترة إذا لم يوجد داخل
-        if (drawerCashFromPeriod === 0) {
+            // إذا لم يتم العثور على إغلاقات داخل الفترة، ابحث عن آخر إغلاق قبل الفترة
             const previousClosures = allClosures.filter(closure => {
                 if (!closure.dateTo || !closure.timeTo || closure.drawerCash === undefined) return false;
 
@@ -2632,8 +2695,6 @@ async function searchCashierClosuresAccountant() {
 
                 const isPrevious = closure.cashier === selectedCashier && closureEndDateTime < searchStartDateTime;
                 
-                console.log(`فحص إغلاق سابق ${closure.id}: انتهى في ${closureEndDateTime.toISOString()}, هل قبل الفترة؟ ${isPrevious}, drawerCash: ${closure.drawerCash}`);
-                
                 return isPrevious;
             });
 
@@ -2644,31 +2705,58 @@ async function searchCashierClosuresAccountant() {
                     return new Date(`${b.dateTo}T${timeB}`) - new Date(`${a.dateTo}T${timeA}`);
                 })[0];
                 drawerCash = parseFloat(latestPrevious.drawerCash) || 0;
-                console.log(`آخر إغلاق سابق: ${latestPrevious.id}، drawerCash = ${drawerCash}`);
+                drawerCashCount = 1; // يعتبر إدخال واحد من آخر إغلاق
             } else {
                 drawerCash = 0;
-                console.log(`لا يوجد إغلاق داخل أو قبل الفترة، drawerCash = 0`);
+                drawerCashCount = 0;
             }
         }
 
         // --- END MODIFIED LOGIC ---
 
         const totalNormal = normalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const normalCount = normalExpenses.length;
         const totalVisa = visaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const visaCount = visaExpenses.length;
         const totalInsta = instaExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const instaCount = instaExpenses.length;
         const totalOnline = onlineExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const onlineCount = onlineExpenses.length;
+        const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0); // إجمالي المرتجعات
+        const returnsCount = returnExpenses.length; // عدد فواتير المرتجعات
         
         const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash; 
 
         // عرض النتائج
         document.getElementById('closureResultsAccountant').style.display = 'block';
 
-        document.getElementById('accTotalNormalExpenses').textContent = totalNormal.toFixed(2);
-        document.getElementById('accTotalVisa').textContent = totalVisa.toFixed(2);
-        document.getElementById('accTotalInsta').textContent = totalInsta.toFixed(2);
-        document.getElementById('accTotalOnline').textContent = totalOnline.toFixed(2);
-        document.getElementById('accDrawerCash').textContent = drawerCash.toFixed(2);
+        document.getElementById('accTotalNormalExpenses').innerHTML = `${totalNormal.toFixed(2)} (<span class="invoice-count">${normalCount} فاتورة</span>)`;
+        document.getElementById('accTotalVisa').innerHTML = `${totalVisa.toFixed(2)} (<span class="invoice-count">${visaCount} فاتورة</span>)`;
+        document.getElementById('accTotalInsta').innerHTML = `${totalInsta.toFixed(2)} (<span class="invoice-count">${instaCount} فاتورة</span>)`;
+        document.getElementById('accTotalOnline').innerHTML = `${totalOnline.toFixed(2)} (<span class="invoice-count">${onlineCount} فاتورة</span>)`;
+        document.getElementById('accDrawerCash').innerHTML = `${drawerCash.toFixed(2)} (<span class="invoice-count">${drawerCashCount} إدخال</span>)`;
         document.getElementById('accGrandTotalCashier').textContent = grandTotal.toFixed(2);
+
+        // إضافة حقل المرتجعات وزر التبديل
+        let returnsHtml = `
+            <p>إجمالي المرتجعات: <span id="accTotalReturns">${totalReturns.toFixed(2)}</span> (<span class="invoice-count">${returnsCount} فاتورة</span>)</p>
+            <div class="form-group">
+                <label class="switch">
+                    <input type="checkbox" id="deductReturnsAccountant" onchange="updateAccountantClosureDisplay()">
+                    <span class="slider round"></span>
+                </label>
+                <label for="deductReturnsAccountant" style="display: inline-block; margin-right: 10px;">خصم المرتجعات من الإجمالي</label>
+            </div>
+            <p id="accGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع: <span id="accGrandTotalAfterReturns">0.00</span></strong></p>
+        `;
+        const closureSummary = document.getElementById('closureSummaryAccountant');
+        if (closureSummary && !document.getElementById('accTotalReturns')) { // تجنب الإضافة المتكررة
+            closureSummary.insertAdjacentHTML('beforeend', returnsHtml);
+        } else if (document.getElementById('accTotalReturns')) { // تحديث القيم إذا كان العنصر موجودًا
+            document.getElementById('accTotalReturns').textContent = totalReturns.toFixed(2);
+            document.getElementById('accTotalReturns').nextElementSibling.textContent = `${returnsCount} فاتورة`;
+        }
+
 
         document.getElementById('newmindTotalAccountant').value = '';
         document.getElementById('differenceResultAccountant').style.display = 'none';
@@ -2685,16 +2773,21 @@ async function searchCashierClosuresAccountant() {
             dateTo: dateTo,
             timeTo: formattedTimeTo.slice(0, 5),
             totalNormal: totalNormal,
-            normalCount: normalExpenses.length,
+            normalCount: normalCount,
             totalVisa: totalVisa,
-            visaCount: visaExpenses.length,
+            visaCount: visaCount,
             totalInsta: totalInsta,
-            instaCount: instaExpenses.length,
+            instaCount: instaCount,
             totalOnline: totalOnline,
-            onlineCount: onlineExpenses.length,
+            onlineCount: onlineCount,
+            totalReturns: totalReturns, // إضافة المرتجعات
+            returnsCount: returnsCount, // إضافة عدد المرتجعات
             drawerCash: drawerCash,
+            drawerCashCount: drawerCashCount, // إضافة عدد إدخالات الكاش في الدرج
             grandTotal: grandTotal
         };
+
+        updateAccountantClosureDisplay(); // تحديث العرض بعد تحميل البيانات
 
         const cashierUser  = users.find(u => u.username === selectedCashier);
         const cashierDisplayName = cashierUser  ? cashierUser .name : selectedCashier;
@@ -2715,6 +2808,37 @@ async function searchCashierClosuresAccountant() {
     }
 }
 
+// دالة جديدة لتحديث عرض الإجمالي بعد خصم المرتجعات
+function updateAccountantClosureDisplay() {
+    if (!window.currentClosureData) return;
+
+    const deductReturns = document.getElementById('deductReturnsAccountant')?.checked || false;
+    const grandTotalAfterReturnsContainer = document.getElementById('accGrandTotalAfterReturnsContainer');
+    const grandTotalAfterReturnsDisplay = document.getElementById('accGrandTotalAfterReturns');
+    const accGrandTotalCashier = document.getElementById('accGrandTotalCashier');
+
+    let currentGrandTotal = window.currentClosureData.grandTotal;
+    let grandTotalAfterDeduction = currentGrandTotal;
+
+    if (deductReturns) {
+        grandTotalAfterDeduction = currentGrandTotal - window.currentClosureData.totalReturns;
+        grandTotalAfterReturnsContainer.style.display = 'block';
+        grandTotalAfterReturnsDisplay.textContent = grandTotalAfterDeduction.toFixed(2);
+        accGrandTotalCashier.style.textDecoration = 'line-through'; // شطب الإجمالي الأصلي
+        accGrandTotalCashier.style.color = '#888';
+    } else {
+        grandTotalAfterReturnsContainer.style.display = 'none';
+        accGrandTotalCashier.style.textDecoration = 'none'; // إزالة الشطب
+        accGrandTotalCashier.style.color = '#2c3e50';
+    }
+
+    // تحديث حساب الفرق إذا كان حقل نيو مايند مملوءًا
+    if (document.getElementById('newmindTotalAccountant').value) {
+        calculateDifferenceAccountant();
+    }
+}
+
+
 // دالة للتحقق من صحة التاريخ
 function isValidDate(dateString) {
     const regex = /^\d{4}-\d{2}-\d{2}$/;
@@ -2730,59 +2854,6 @@ function isValidTime(timeString) {
     return regex.test(timeString);
 }
 
-// تحسين دالة تحويل الوقت لتكون أكثر أماناً
-function normalizeTimeToHHMMSS(timeStr) {
-    if (!timeStr || typeof timeStr !== 'string') {
-        return '00:00:00';
-    }
-    
-    // إذا كان الوقت بالفعل بتنسيق 24 ساعة
-    if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/)) {
-        const parts = timeStr.split(':');
-        if (parts.length === 3) return timeStr;
-        if (parts.length === 2) return timeStr + ':00';
-        return '00:00:00';
-    }
-    
-    // تحويل من AM/PM إلى 24 ساعة
-    try {
-        let period = '';
-        let timePart = timeStr.trim();
-        
-        // فصل الفترة (ص/م) إذا وُجدت
-        if (timeStr.includes('ص') || timeStr.includes('م')) {
-            const match = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(ص|م)/);
-            if (match) {
-                timePart = match[1] + ':' + match[2] + (match[3] ? ':' + match[3] : '');
-                period = match[4];
-            }
-        }
-        
-        let [hours, minutes, seconds = '00'] = timePart.split(':').map(Number);
-        
-        if (isNaN(hours) || isNaN(minutes)) {
-            return '00:00:00';
-        }
-        
-        // تحويل إلى 24 ساعة
-        if (period.includes('م') && hours !== 12) {
-            hours += 12;
-        } else if (period.includes('ص') && hours === 12) {
-            hours = 0;
-        }
-        
-        // التأكد من أن الأرقام ضمن النطاق الصحيح
-        hours = Math.max(0, Math.min(23, hours));
-        minutes = Math.max(0, Math.min(59, minutes));
-        seconds = Math.max(0, Math.min(59, seconds));
-        
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    } catch (error) {
-        console.error('Error normalizing time:', error, timeStr);
-        return '00:00:00';
-    }
-}
-
 async function closeCashierByAccountant() {
     if (!window.currentClosureData) {
         showMessage('يرجى البحث عن بيانات الكاشير أولاً.', 'warning');
@@ -2795,7 +2866,15 @@ async function closeCashierByAccountant() {
         return;
     }
 
-    const difference = newMindTotal - window.currentClosureData.grandTotal;
+    const deductReturns = document.getElementById('deductReturnsAccountant')?.checked || false;
+    let cashierTotalForComparison = window.currentClosureData.grandTotal;
+    let grandTotalAfterReturns = cashierTotalForComparison;
+
+    if (deductReturns) {
+        grandTotalAfterReturns = cashierTotalForComparison - window.currentClosureData.totalReturns;
+    }
+
+    const difference = newMindTotal - grandTotalAfterReturns; // نيو مايند - إجمالي الكاشير بعد خصم المرتجع
 
     showLoading(true);
     try {
@@ -2821,10 +2900,12 @@ async function closeCashierByAccountant() {
             window.currentClosureData.drawerCash.toFixed(2), // الكاش في الدرج
             newMindTotal.toFixed(2),
             difference.toFixed(2),
-            'مغلق بواسطة المحاسب',
+            'مغلق بواسطة المحاسب', // status
             now.toISOString().split('T')[0],
             now.toTimeString().split(' ')[0],
-            currentUser.username
+            currentUser.username,
+            window.currentClosureData.totalReturns.toFixed(2), // إجمالي المرتجعات
+            grandTotalAfterReturns.toFixed(2) // الإجمالي بعد خصم المرتجعات
         ];
 
         const result = await appendToSheet(SHEETS.SHIFT_CLOSURES, shiftClosureData);
@@ -2861,7 +2942,7 @@ async function loadAccountantShiftClosuresHistory() {
 
     closures.sort((a, b) => new Date(`${b.closureDate} ${b.closureTime}`) - new Date(`${a.closureDate} ${a.closureTime}`));
 
-    closures.forEach(closure => {
+    for (const closure of closures) {
         const row = tableBody.insertRow();
 
         const cashierUser = users.find(u => u.username === closure.cashier);
@@ -2879,12 +2960,12 @@ async function loadAccountantShiftClosuresHistory() {
         const differenceCell = row.insertCell();
         const diffValue = closure.difference;
         differenceCell.textContent = diffValue.toFixed(2);
-        if (diffValue > 0) {
-            differenceCell.style.color = 'red';
-            differenceCell.title = 'عجز على الكاشير (نقص في النقدية)';
-        } else if (diffValue < 0) {
+        if (diffValue < 0) { // إذا كان نيو مايند أقل من الكاشير (الكاشير أعلى)
             differenceCell.style.color = 'green';
-            differenceCell.title = 'زيادة عند الكاشير (فائض في النقدية)';
+            differenceCell.title = 'زيادة عند الكاشير';
+        } else if (diffValue > 0) { // إذا كان نيو مايند أعلى من الكاشير (الكاشير أقل)
+            differenceCell.style.color = 'red';
+            differenceCell.title = 'عجز على الكاشير';
         } else {
             differenceCell.style.color = 'blue';
             differenceCell.title = 'مطابق';
@@ -2900,11 +2981,12 @@ async function loadAccountantShiftClosuresHistory() {
             <button class="view-btn" onclick="viewClosureDetails('${closure.id}')">
                 <i class="fas fa-eye"></i> عرض
             </button>
+            ${closure.status !== 'مغلق بواسطة المحاسب' ? `
             <button class="accountant-close-btn" onclick="showAccountantClosureModal('${closure.id}')">
                 <i class="fas fa-check-double"></i> تقفيل المحاسب
-            </button>
+            </button>` : ''}
         `;
-    });
+    }
 }
 
 // --- New Modal for Accountant Closure Details ---
@@ -2929,12 +3011,38 @@ async function showAccountantClosureModal(closureId) { // Make it async
         // Corrected: grandTotal for modal should include drawerCash
         document.getElementById('accountantClosureModalGrandTotal').textContent = (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash).toFixed(2);
         
+        // إضافة حقول المرتجعات والإجمالي بعد خصم المرتجعات
+        let returnsHtml = `
+            <p><strong>إجمالي المرتجعات:</strong> <span id="accountantClosureModalTotalReturns">${closure.deductedReturns.toFixed(2)}</span></p>
+            <div class="form-group">
+                <label class="switch">
+                    <input type="checkbox" id="accountantClosureModalDeductReturns" onchange="updateAccountantClosureDifference()">
+                    <span class="slider round"></span>
+                </label>
+                <label for="accountantClosureModalDeductReturns" style="display: inline-block; margin-right: 10px;">خصم المرتجعات من الإجمالي</label>
+            </div>
+            <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></p>
+        `;
+        const hrElement = document.querySelector('#accountantClosureDetailsModal .modal-body hr');
+        if (hrElement && !document.getElementById('accountantClosureModalTotalReturns')) {
+            hrElement.insertAdjacentHTML('beforebegin', returnsHtml);
+        } else if (document.getElementById('accountantClosureModalTotalReturns')) {
+            document.getElementById('accountantClosureModalTotalReturns').textContent = closure.deductedReturns.toFixed(2);
+        }
+
         document.getElementById('accountantClosureModalNewMindTotal').value = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '';
         document.getElementById('accountantClosureModalDifference').textContent = closure.difference.toFixed(2);
         document.getElementById('accountantClosureModalStatus').textContent = closure.status;
 
         // Store current closure data for processing
         window.currentAccountantClosure = closure;
+
+        // Set the state of the deduct returns switch based on the saved closure data
+        const deductReturnsSwitch = document.getElementById('accountantClosureModalDeductReturns');
+        if (deductReturnsSwitch) {
+            // إذا كان الإجمالي بعد خصم المرتجعات لا يساوي الإجمالي الأصلي، نفترض أنه تم خصم المرتجعات
+            deductReturnsSwitch.checked = (closure.grandTotalAfterReturns !== (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash));
+        }
 
         // Show the modal
         document.getElementById('accountantClosureDetailsModal').classList.add('active');
@@ -2952,11 +3060,30 @@ function updateAccountantClosureDifference() {
     const differenceDisplay = document.getElementById('accountantClosureModalDifference');
     const statusDisplay = document.getElementById('accountantClosureModalStatus');
     const saveButton = document.getElementById('saveAccountantClosureBtn');
+    const deductReturnsSwitch = document.getElementById('accountantClosureModalDeductReturns');
+    const grandTotalAfterReturnsContainer = document.getElementById('accountantClosureModalGrandTotalAfterReturnsContainer');
+    const grandTotalAfterReturnsDisplay = document.getElementById('accountantClosureModalGrandTotalAfterReturns');
+    const accClosureModalGrandTotal = document.getElementById('accountantClosureModalGrandTotal');
+
 
     if (!window.currentAccountantClosure) return;
 
-    const cashierTotal = parseFloat(document.getElementById('accountantClosureModalGrandTotal').textContent);
+    const cashierTotal = parseFloat(accClosureModalGrandTotal.textContent);
+    const totalReturns = parseFloat(document.getElementById('accountantClosureModalTotalReturns').textContent);
     const newMindTotal = parseFloat(newMindTotalInput.value);
+
+    let grandTotalForComparison = cashierTotal;
+    if (deductReturnsSwitch?.checked) {
+        grandTotalForComparison = cashierTotal - totalReturns;
+        grandTotalAfterReturnsContainer.style.display = 'block';
+        grandTotalAfterReturnsDisplay.textContent = grandTotalForComparison.toFixed(2);
+        accClosureModalGrandTotal.style.textDecoration = 'line-through';
+        accClosureModalGrandTotal.style.color = '#888';
+    } else {
+        grandTotalAfterReturnsContainer.style.display = 'none';
+        accClosureModalGrandTotal.style.textDecoration = 'none';
+        accClosureModalGrandTotal.style.color = '#2c3e50';
+    }
 
     if (isNaN(newMindTotal)) {
         differenceDisplay.textContent = '0.00';
@@ -2966,18 +3093,18 @@ function updateAccountantClosureDifference() {
         return;
     }
 
-    const difference = newMindTotal - cashierTotal;
+    const difference = newMindTotal - grandTotalForComparison; // نيو مايند - إجمالي الكاشير بعد خصم المرتجع
     differenceDisplay.textContent = difference.toFixed(2);
 
     if (difference === 0) {
         statusDisplay.textContent = 'مطابق ✓';
         statusDisplay.className = 'status closed';
-    } else if (difference > 0) {
-        statusDisplay.textContent = 'عجز علي الكاشير (زيادة في نيو مايند)';
-        statusDisplay.className = 'status inactive';
-    } else {
-        statusDisplay.textContent = 'زيادة عند الكاشير (عجز في نيو مايند)';
-        statusDisplay.className = 'status active'; // Using 'active' for deficit, can be customized
+    } else if (difference < 0) { // إذا كان نيو مايند أقل من الكاشير (الكاشير أعلى)
+        statusDisplay.textContent = 'زيادة عند الكاشير';
+        statusDisplay.className = 'status active'; // أخضر
+    } else { // إذا كان نيو مايند أعلى من الكاشير (الكاشير أقل)
+        statusDisplay.textContent = 'عجز على الكاشير';
+        statusDisplay.className = 'status inactive'; // أحمر
     }
     saveButton.disabled = false;
 }
@@ -2998,7 +3125,20 @@ async function saveAccountantClosure() {
     try {
         const closure = window.currentAccountantClosure;
         const cashierTotal = parseFloat(document.getElementById('accountantClosureModalGrandTotal').textContent);
-        const difference = newMindTotal - cashierTotal;
+        const totalReturns = parseFloat(document.getElementById('accountantClosureModalTotalReturns').textContent);
+        const deductReturns = document.getElementById('accountantClosureModalDeductReturns')?.checked || false;
+
+        let grandTotalForComparison = cashierTotal;
+        let grandTotalAfterReturns = cashierTotal;
+
+        if (deductReturns) {
+            grandTotalForComparison = cashierTotal - totalReturns;
+            grandTotalAfterReturns = grandTotalForComparison;
+        } else {
+            grandTotalAfterReturns = cashierTotal; // إذا لم يتم الخصم، الإجمالي بعد الخصم هو نفسه الإجمالي الأصلي
+        }
+
+        const difference = newMindTotal - grandTotalForComparison; // نيو مايند - إجمالي الكاشير بعد خصم المرتجع
         const now = new Date();
 
         // Find the row index of the existing closure to update it
@@ -3030,11 +3170,13 @@ async function saveAccountantClosure() {
             'مغلق بواسطة المحاسب', // status
             now.toISOString().split('T')[0], // closureDate
             now.toTimeString().split(' ')[0], // closureTime
-            currentUser.username // accountant
+            currentUser.username, // accountant
+            totalReturns.toFixed(2), // إجمالي المرتجعات
+            grandTotalAfterReturns.toFixed(2) // الإجمالي بعد خصم المرتجعات
         ];
 
         // Update the entire row
-        const result = await updateSheet(SHEETS.SHIFT_CLOSURES, `A${rowIndex}:V${rowIndex}`, updatedData);
+        const result = await updateSheet(SHEETS.SHIFT_CLOSURES, `A${rowIndex}:X${rowIndex}`, updatedData); // تم تعديل النطاق ليشمل الأعمدة الجديدة
 
         if (result.success) {
             showMessage('تم تقفيل الشيفت بنجاح بواسطة المحاسب.', 'success');
@@ -3071,12 +3213,14 @@ async function viewClosureDetails(closureId) {
             <h3>تفاصيل تقفيلة الشيفت</h3>
             <p><strong>الكاشير:</strong> ${cashierDisplayName}</p>
             <p><strong>الفترة:</strong> ${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}</p>
-            <p><strong>إجمالي المصروفات (عادي):</strong> ${closure.totalExpenses.toFixed(2)} (${closure.expenseCount} فاتورة)</p>
-            <p><strong>إجمالي الإنستا:</strong> ${closure.totalInsta.toFixed(2)} (${closure.instaCount} فاتورة)</p>
-            <p><strong>إجمالي الفيزا:</strong> ${closure.totalVisa.toFixed(2)} (${closure.visaCount} فاتورة)</p>
-            <p><strong>إجمالي الأونلاين:</strong> ${closure.totalOnline.toFixed(2)} (${closure.onlineCount} فاتورة)</p>
+            <p><strong>إجمالي المصروفات (عادي):</strong> ${closure.totalExpenses.toFixed(2)} (${closure.expenseCount} فاتورة) <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'normal'); return false;"><i class="fas fa-eye"></i></a></p>
+            <p><strong>إجمالي الإنستا:</strong> ${closure.totalInsta.toFixed(2)} (${closure.instaCount} فاتورة) <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'إنستا'); return false;"><i class="fas fa-eye"></i></a></p>
+            <p><strong>إجمالي الفيزا:</strong> ${closure.totalVisa.toFixed(2)} (${closure.visaCount} فاتورة) <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'فيزا'); return false;"><i class="fas fa-eye"></i></a></p>
+            <p><strong>إجمالي الأونلاين:</strong> ${closure.totalOnline.toFixed(2)} (${closure.onlineCount} فاتورة) <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'اونلاين'); return false;"><i class="fas fa-eye"></i></a></p>
+            <p><strong>إجمالي المرتجعات:</strong> ${closure.deductedReturns.toFixed(2)} <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'مرتجع'); return false;"><i class="fas fa-eye"></i></a></p>
             <p><strong>إجمالي الكاش في الدرج:</strong> ${closure.drawerCash.toFixed(2)}</p>
             <p><strong>الإجمالي الكلي للكاشير:</strong> ${(closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash).toFixed(2)}</p>
+            ${closure.deductedReturns > 0 ? `<p><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> ${closure.grandTotalAfterReturns.toFixed(2)}</p>` : ''}
             <p><strong>إجمالي نيو مايند:</strong> ${closure.newMindTotal.toFixed(2)}</p>
             <p><strong>الفرق:</strong> ${closure.difference.toFixed(2)}</p>
             <p><strong>الحالة:</strong> ${closure.status}</p>
@@ -3097,6 +3241,86 @@ async function viewClosureDetails(closureId) {
     } catch (error) {
         console.error('Error viewing closure details:', error);
         showMessage('حدث خطأ أثناء عرض تفاصيل التقفيلة.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// دالة جديدة لعرض تفاصيل المصروفات حسب النوع
+async function viewExpenseDetails(cashierUsername, dateFrom, timeFrom, dateTo, timeTo, formType) {
+    showLoading(true);
+    try {
+        const filters = {
+            cashier: cashierUsername,
+            dateFrom: dateFrom,
+            dateTo: dateTo,
+            timeFrom: timeFrom,
+            timeTo: timeTo
+        };
+        const expenses = await loadExpenses(filters);
+
+        let filteredExpenses = [];
+        if (formType === 'normal') {
+            filteredExpenses = expenses.filter(exp => {
+                const category = categories.find(c => c.name === exp.category || c.code === exp.categoryCode);
+                return category && !['فيزا', 'إنستا', 'اونلاين', 'مرتجع'].includes(category.formType);
+            });
+        } else {
+            filteredExpenses = expenses.filter(exp => {
+                const category = categories.find(c => c.name === exp.category || c.code === exp.categoryCode);
+                return category && category.formType === formType;
+            });
+        }
+
+        let detailsHtml = `
+            <h3>تفاصيل ${formType === 'normal' ? 'المصروفات العادية' : formType} للكاشير ${users.find(u => u.username === cashierUsername)?.name || cashierUsername}</h3>
+            <p>الفترة: ${dateFrom} ${timeFrom} - ${dateTo} ${timeTo}</p>
+        `;
+
+        if (filteredExpenses.length === 0) {
+            detailsHtml += '<p>لا توجد فواتير لهذا النوع في الفترة المحددة.</p>';
+        } else {
+            detailsHtml += `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>التصنيف</th>
+                            <th>رقم الفاتورة</th>
+                            <th>القيمة</th>
+                            <th>التاريخ</th>
+                            <th>الوقت</th>
+                            <th>الملاحظات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            filteredExpenses.forEach(exp => {
+                detailsHtml += `
+                    <tr>
+                        <td>${exp.category}</td>
+                        <td>${exp.invoiceNumber || '--'}</td>
+                        <td>${exp.amount.toFixed(2)}</td>
+                        <td>${exp.date}</td>
+                        <td>${exp.time}</td>
+                        <td>${exp.notes || '--'}</td>
+                    </tr>
+                `;
+            });
+            detailsHtml += '</tbody></table>';
+        }
+
+        const genericModal = document.getElementById('genericDetailsModal');
+        const genericModalContent = document.getElementById('genericDetailsModalContent');
+        if (genericModal && genericModalContent) {
+            genericModalContent.innerHTML = detailsHtml;
+            genericModal.classList.add('active');
+        } else {
+            alert(detailsHtml.replace(/<[^>]*>?/gm, '\n').replace(/\n\n/g, '\n').trim());
+        }
+
+    } catch (error) {
+        console.error('Error viewing expense details:', error);
+        showMessage('حدث خطأ أثناء عرض تفاصيل المصروفات.', 'error');
     } finally {
         showLoading(false);
     }
