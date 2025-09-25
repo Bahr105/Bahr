@@ -1564,7 +1564,6 @@ async function addCustomer() {
 }
 
 // --- Shift Management ---
-
 async function calculateCashierShift() {
     const dateFrom = document.getElementById('shiftDateFromCashier').value;
     const dateTo = document.getElementById('shiftDateToCashier').value;
@@ -1668,9 +1667,6 @@ async function calculateCashierShift() {
     }
 }
 
-
-
-
 async function finalizeCashierShiftCloseout() {
     const drawerCash = parseFloat(document.getElementById('drawerCashCashier').value);
 
@@ -1770,7 +1766,7 @@ async function loadCashierPreviousClosures() {
             row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
             
             // إجمالي الكاشير يجب أن يشمل الكاش في الدرج
-            const totalCashierAmount = closure.totalExpenses + closure.totalVisa + closure.totalInsta + closure.totalOnline + closure.drawerCash;
+            const totalCashierAmount = closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash;
             row.insertCell().textContent = totalCashierAmount.toFixed(2);
 
             row.insertCell().textContent = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '--';
@@ -2826,36 +2822,10 @@ async function searchCashierClosuresAccountant() {
         document.getElementById('accTotalVisa').innerHTML = `${totalVisa.toFixed(2)} (<span class="invoice-count">${visaCount} فاتورة</span>)`;
         document.getElementById('accTotalInsta').innerHTML = `${totalInsta.toFixed(2)} (<span class="invoice-count">${instaCount} فاتورة</span>)`;
         document.getElementById('accTotalOnline').innerHTML = `${totalOnline.toFixed(2)} (<span class="invoice-count">${onlineCount} فاتورة</span>)`;
+        document.getElementById('accTotalReturns').textContent = totalReturns.toFixed(2);
+        document.getElementById('accReturnsCount').textContent = returnsCount;
         document.getElementById('accDrawerCash').innerHTML = `${drawerCash.toFixed(2)} (<span class="invoice-count">${drawerCashCount} إدخال</span>)`;
         document.getElementById('accGrandTotalCashier').textContent = grandTotal.toFixed(2);
-
-        // إضافة حقل المرتجعات وزر التبديل
-        let returnsHtml = `
-            <p>إجمالي المرتجعات: <span id="accTotalReturns">${totalReturns.toFixed(2)}</span> (<span class="invoice-count">${returnsCount} فاتورة</span>)</p>
-            <div class="form-group">
-                <label class="switch">
-                    <input type="checkbox" id="deductReturnsAccountant" onchange="updateAccountantClosureDisplay()">
-                    <span class="slider round"></span>
-                </label>
-                <label for="deductReturnsAccountant" style="display: inline-block; margin-right: 10px;">خصم المرتجعات من الإجمالي</label>
-            </div>
-            <p id="accGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع: <span id="accGrandTotalAfterReturns">0.00</span></strong></p>
-        `;
-        const closureSummary = document.getElementById('closureSummaryAccountant');
-        // Remove existing returns elements if they exist to prevent duplication
-        const existingReturnsP = document.getElementById('accTotalReturns')?.closest('p');
-        const existingDeductSwitch = document.getElementById('deductReturnsAccountant')?.closest('.form-group');
-        const existingGrandTotalAfterReturns = document.getElementById('accGrandTotalAfterReturnsContainer');
-        if (existingReturnsP) existingReturnsP.remove();
-        if (existingDeductSwitch) existingDeductSwitch.remove();
-        if (existingGrandTotalAfterReturns) existingGrandTotalAfterReturns.remove();
-
-        // Insert new returns HTML before the newmind-input section
-        const newmindInputSection = document.querySelector('#closureResultsAccountant .newmind-input');
-        if (closureSummary && newmindInputSection) {
-            newmindInputSection.insertAdjacentHTML('beforebegin', returnsHtml);
-        }
-
 
         document.getElementById('newmindTotalAccountant').value = '';
         document.getElementById('differenceResultAccountant').style.display = 'none';
@@ -2928,7 +2898,7 @@ function updateAccountantClosureDisplay() {
     } else {
         grandTotalAfterReturnsContainer.style.display = 'none';
         accGrandTotalCashier.style.textDecoration = 'none'; // إزالة الشطب
-        accClosureModalGrandTotal.style.color = '#2c3e50'; // Reset color
+        accGrandTotalCashier.style.color = '#2c3e50'; // Reset color
     }
 
     // تحديث حساب الفرق إذا كان حقل نيو مايند مملوءًا
@@ -3051,7 +3021,7 @@ async function loadAccountantShiftClosuresHistory() {
         row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
 
         // إجمالي الكاشير يجب أن يشمل الكاش في الدرج
-        const totalCashierAmount = closure.totalExpenses + closure.totalVisa + closure.totalInsta + closure.totalOnline + closure.drawerCash;
+        const totalCashierAmount = closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash;
         row.insertCell().textContent = totalCashierAmount.toFixed(2);
 
         row.insertCell().textContent = closure.newMindTotal.toFixed(2);
@@ -3114,31 +3084,13 @@ async function showAccountantClosureModal(closureId, isEdit = false) { // Make i
         document.getElementById('accountantClosureModalGrandTotal').textContent = (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash).toFixed(2);
         
         // إضافة حقول المرتجعات والإجمالي بعد خصم المرتجعات
-        let returnsHtml = `
-            <p><strong>إجمالي المرتجعات:</strong> <span id="accountantClosureModalTotalReturns">${closure.deductedReturns.toFixed(2)}</span></p>
-            <div class="form-group">
-                <label class="switch">
-                    <input type="checkbox" id="accountantClosureModalDeductReturns" onchange="updateAccountantClosureDifference()">
-                    <span class="slider round"></span>
-                </label>
-                <label for="accountantClosureModalDeductReturns" style="display: inline-block; margin-right: 10px;">خصم المرتجعات من الإجمالي</label>
-            </div>
-            <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع:</strong> <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></p>
-        `;
-        const hrElement = document.querySelector('#accountantClosureDetailsModal .modal-body hr');
-        // Remove existing returns elements if they exist to prevent duplication
-        const existingModalReturnsP = document.getElementById('accountantClosureModalTotalReturns')?.closest('p');
-        const existingModalDeductSwitch = document.getElementById('accountantClosureModalDeductReturns')?.closest('.form-group');
-        const existingModalGrandTotalAfterReturns = document.getElementById('accountantClosureModalGrandTotalAfterReturnsContainer');
-        if (existingModalReturnsP) existingModalReturnsP.remove();
-        if (existingModalDeductSwitch) existingModalDeductSwitch.remove();
-        if (existingModalGrandTotalAfterReturns) existingModalGrandTotalAfterReturns.remove();
+        document.getElementById('accountantClosureModalTotalReturns').textContent = closure.deductedReturns.toFixed(2);
 
-        if (hrElement) {
-            hrElement.insertAdjacentHTML('beforebegin', returnsHtml);
-        } else {
-            // Fallback if hrElement is not found, append to modal-body
-            document.querySelector('#accountantClosureDetailsModal .modal-body').insertAdjacentHTML('beforeend', returnsHtml);
+        // Set the state of the deduct returns switch based on the saved closure data
+        const deductReturnsSwitch = document.getElementById('accountantClosureModalDeductReturns');
+        if (deductReturnsSwitch) {
+            // إذا كان الإجمالي بعد خصم المرتجعات لا يساوي الإجمالي الأصلي، نفترض أنه تم خصم المرتجعات
+            deductReturnsSwitch.checked = (closure.grandTotalAfterReturns !== (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash));
         }
 
         document.getElementById('accountantClosureModalNewMindTotal').value = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '';
@@ -3148,13 +3100,6 @@ async function showAccountantClosureModal(closureId, isEdit = false) { // Make i
         // Store current closure data for processing
         window.currentAccountantClosure = closure;
         window.isEditMode = isEdit; // Set edit mode flag
-
-        // Set the state of the deduct returns switch based on the saved closure data
-        const deductReturnsSwitch = document.getElementById('accountantClosureModalDeductReturns');
-        if (deductReturnsSwitch) {
-            // إذا كان الإجمالي بعد خصم المرتجعات لا يساوي الإجمالي الأصلي، نفترض أنه تم خصم المرتجعات
-            deductReturnsSwitch.checked = (closure.grandTotalAfterReturns !== (closure.totalExpenses + closure.totalInsta + closure.totalVisa + closure.totalOnline + closure.drawerCash));
-        }
 
         // Show the modal
         document.getElementById('accountantClosureDetailsModal').classList.add('active');
@@ -3688,4 +3633,3 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
