@@ -92,6 +92,8 @@ function loadGoogleScripts() {
 
         const gapiScript = document.createElement('script');
         gapiScript.src = 'https://apis.google.com/js/api.js';
+        gapiScript.async = true; // Load asynchronously
+        gapiScript.defer = true; // Defer execution
         gapiScript.onload = function() {
             console.log('GAPI loaded, initializing...');
             gapi.load('client', async () => {
@@ -99,6 +101,8 @@ function loadGoogleScripts() {
                     await initializeGapiClient();
                     const gisScript = document.createElement('script');
                     gisScript.src = 'https://accounts.google.com/gsi/client';
+                    gisScript.async = true; // Load asynchronously
+                    gisScript.defer = true; // Defer execution
                     gisScript.onload = function() {
                         console.log('GIS loaded, initializing...');
                         gisLoaded();
@@ -2413,16 +2417,8 @@ function printReport() {
         <html>
             <head>
                 <title>تقرير المصروفات</title>
-                <style>
-                    body { font-family: 'Tajawal', sans-serif; direction: rtl; text-align: right; }
-                    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-                    th { background-color: #f2f2f2; }
-                    .report-header, .report-footer { margin: 20px 0; }
-                    .cashier-section { margin: 30px 0; border-top: 2px solid #ccc; padding-top: 20px; }
-                    .stats-summary { background: #f9f9f9; padding: 15px; margin: 10px 0; }
-                    @media print { body { -webkit-print-color-adjust: exact; } }
-                </style>
+                <link rel="stylesheet" href="styles.css"> <!-- Link to your existing styles -->
+                <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
             </head>
             <body>
                 ${reportContent.innerHTML}
@@ -2496,7 +2492,7 @@ function displayUsers() {
         row.insertCell().textContent = user.role;
 
         const statusCell = row.insertCell();
-        statusCell.innerHTML = `<span class="status ${user.status === 'نشط' ? 'active' : 'inactive'}">${user.status}</span>`;
+        statusCell.innerHTML = `<span class="status ${user.status === 'نشط' ? 'active' : user.status === 'موقوف' ? 'suspended' : 'blocked'}">${user.status}</span>`;
 
         row.insertCell().textContent = user.creationDate;
 
@@ -2933,7 +2929,7 @@ async function searchCashierClosuresAccountant() {
             normalCount: normalCount,
             totalVisa: totalVisa,
             visaCount: visaCount,
-            totalInsta: totalInsta,
+            totalInsta: instaCount,
             instaCount: instaCount,
             totalOnline: onlineCount,
             onlineCount: onlineCount,
@@ -3255,6 +3251,8 @@ function updateAccountantClosureDifference() {
     const newMindTotal = parseFloat(newMindTotalInput.value);
 
     let grandTotalForComparison = cashierTotal;
+    let grandTotalAfterReturns = cashierTotal;
+
     if (addReturnsSwitch?.checked) {
         grandTotalForComparison = cashierTotal + totalReturns;
         if (grandTotalAfterReturnsContainer) grandTotalAfterReturnsContainer.style.display = 'block';
@@ -3564,7 +3562,7 @@ async function viewExpenseDetails(cashierUsername, dateFrom, timeFrom, dateTo, t
                         <tr>
                             <th>التصنيف</th>
                             <th>رقم الفاتورة</th>
-                            <th>القيمة</th>
+                            <th>القيمة                            </th>
                             <th>التاريخ</th>
                             <th>الوقت</th>
                             <th>الملاحظات</th>
@@ -3572,6 +3570,9 @@ async function viewExpenseDetails(cashierUsername, dateFrom, timeFrom, dateTo, t
                     </thead>
                     <tbody>
             `;
+
+            filteredExpenses.sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.time}`));
+
             filteredExpenses.forEach(exp => {
                 detailsHtml += `
                     <tr>
@@ -3584,15 +3585,22 @@ async function viewExpenseDetails(cashierUsername, dateFrom, timeFrom, dateTo, t
                     </tr>
                 `;
             });
-            detailsHtml += '</tbody></table>';
+
+            detailsHtml += `
+                    </tbody>
+                </table>
+                <p><strong>إجمالي: ${filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0).toFixed(2)}</strong> (${filteredExpenses.length} فاتورة)</p>
+            `;
         }
 
+        // عرض التفاصيل في نافذة منبثقة عامة أو alert كبديل
         const genericModal = document.getElementById('genericDetailsModal');
         const genericModalContent = document.getElementById('genericDetailsModalContent');
         if (genericModal && genericModalContent) {
             genericModalContent.innerHTML = detailsHtml;
             genericModal.classList.add('active');
         } else {
+            // Fallback إلى alert إذا لم يكن هناك modal
             alert(detailsHtml.replace(/<[^>]*>?/gm, '\n').replace(/\n\n/g, '\n').trim());
         }
 
@@ -3604,62 +3612,7 @@ async function viewExpenseDetails(cashierUsername, dateFrom, timeFrom, dateTo, t
     }
 }
 
-
 // --- Utility Functions ---
-function showLoading(show = true) {
-    const loading = document.getElementById('loadingOverlay');
-    if (loading) {
-        loading.classList.toggle('hidden', !show);
-    }
-}
-
-function showMessage(message, type = 'info') {
-    let messageContainer = document.getElementById('messageContainer');
-    if (!messageContainer) {
-        messageContainer = document.createElement('div');
-        messageContainer.id = 'messageContainer';
-        messageContainer.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000; max-width: 400px;';
-        document.body.appendChild(messageContainer);
-    }
-
-    const messageElement = document.createElement('div');
-    messageElement.className = `message ${type}`;
-
-    let icon = '';
-    switch (type) {
-        case 'success':
-            icon = '<i class="fas fa-check-circle"></i>';
-            break;
-        case 'error':
-            icon = '<i class="fas fa-exclamation-circle"></i>';
-            break;
-        case 'warning':
-            icon = '<i class="fas fa-exclamation-triangle"></i>';
-            break;
-        case 'info':
-            icon = '<i class="fas fa-info-circle"></i>';
-            break;
-        default:
-            icon = '<i class="fas fa-info-circle"></i>';
-    }
-
-    messageElement.innerHTML = `${icon} ${message}`;
-    messageContainer.appendChild(messageElement);
-
-    const delay = type === 'error' ? 5000 : type === 'warning' ? 4000 : 3000;
-    setTimeout(() => {
-        if (messageElement && messageElement.parentNode) {
-            messageElement.parentNode.removeChild(messageElement);
-        }
-    }, delay);
-
-    messageElement.addEventListener('click', () => {
-        if (messageElement && messageElement.parentNode) {
-            messageElement.parentNode.removeChild(messageElement);
-        }
-    });
-}
-
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
@@ -3667,81 +3620,96 @@ function closeModal(modalId) {
     }
 }
 
-window.onclick = function(event) {
-    const modals = document.querySelectorAll('.modal.active');
+// دالة لإغلاق الـ modal عند الضغط خارجها
+function setupModalCloseOnOutsideClick() {
+    const modals = document.querySelectorAll('.modal');
     modals.forEach(modal => {
-        if (event.target === modal) {
-            closeModal(modal.id);
-        }
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal(modal.id);
+            }
+        });
     });
 }
 
-// --- Event Listeners ---
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, starting Google scripts loading...');
+// دالة لعرض الرسائل
+function showMessage(message, type = 'info') {
+    const messageContainer = document.getElementById('messageContainer');
+    if (!messageContainer) return;
 
-    loadGoogleScripts().then(() => {
-        console.log('Google Scripts loaded successfully and initialized.');
-        // بعد التحميل والتهيئة، ابدأ عملية المصادقة وتحميل البيانات الأولية
-        maybePerformAuthAndLoadData();
-    }).catch(error => {
-        console.error('Failed to load Google Scripts:', error);
-        showMessage('فشل تحميل مكتبات Google. يرجى التحقق من الاتصال بالإنترنت.', 'error');
-
-        const retryButton = document.createElement('button');
-        retryButton.textContent = 'إعادة المحاولة';
-        retryButton.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000; padding: 10px 20px;';
-        retryButton.onclick = () => location.reload();
-        document.body.appendChild(retryButton);
+    // إزالة الرسائل السابقة
+    const existingMessages = messageContainer.querySelectorAll('.message');
+    existingMessages.forEach(msg => {
+        setTimeout(() => msg.remove(), 5000); // إزالة تلقائية بعد 5 ثوان
     });
 
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}`;
+    messageDiv.innerHTML = `
+        <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i>
+        ${message}
+    `;
+    messageDiv.onclick = () => messageDiv.remove(); // إغلاق عند الضغط
+
+    messageContainer.appendChild(messageDiv);
+
+    // إزالة تلقائية بعد 5 ثوان
+    setTimeout(() => {
+        if (messageDiv.parentNode) {
+            messageDiv.remove();
+        }
+    }, 5000);
+}
+
+// دالة لعرض/إخفاء شاشة التحميل
+function showLoading(show = true) {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+        if (show) {
+            loadingOverlay.classList.remove('hidden');
+        } else {
+            loadingOverlay.classList.add('hidden');
+        }
+    }
+}
+
+// --- Event Listeners and Initialization ---
+document.addEventListener('DOMContentLoaded', async () => {
+    // إعداد إغلاق الـ modals عند الضغط خارجها
+    setupModalCloseOnOutsideClick();
+
+    // تحميل Google Scripts والبيانات الأولية
+    try {
+        await loadGoogleScripts();
+    } catch (error) {
+        console.error('Failed to load Google Scripts:', error);
+        showMessage('فشل تحميل الخدمات الخارجية. يرجى إعادة تحميل الصفحة.', 'error');
+    }
+
+    // تعيين التواريخ الافتراضية
     setDefaultDatesAndTimes();
 
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            login();
-        });
-    }
+    // إخفاء صفحات غير الافتراضية
+    document.getElementById('loginPage').classList.add('active');
+    document.getElementById('cashierPage').classList.remove('active');
+    document.getElementById('accountantPage').classList.remove('active');
 
-    const addCategoryForm = document.getElementById('addCategoryForm');
-    if (addCategoryForm) {
-        addCategoryForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            addCategory();
+    // إضافة event listener للـ close buttons في الـ modals
+    const closeButtons = document.querySelectorAll('.close-btn');
+    closeButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const modalId = e.target.closest('.modal').id;
+            closeModal(modalId);
         });
-    }
+    });
 
-    const addExpenseForm = document.getElementById('addExpenseForm');
-    if (addExpenseForm) {
-        addExpenseForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            addExpense();
-        });
-    }
-
-    const addCustomerForm = document.getElementById('addCustomerForm');
-    if (addCustomerForm) {
-        addCustomerForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            addCustomer();
-        });
-    }
-
-    const addUserForm = document.getElementById('addUserForm');
-    if (addUserForm) {
-        addUserForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            addUser();
-        });
-    }
-
-    const whatsappForm = document.getElementById('whatsappForm');
-    if (whatsappForm) {
-        whatsappForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            sendReportViaWhatsApp();
-        });
-    }
+    console.log('DOM loaded and initialized successfully.');
 });
+
+// --- Error Handling for Authentication ---
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+    showMessage('حدث خطأ غير متوقع. يرجى إعادة تحميل الصفحة.', 'error');
+});
+
+// --- End of Script ---
