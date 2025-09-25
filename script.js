@@ -160,7 +160,7 @@ function gisLoaded() {
 }
 
 // دالة موحدة لبدء المصادقة وتحميل البيانات الأولية
-async function maybePerformAuthAndLoadData() {
+async function maybePerformAuthAndAndLoadData() {
     if (!gapiInited || !gisInited) {
         console.log('GAPI or GIS not yet initialized. Waiting...');
         return;
@@ -451,6 +451,14 @@ async function loadCustomerCreditHistory(customerId) {
 
 async function loadExpenses(filters = {}) {
     try {
+        if (!isAuthenticated) {
+            console.log(`Not authenticated for loadExpenses. Attempting re-authentication.`);
+            await handleAuthClick(true); // حاول المصادقة بصمت
+            if (!isAuthenticated) {
+                throw new Error('Authentication failed before loading expenses.');
+            }
+        }
+
         const data = await readSheet(SHEETS.EXPENSES);
         if (data.length <= 1) return [];
 
@@ -512,6 +520,14 @@ async function loadExpenses(filters = {}) {
 
 async function loadShiftClosures(filters = {}) {
     try {
+        if (!isAuthenticated) {
+            console.log(`Not authenticated for loadShiftClosures. Attempting re-authentication.`);
+            await handleAuthClick(true); // حاول المصادقة بصمت
+            if (!isAuthenticated) {
+                throw new Error('Authentication failed before loading shift closures.');
+            }
+        }
+
         const data = await readSheet(SHEETS.SHIFT_CLOSURES);
         if (data.length <= 1) return [];
 
@@ -3564,7 +3580,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadGoogleScripts().then(() => {
         console.log('Google Scripts loaded successfully and initialized.');
         // بعد التحميل والتهيئة، ابدأ عملية المصادقة وتحميل البيانات الأولية
-        maybePerformAuthAndLoadData();
+        maybePerformAuthAndAndLoadData();
     }).catch(error => {
         console.error('Failed to load Google Scripts:', error);
         showMessage('فشل تحميل مكتبات Google. يرجى التحقق من الاتصال بالإنترنت.', 'error');
