@@ -712,6 +712,9 @@ function showTab(tabId) {
         populateAccountantShiftCashierFilter();
         loadAccountantShiftClosuresHistory();
         resetAccountantShiftForm();
+    } else if (tabId === 'shiftCloseTabCashier') { // إضافة هنا
+        loadCashierPreviousClosures();
+        setDefaultDatesAndTimes();
     }
 }
 
@@ -1723,6 +1726,7 @@ async function finalizeCashierShiftCloseout() {
             showMessage('تم تقفيل الشيفت بنجاح.', 'success');
             resetCashierDailyData();
             document.getElementById('shiftSummaryCashier').style.display = 'none';
+            loadCashierPreviousClosures(); // تحديث سجل التقفيلات للكاشير
         } else {
             showMessage('فشل تقفيل الشيفت.', 'error');
         }
@@ -1733,6 +1737,71 @@ async function finalizeCashierShiftCloseout() {
         showLoading(false);
     }
 }
+
+// --- Cashier Previous Closures ---
+async function loadCashierPreviousClosures() {
+    const cashierPreviousClosuresDiv = document.getElementById('cashierPreviousClosures');
+    const tableBody = document.getElementById('cashierClosuresHistoryBody');
+    if (!tableBody || !cashierPreviousClosuresDiv) return;
+
+    showLoading(true);
+    try {
+        const closures = await loadShiftClosures({ cashier: currentUser.username });
+        tableBody.innerHTML = '';
+
+        if (closures.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="7">لا توجد تقفيلات سابقة لهذا الكاشير.</td></tr>';
+            cashierPreviousClosuresDiv.style.display = 'none';
+            return;
+        }
+
+        closures.sort((a, b) => new Date(`${b.closureDate} ${b.closureTime}`) - new Date(`${a.closureDate} ${a.closureTime}`));
+
+        closures.forEach(closure => {
+            const row = tableBody.insertRow();
+            row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
+            
+            // إجمالي الكاشير يجب أن يشمل الكاش في الدرج
+            const totalCashierAmount = closure.totalExpenses + closure.totalVisa + closure.totalInsta + closure.totalOnline + closure.drawerCash;
+            row.insertCell().textContent = totalCashierAmount.toFixed(2);
+
+            row.insertCell().textContent = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '--';
+
+            const differenceCell = row.insertCell();
+            const diffValue = closure.difference;
+            differenceCell.textContent = diffValue.toFixed(2);
+            if (diffValue < 0) {
+                differenceCell.style.color = 'green';
+                differenceCell.title = 'زيادة عند الكاشير';
+            } else if (diffValue > 0) {
+                differenceCell.style.color = 'red';
+                differenceCell.title = 'عجز على الكاشير';
+            } else {
+                differenceCell.style.color = 'blue';
+                differenceCell.title = 'مطابق';
+            }
+
+            const statusCell = row.insertCell();
+            statusCell.innerHTML = `<span class="status ${closure.status === 'مغلق' || closure.status === 'مغلق بواسطة المحاسب' ? 'closed' : 'open'}">${closure.status}</span>`;
+
+            row.insertCell().textContent = `${closure.closureDate} ${closure.closureTime}`;
+
+            const actionsCell = row.insertCell();
+            actionsCell.innerHTML = `
+                <button class="view-btn" onclick="viewClosureDetails('${closure.id}')">
+                    <i class="fas fa-eye"></i> عرض
+                </button>
+            `;
+        });
+        cashierPreviousClosuresDiv.style.display = 'block';
+    } catch (error) {
+        console.error('Error loading cashier previous closures:', error);
+        showMessage('حدث خطأ أثناء تحميل تقفيلاتك السابقة.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
 
 // --- Accountant Page Functions ---
 async function showAccountantPage() {
@@ -2648,32 +2717,29 @@ async function searchCashierClosuresAccountant() {
             }
         });
 
-        // --- MODIFIED LOGIC FOR DRAWER CASH: البحث داخل الفترة أولاً ---
+        // --- MODIFIED LOGIC FOR DRAWER CASH ---
         let drawerCash = 0;
-        let drawerCashCount = 0; // عدد مرات تسجيل الكاش في الدرج
+        let drawerCashCount = 0;
+        let previousClosureMessage = '';
+
         const allClosures = await loadShiftClosures({});
 
         // 1. البحث عن الإغلاقات داخل الفترة
         const closuresInPeriod = allClosures.filter(closure => {
             if (!closure.dateTo || !closure.timeTo || closure.drawerCash === undefined) return false;
 
-            // تنظيف timeTo للإغلاق
             const normalizedClosureTimeTo = normalizeTimeToHHMMSS(closure.timeTo);
-            
             const closureEndDateTimeStr = `${closure.dateTo}T${normalizedClosureTimeTo}`;
             const closureEndDateTime = new Date(closureEndDateTimeStr);
             
-            // التحقق من صحة التاريخ
             if (isNaN(closureEndDateTime.getTime())) {
                 console.error(`وقت غير صالح للإغلاق ${closure.id}: ${closureEndDateTimeStr} (normalized: ${normalizedClosureTimeTo})`);
                 return false;
             }
 
-            const isInPeriod = closure.cashier === selectedCashier && 
-                               closureEndDateTime >= searchStartDateTime && 
-                               closureEndDateTime <= searchEndDateTime;
-            
-            return isInPeriod;
+            return closure.cashier === selectedCashier && 
+                   closureEndDateTime >= searchStartDateTime && 
+                   closureEndDateTime <= searchEndDateTime;
         });
 
         if (closuresInPeriod.length > 0) {
@@ -2693,9 +2759,7 @@ async function searchCashierClosuresAccountant() {
                     return false;
                 }
 
-                const isPrevious = closure.cashier === selectedCashier && closureEndDateTime < searchStartDateTime;
-                
-                return isPrevious;
+                return closure.cashier === selectedCashier && closureEndDateTime < searchStartDateTime;
             });
 
             if (previousClosures.length > 0) {
@@ -2704,14 +2768,11 @@ async function searchCashierClosuresAccountant() {
                     const timeB = normalizeTimeToHHMMSS(b.timeTo);
                     return new Date(`${b.dateTo}T${timeB}`) - new Date(`${a.dateTo}T${timeA}`);
                 })[0];
-                drawerCash = parseFloat(latestPrevious.drawerCash) || 0;
-                drawerCashCount = 1; // يعتبر إدخال واحد من آخر إغلاق
-            } else {
-                drawerCash = 0;
-                drawerCashCount = 0;
+                previousClosureMessage = `(يوجد إغلاق سابق في ${latestPrevious.closureDate} ${latestPrevious.closureTime} بقيمة ${parseFloat(latestPrevious.drawerCash).toFixed(2)}، لم يتم تضمينه في الحساب الحالي)`;
             }
+            drawerCash = 0; // لا يتم تضمين الكاش في الدرج من إغلاق سابق في الحساب الحالي
+            drawerCashCount = 0;
         }
-
         // --- END MODIFIED LOGIC ---
 
         const totalNormal = normalExpenses.reduce((sum, exp) => sum + exp.amount, 0);
@@ -2794,10 +2855,10 @@ async function searchCashierClosuresAccountant() {
         let cashSource = '';
         if (closuresInPeriod.length > 0) {
             cashSource = ` (مجموع من ${closuresInPeriod.length} إغلاق داخل الفترة)`;
-        } else if (drawerCash > 0) {
-            cashSource = ` (من آخر إغلاق سابق)`;
+        } else if (previousClosureMessage) {
+            cashSource = ` (لا توجد إغلاقات داخل الفترة. ${previousClosureMessage})`;
         } else {
-            cashSource = ` (لا إغلاقات، افتراضي)`;
+            cashSource = ` (لا توجد إغلاقات سابقة)`;
         }
         showMessage(`تم البحث عن بيانات الكاشير ${cashierDisplayName} للفترة المحددة. إجمالي الكاش في الدرج: ${drawerCash.toFixed(2)}${cashSource}.`, 'success');
     } catch (error) {
@@ -2981,6 +3042,9 @@ async function loadAccountantShiftClosuresHistory() {
             <button class="view-btn" onclick="viewClosureDetails('${closure.id}')">
                 <i class="fas fa-eye"></i> عرض
             </button>
+            <button class="edit-btn" onclick="promptForEditPassword('${closure.id}')">
+                <i class="fas fa-edit"></i> تعديل
+            </button>
             ${closure.status !== 'مغلق بواسطة المحاسب' ? `
             <button class="accountant-close-btn" onclick="showAccountantClosureModal('${closure.id}')">
                 <i class="fas fa-check-double"></i> تقفيل المحاسب
@@ -2990,7 +3054,7 @@ async function loadAccountantShiftClosuresHistory() {
 }
 
 // --- New Modal for Accountant Closure Details ---
-async function showAccountantClosureModal(closureId) { // Make it async
+async function showAccountantClosureModal(closureId, isEdit = false) { // Make it async
     showLoading(true); // Show loading overlay
     try {
         const allClosures = await loadShiftClosures({}); // Load all closures to ensure 'closures' is defined
@@ -3036,6 +3100,7 @@ async function showAccountantClosureModal(closureId) { // Make it async
 
         // Store current closure data for processing
         window.currentAccountantClosure = closure;
+        window.isEditMode = isEdit; // Set edit mode flag
 
         // Set the state of the deduct returns switch based on the saved closure data
         const deductReturnsSwitch = document.getElementById('accountantClosureModalDeductReturns');
@@ -3047,6 +3112,20 @@ async function showAccountantClosureModal(closureId) { // Make it async
         // Show the modal
         document.getElementById('accountantClosureDetailsModal').classList.add('active');
         updateAccountantClosureDifference(); // Calculate initial difference if newMindTotal is pre-filled
+
+        // Update modal title and save button text based on edit mode
+        const modalTitle = document.querySelector('#accountantClosureDetailsModal .modal-header h3');
+        const saveButton = document.getElementById('saveAccountantClosureBtn');
+        if (isEdit) {
+            modalTitle.innerHTML = `<i class="fas fa-edit"></i> تعديل تقفيل الشيفت`;
+            saveButton.textContent = 'حفظ التعديلات';
+            saveButton.onclick = saveEditedAccountantClosure; // Assign new save function for edit
+        } else {
+            modalTitle.innerHTML = `<i class="fas fa-check-double"></i> تقفيل المحاسب للشيفت`;
+            saveButton.textContent = 'حفظ التقفيل';
+            saveButton.onclick = saveAccountantClosure; // Assign original save function
+        }
+
     } catch (error) {
         console.error('Error showing accountant closure modal:', error);
         showMessage('حدث خطأ أثناء عرض تفاصيل تقفيل المحاسب.', 'error');
@@ -3192,6 +3271,101 @@ async function saveAccountantClosure() {
         showLoading(false);
     }
 }
+
+// --- Edit Closure Functionality ---
+const EDIT_PASSWORD = '2552'; // كلمة المرور للتعديل
+
+function promptForEditPassword(closureId) {
+    const password = prompt('أدخل كلمة المرور لتعديل التقفيلة:');
+    if (password === EDIT_PASSWORD) {
+        showAccountantClosureModal(closureId, true); // Open modal in edit mode
+    } else if (password !== null) { // If user didn't cancel
+        showMessage('كلمة المرور غير صحيحة.', 'error');
+    }
+}
+
+async function saveEditedAccountantClosure() {
+    if (!window.currentAccountantClosure) {
+        showMessage('لا توجد بيانات تقفيلة لحفظها.', 'error');
+        return;
+    }
+
+    const newMindTotal = parseFloat(document.getElementById('accountantClosureModalNewMindTotal').value);
+    if (isNaN(newMindTotal) || newMindTotal < 0) {
+        showMessage('يرجى إدخال قيمة صحيحة لإجمالي نيو مايند.', 'warning');
+        return;
+    }
+
+    showLoading(true);
+    try {
+        const closure = window.currentAccountantClosure;
+        const cashierTotal = parseFloat(document.getElementById('accountantClosureModalGrandTotal').textContent);
+        const totalReturns = parseFloat(document.getElementById('accountantClosureModalTotalReturns').textContent);
+        const deductReturns = document.getElementById('accountantClosureModalDeductReturns')?.checked || false;
+
+        let grandTotalForComparison = cashierTotal;
+        let grandTotalAfterReturns = cashierTotal;
+
+        if (deductReturns) {
+            grandTotalForComparison = cashierTotal - totalReturns;
+            grandTotalAfterReturns = grandTotalForComparison;
+        } else {
+            grandTotalAfterReturns = cashierTotal;
+        }
+
+        const difference = newMindTotal - grandTotalForComparison;
+        const now = new Date();
+
+        const rowIndex = await findRowIndex(SHEETS.SHIFT_CLOSURES, 0, closure.id);
+        if (rowIndex === -1) {
+            showMessage('لم يتم العثور على التقفيلة لتحديثها.', 'error');
+            return;
+        }
+
+        const updatedData = [
+            closure.id,
+            closure.cashier,
+            closure.dateFrom,
+            closure.timeFrom,
+            closure.dateTo,
+            closure.timeTo,
+            closure.totalExpenses.toFixed(2),
+            closure.expenseCount,
+            closure.totalInsta.toFixed(2),
+            closure.instaCount,
+            closure.totalVisa.toFixed(2),
+            closure.visaCount,
+            closure.totalOnline.toFixed(2),
+            closure.onlineCount,
+            cashierTotal.toFixed(2),
+            closure.drawerCash.toFixed(2),
+            newMindTotal.toFixed(2),
+            difference.toFixed(2),
+            'مغلق بواسطة المحاسب', // Status remains the same after edit
+            now.toISOString().split('T')[0], // Update closure date/time to now
+            now.toTimeString().split(' ')[0],
+            currentUser.username, // Accountant who edited
+            totalReturns.toFixed(2),
+            grandTotalAfterReturns.toFixed(2)
+        ];
+
+        const result = await updateSheet(SHEETS.SHIFT_CLOSURES, `A${rowIndex}:X${rowIndex}`, updatedData);
+
+        if (result.success) {
+            showMessage('تم تعديل التقفيلة بنجاح.', 'success');
+            closeModal('accountantClosureDetailsModal');
+            loadAccountantShiftClosuresHistory(); // Refresh the history table
+        } else {
+            showMessage('فشل تعديل التقفيلة.', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving edited accountant closure:', error);
+        showMessage('حدث خطأ أثناء حفظ تعديلات التقفيلة.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
 
 // --- View Closure Details (for the 'عرض' button) ---
 async function viewClosureDetails(closureId) {
