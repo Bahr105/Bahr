@@ -1637,7 +1637,7 @@ async function calculateCashierShift() {
         document.getElementById('onlineCountCashier').textContent = onlineCount;
         document.getElementById('grandTotalCashier').textContent = grandTotal.toFixed(2); // This is the sum of transactions only
 
-        // إضافة عرض المرتجعات في ملخص الشيفت
+        // إضافة عرض المرتجعات في ملخص الشيفت - هذا هو التصحيح المطلوب
         document.getElementById('totalReturnsCashier').textContent = totalReturns.toFixed(2);
         document.getElementById('returnsCountCashier').textContent = returnsCount;
 
