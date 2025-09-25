@@ -12,6 +12,8 @@ body {
     color: #333;
     direction: rtl;
     text-align: right;
+    font-size: 16px; /* Base font size */
+    line-height: 1.6;
 }
 
 /* Page Management */
@@ -24,17 +26,28 @@ body {
 }
 
 /* Messages */
+#messageContainer {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .message {
     padding: 15px 20px;
     border-radius: 8px;
-    margin-bottom: 10px;
     font-weight: 500;
     display: flex;
     align-items: center;
     gap: 10px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    animation: slideIn 0.3s ease;
+    animation: slideIn 0.3s ease forwards; /* Use forwards to keep the final state */
     position: relative;
+    cursor: pointer; /* Indicate it's clickable to dismiss */
 }
 
 @keyframes slideIn {
@@ -51,25 +64,25 @@ body {
 .message.success {
     background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
     color: #155724;
-    border-left: 4px solid #28a745;
+    border-right: 4px solid #28a745; /* Changed to right border for RTL */
 }
 
 .message.error {
     background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
     color: #721c24;
-    border-left: 4px solid #dc3545;
+    border-right: 4px solid #dc3545; /* Changed to right border for RTL */
 }
 
 .message.warning {
     background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
     color: #856404;
-    border-left: 4px solid #ffc107;
+    border-right: 4px solid #ffc107; /* Changed to right border for RTL */
 }
 
 .message.info {
     background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
     color: #0c5460;
-    border-left: 4px solid #17a2b8;
+    border-right: 4px solid #17a2b8; /* Changed to right border for RTL */
 }
 
 /* Login Page */
@@ -140,7 +153,7 @@ body {
 
 .input-group i {
     position: absolute;
-    right: 15px;
+    right: 15px; /* Adjusted for RTL */
     color: #999;
     z-index: 2;
 }
@@ -148,7 +161,7 @@ body {
 .input-group input,
 .input-group select {
     width: 100%;
-    padding: 15px 45px 15px 15px;
+    padding: 15px 45px 15px 15px; /* Adjusted padding for icon on right */
     border: 2px solid #e1e5e9;
     border-radius: 10px;
     font-size: 1rem;
@@ -166,12 +179,13 @@ body {
 
 .show-password {
     position: absolute;
-    left: 15px;
+    left: 15px; /* Adjusted for RTL */
     background: none;
     border: none;
     color: #999;
     cursor: pointer;
     z-index: 2;
+    padding: 0; /* Remove default button padding */
 }
 
 .login-btn {
@@ -264,6 +278,7 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* For smooth scrolling on iOS */
 }
 
 .nav-tab {
@@ -297,7 +312,7 @@ body {
 /* Main Content */
 .main-content {
     background: #f8f9fa;
-    min-height: calc(100vh - 140px);
+    min-height: calc(100vh - 140px); /* Adjust based on header/nav height */
     padding: 30px;
     max-width: 1200px;
     margin: 0 auto;
@@ -309,7 +324,7 @@ body {
 
 .tab-content.active {
     display: block;
-    animation: fadeIn 0.3s ease;
+    animation: fadeIn 0.3s ease forwards;
 }
 
 @keyframes fadeIn {
@@ -337,10 +352,10 @@ body {
     font-size: 1.4rem;
 }
 
-/* Buttons */
-.add-btn, .save-btn, .calculate-btn, .generate-report-btn, .search-btn, .close-shift-btn, .close-cashier-btn {
-    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-    color: white;
+/* Buttons - General Styling */
+.add-btn, .save-btn, .calculate-btn, .generate-report-btn, .search-btn, .close-shift-btn, .close-cashier-btn,
+.cancel-btn, .print-btn, .view-btn, .whatsapp-btn, .send-btn, .clear-filters-btn, .calculate-difference-btn,
+.edit-btn, .delete-btn, .block-btn, .accountant-close-btn {
     border: none;
     padding: 12px 20px;
     border-radius: 8px;
@@ -350,148 +365,95 @@ body {
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
+    justify-content: center; /* Center content for consistent look */
     gap: 8px;
+    white-space: nowrap; /* Prevent text wrapping */
 }
 
+/* Primary Action Buttons */
+.add-btn, .save-btn, .calculate-btn, .generate-report-btn, .search-btn, .close-shift-btn, .close-cashier-btn {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+}
 .add-btn:hover, .save-btn:hover, .calculate-btn:hover, .generate-report-btn:hover, .search-btn:hover, .close-shift-btn:hover, .close-cashier-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
 }
 
+/* Secondary Action Buttons */
 .cancel-btn {
     background: #6c757d;
     color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 8px;
 }
-
 .cancel-btn:hover {
     background: #5a6268;
 }
 
+/* Info/View Buttons */
 .print-btn, .view-btn {
     background: #17a2b8;
     color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 8px;
 }
-
 .print-btn:hover, .view-btn:hover {
     background: #138496;
     transform: translateY(-2px);
 }
 
+/* WhatsApp Buttons */
 .whatsapp-btn, .send-btn {
     background: #25d366;
     color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 8px;
 }
-
 .whatsapp-btn:hover, .send-btn:hover {
     background: #128c7e;
     transform: translateY(-2px);
 }
 
-.clear-filters-btn {
+/* Danger/Clear Buttons */
+.clear-filters-btn, .delete-btn {
     background: #dc3545;
     color: white;
-    border: none;
-    padding: 10px 15px;
+    padding: 10px 15px; /* Slightly smaller for filters/table actions */
     border-radius: 6px;
-    cursor: pointer;
     font-size: 0.85rem;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 5px;
 }
-
-.clear-filters-btn:hover {
+.clear-filters-btn:hover, .delete-btn:hover {
     background: #c82333;
 }
 
-.calculate-difference-btn {
-    background: #fd7e14;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+/* Warning/Calculate Difference Button */
+.calculate-difference-btn, .edit-btn {
+    background: #ffc107;
+    color: #212529;
 }
-
-.calculate-difference-btn:hover {
-    background: #e8680b;
+.calculate-difference-btn:hover, .edit-btn:hover {
+    background: #e0a800;
     transform: translateY(-2px);
 }
 
-.edit-btn {
-    background: #ffc107;
-    color: #212529;
-    border: none;
+/* Specific Table Action Buttons */
+.edit-btn, .delete-btn, .block-btn, .accountant-close-btn {
     padding: 8px 12px;
     border-radius: 5px;
-    cursor: pointer;
     font-size: 0.8rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 5px;
 }
 
-.edit-btn:hover {
-    background: #e0a800;
-}
-
-.delete-btn {
-    background: #dc3545;
+.block-btn { /* For user management status change */
+    background: #6c757d; /* Grey for block/status change */
     color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 5px;
+}
+.block-btn:hover {
+    background: #5a6268;
 }
 
-.delete-btn:hover {
-    background: #c82333;
+.accountant-close-btn {
+    background: #007bff; /* Blue for accountant specific action */
+    color: white;
 }
+.accountant-close-btn:hover {
+    background: #0056b3;
+}
+
 
 /* Categories Grid */
 .categories-grid {
@@ -506,7 +468,7 @@ body {
     padding: 20px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
     transition: all 0.3s ease;
-    border-left: 4px solid #4CAF50;
+    border-right: 4px solid #4CAF50; /* Adjusted for RTL */
 }
 
 .category-card:hover {
@@ -545,6 +507,7 @@ body {
 .category-actions {
     display: flex;
     gap: 10px;
+    justify-content: flex-start; /* Align actions to the right in RTL */
 }
 
 /* Filters */
@@ -557,7 +520,7 @@ body {
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
-    align-items: end;
+    align-items: flex-end; /* Align items to the bottom */
 }
 
 .filter-group {
@@ -565,6 +528,7 @@ body {
     flex-direction: column;
     gap: 5px;
     min-width: 150px;
+    flex-grow: 1; /* Allow filter groups to grow */
 }
 
 .filter-group label {
@@ -580,6 +544,7 @@ body {
     font-size: 0.9rem;
     transition: all 0.3s ease;
     background: white;
+    width: 100%; /* Ensure inputs take full width of their group */
 }
 
 .filter-group input:focus, .filter-group select:focus {
@@ -588,7 +553,7 @@ body {
     box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
 }
 
-/* Form Styles */
+/* Form Styles - General */
 .form-group {
     margin-bottom: 20px;
 }
@@ -631,13 +596,14 @@ body {
 .expenses-table, .customers-table, .users-table, .cashiers-table, .closures-table {
     background: white;
     border-radius: 10px;
-    overflow: hidden;
+    overflow-x: auto; /* Allow horizontal scrolling for tables */
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
+    min-width: 700px; /* Ensure tables are not too narrow on small screens */
 }
 
 table th {
@@ -659,6 +625,10 @@ table tr:hover {
     background: #f8f9fa;
 }
 
+table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-btn, table td .accountant-close-btn {
+    margin-left: 5px; /* Spacing between action buttons in table cells */
+}
+
 /* Status badges */
 .status {
     padding: 4px 8px;
@@ -667,26 +637,32 @@ table tr:hover {
     font-weight: 500;
     text-align: center;
     display: inline-block;
+    min-width: 70px; /* Give status badges a consistent width */
 }
 
-.status.active {
+.status.active, .status.closed, .status-match {
     background: #d4edda;
     color: #155724;
 }
 
-.status.inactive {
+.status.inactive, .status.open, .status-deficit {
     background: #f8d7da;
     color: #721c24;
 }
 
-.status.closed {
-    background: #d4edda;
-    color: #155724;
-}
-
-.status.open {
+.status.suspended { /* Added for 'موقوف' status */
     background: #fff3cd;
     color: #856404;
+}
+
+.status.blocked { /* Added for 'محظور' status */
+    background: #dc3545;
+    color: white;
+}
+
+.status-surplus { /* For difference calculation (cashier has more) */
+    background: #d1ecf1;
+    color: #0c5460;
 }
 
 /* Dashboard Stats */
@@ -728,6 +704,18 @@ table tr:hover {
     color: white;
     background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
 }
+
+/* Specific stat-icon colors */
+.stat-card:nth-child(1) .stat-icon { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); } /* Normal Expenses */
+.stat-card:nth-child(2) .stat-icon { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); } /* Visa */
+.stat-card:nth-child(3) .stat-icon { background: linear-gradient(135deg, #6f42c1 0%, #5a2d9e 100%); } /* Insta */
+.stat-card:nth-child(4) .stat-icon { background: linear-gradient(135deg, #fd7e14 0%, #e8680b 100%); } /* Online */
+.stat-card:nth-child(5) .stat-icon { background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%); } /* Cashiers */
+.stat-card:nth-child(6) .stat-icon { background: linear-gradient(135deg, #6610f2 0%, #4e08c7 100%); } /* Customers */
+.stat-card .stat-icon[style*="background-color: #ff6b6b"] { /* Returns */
+    background: linear-gradient(135deg, #ff6b6b 0%, #e63946 100%) !important;
+}
+
 
 .stat-content h3 {
     font-size: 0.9rem;
@@ -779,13 +767,13 @@ table tr:hover {
     padding: 20px;
     border-radius: 8px;
     text-align: center;
-    border-left: 4px solid #4CAF50;
+    border-right: 4px solid #4CAF50; /* Adjusted for RTL */
 }
 
 .summary-card.total {
     background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
     color: white;
-    border-left: 44px solid #2e7d32;
+    border-right: 4px solid #2e7d32; /* Adjusted for RTL */
 }
 
 .summary-card h3 {
@@ -823,11 +811,13 @@ table tr:hover {
     padding-top: 20px;
     display: flex;
     gap: 20px;
-    align-items: end;
+    align-items: flex-end; /* Align items to the bottom */
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
 }
 
 .drawer-cash-section .form-group {
     flex: 1;
+    min-width: 200px; /* Ensure input is not too small */
 }
 
 /* Cashiers Overview */
@@ -836,6 +826,7 @@ table tr:hover {
     padding: 25px;
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    margin-top: 30px; /* Added margin-top for spacing */
 }
 
 .cashiers-overview h3 {
@@ -863,7 +854,7 @@ table tr:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: modalFadeIn 0.3s ease;
+    animation: modalFadeIn 0.3s ease forwards;
 }
 
 @keyframes modalFadeIn {
@@ -883,7 +874,7 @@ table tr:hover {
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    animation: modalSlideIn 0.3s ease;
+    animation: modalSlideIn 0.3s ease forwards;
 }
 
 .modal-content.large {
@@ -948,6 +939,9 @@ table tr:hover {
     margin-top: 25px;
     padding-top: 20px;
     border-top: 1px solid #dee2e6;
+    padding-left: 25px; /* Ensure padding matches form */
+    padding-right: 25px; /* Ensure padding matches form */
+    padding-bottom: 25px; /* Add bottom padding */
 }
 
 /* Dynamic Form */
@@ -968,8 +962,8 @@ table tr:hover {
 .suggestions {
     position: absolute;
     top: 100%;
+    right: 0; /* Adjusted for RTL */
     left: 0;
-    right: 0;
     background: white;
     border: 1px solid #dee2e6;
     border-top: none;
@@ -1002,6 +996,7 @@ table tr:hover {
     gap: 15px;
     margin-bottom: 20px;
     flex-wrap: wrap;
+    justify-content: flex-start; /* Align to right in RTL */
 }
 
 .report-content {
@@ -1056,6 +1051,22 @@ table tr:hover {
     gap: 10px;
 }
 
+.closure-summary p {
+    margin-bottom: 8px;
+    font-size: 1rem;
+    color: #495057;
+}
+
+.closure-summary p strong {
+    color: #2c3e50;
+}
+
+.invoice-count {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-right: 5px;
+}
+
 .newmind-input {
     margin: 20px 0;
     padding: 20px;
@@ -1063,11 +1074,13 @@ table tr:hover {
     border-radius: 8px;
     display: flex;
     gap: 15px;
-    align-items: end;
+    align-items: flex-end; /* Align items to the bottom */
+    flex-wrap: wrap; /* Allow wrapping */
 }
 
 .newmind-input .form-group {
     flex: 1;
+    min-width: 200px;
 }
 
 .difference-result {
@@ -1079,19 +1092,38 @@ table tr:hover {
     font-weight: 600;
 }
 
-.difference-result.surplus {
+.difference-result .difference-card {
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.difference-result .difference-card h4 {
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+}
+
+.difference-result .difference-card p {
+    margin-bottom: 5px;
+    font-size: 1rem;
+}
+
+.difference-result .difference-card p strong {
+    font-weight: 700;
+}
+
+.difference-result.status-match {
     background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
     color: #155724;
     border: 1px solid #c3e6cb;
 }
 
-.difference-result.deficit {
+.difference-result.status-deficit {
     background: linear-gradient(135deg, #f8d7da 0%, #f1aeb5 100%);
     color: #721c24;
     border: 1px solid #f1aeb5;
 }
 
-.difference-result.balanced {
+.difference-result.status-surplus {
     background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
     color: #0c5460;
     border: 1px solid #bee5eb;
@@ -1103,6 +1135,7 @@ table tr:hover {
     padding: 25px;
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    margin-top: 30px; /* Added margin-top for spacing */
 }
 
 .closures-history h3 {
@@ -1111,6 +1144,103 @@ table tr:hover {
     gap: 10px;
     margin-bottom: 20px;
     color: #2c3e50;
+}
+
+/* Customer Details Section */
+#customerDetailsAccountant {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    margin-top: 20px;
+}
+
+#customerDetailsAccountant h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+#customerDetailsAccountant .form-row {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+#customerDetailsAccountant .form-group {
+    flex: 1;
+    min-width: 180px;
+    margin-bottom: 0; /* Remove default margin-bottom */
+}
+
+#customerDetailsAccountant table {
+    margin-top: 20px;
+}
+
+/* Switch Toggle for Deduct Returns */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 24px;
+    margin-left: 10px; /* Adjusted for RTL */
+    vertical-align: middle;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: .4s;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px; /* Adjusted for RTL */
+    bottom: 4px;
+    background-color: white;
+    -webkit-transition: .4s;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: #4CAF50;
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #4CAF50;
+}
+
+input:checked + .slider:before {
+    -webkit-transform: translateX(-16px); /* Adjusted for RTL */
+    -ms-transform: translateX(-16px); /* Adjusted for RTL */
+    transform: translateX(-16px); /* Adjusted for RTL */
+}
+
+/* Rounded sliders */
+.slider.round {
+    border-radius: 24px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
 }
 
 /* Loading Overlay */
@@ -1126,10 +1256,13 @@ table tr:hover {
     justify-content: center;
     z-index: 9999;
     backdrop-filter: blur(3px);
+    transition: opacity 0.3s ease;
+    opacity: 1;
 }
 
 .loading-overlay.hidden {
-    display: none;
+    opacity: 0;
+    pointer-events: none; /* Allow clicks through when hidden */
 }
 
 .loading-spinner {
@@ -1209,6 +1342,7 @@ table tr:hover {
     
     table {
         font-size: 0.85rem;
+        min-width: unset; /* Allow table to shrink on small screens */
     }
     
     table th, table td {
@@ -1233,6 +1367,10 @@ table tr:hover {
     
     .stat-icon {
         align-self: center;
+    }
+
+    .drawer-cash-section .form-group, .newmind-input .form-group, #customerDetailsAccountant .form-group {
+        min-width: unset;
     }
 }
 
@@ -1288,23 +1426,64 @@ table tr:hover {
 @media print {
     body {
         background: white;
+        color: black;
+        -webkit-print-color-adjust: exact; /* Ensure background colors are printed */
     }
     
-    .main-header, .nav-tabs, .section-header, .report-actions {
-        display: none;
+    .main-header, .nav-tabs, .section-header, .report-actions,
+    #messageContainer, .modal, .loading-overlay, .login-page { /* Hide all UI elements not part of the report */
+        display: none !important;
     }
     
+    .main-content {
+        padding: 0;
+        margin: 0;
+        max-width: none;
+        min-height: auto;
+    }
+
+    .tab-content {
+        display: block !important; /* Ensure report content is visible */
+    }
+
     .report-content {
         box-shadow: none;
         padding: 0;
+        border: none;
+        min-height: auto;
     }
     
     table {
         border: 1px solid #000;
+        width: 100%;
+        page-break-inside: auto; /* Allow table to break across pages */
     }
     
     table th, table td {
         border: 1px solid #000;
         padding: 5px;
+        background-color: #f2f2f2 !important; /* Ensure header background prints */
+        color: black !important;
+    }
+
+    table tr {
+        page-break-inside: avoid; /* Avoid breaking table rows */
+        page-break-after: auto;
+    }
+
+    .report-header, .report-footer, .cashier-section {
+        page-break-inside: avoid;
+        margin-bottom: 15px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        background-color: #f9f9f9;
+    }
+
+    .report-header h3, .report-footer h4, .cashier-section h4 {
+        color: #333 !important;
+    }
+
+    .stats-summary p, .report-footer p {
+        font-size: 0.9rem;
     }
 }
