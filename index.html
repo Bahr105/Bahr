@@ -253,6 +253,12 @@
                             <div class="summary-value" id="totalOnlineCashier">0</div>
                             <div class="summary-count">عدد الفواتير: <span id="onlineCountCashier">0</span></div>
                         </div>
+                        <!-- إضافة كارت المرتجعات هنا -->
+                        <div class="summary-card">
+                            <h3>إجمالي المرتجعات</h3>
+                            <div class="summary-value" id="totalReturnsCashier">0</div>
+                            <div class="summary-count">عدد الفواتير: <span id="returnsCountCashier">0</span></div>
+                        </div>
                         
                         <div class="summary-card total">
                             <h3>الإجمالي الكلي (للمقارنة مع نيو مايند)</h3>
@@ -270,6 +276,28 @@
                             <i class="fas fa-check"></i>
                             تقفيل الشيفت
                         </button>
+                    </div>
+                </div>
+                <!-- قسم عرض التقفيلات السابقة للكاشير -->
+                <div id="cashierPreviousClosures" class="closures-history" style="margin-top: 30px; display: none;">
+                    <h3><i class="fas fa-history"></i> تقفيلاتك السابقة</h3>
+                    <div class="closures-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>الفترة</th>
+                                    <th>إجمالي الكاشير</th>
+                                    <th>إجمالي نيو مايند</th>
+                                    <th>الفرق</th>
+                                    <th>الحالة</th>
+                                    <th>تاريخ التقفيل</th>
+                                    <th>الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cashierClosuresHistoryBody">
+                                <!-- سيتم ملء البيانات ديناميكياً -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -658,15 +686,17 @@
                         <p>إجمالي الأونلاين: <span id="accTotalOnline">0</span></p>
                         <p>إجمالي الكاش في الدرج: <span id="accDrawerCash">0</span></p>
                         <p><strong>الإجمالي الكلي للكاشير: <span id="accGrandTotalCashier">0</span></strong></p>
+                        <!-- سيتم إضافة حقل المرتجعات وزر التبديل هنا بواسطة JS -->
+                        <p id="accGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد خصم المرتجع: <span id="accGrandTotalAfterReturns">0.00</span></strong></p>
                     </div>
                     
                     <div class="newmind-input">
                         <div class="form-group">
                             <label for="newmindTotalAccountant">إجمالي نيو مايند:</label>
-                            <input type="number" id="newmindTotalAccountant" placeholder="أدخل إجمالي نظام نيو مايند" step="0.01">
+                            <input type="number" id="newmindTotalAccountant" placeholder="أدخل إجمالي نظام نيو مايند" step="0.01" onkeyup="calculateDifferenceAccountant()">
                         </div>
                         
-                        <button class="calculate-difference-btn" onclick="if(typeof calculateDifferenceAccountant === 'function') calculateDifferenceAccountant(); else console.error('Function not defined');">
+                        <button class="calculate-difference-btn" onclick="calculateDifferenceAccountant()">
                             <i class="fas fa-calculator"></i>
                             حساب الفرق
                         </button>
@@ -743,6 +773,7 @@
                         <option value="اجل">أجل</option>
                         <option value="اونلاين">أونلاين</option>
                         <option value="إنستا">إنستا</option>
+                        <option value="مرتجع">مرتجع</option> <!-- إضافة نوع المرتجع -->
                     </select>
                 </div>
                 
@@ -944,7 +975,7 @@
                 <p><strong>إجمالي الأونلاين:</strong> <span id="accountantClosureModalTotalOnline">0.00</span></p>
                 <p><strong>إجمالي الكاش في الدرج:</strong> <span id="accountantClosureModalDrawerCash">0.00</span></p>
                 <p><strong>الإجمالي الكلي للكاشير:</strong> <span id="accountantClosureModalGrandTotal">0.00</span></p>
-                
+                <!-- سيتم إضافة حقول المرتجعات وزر التبديل هنا بواسطة JS -->
                 <hr style="margin: 20px 0;">
 
                 <div class="form-group">
