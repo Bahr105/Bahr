@@ -159,8 +159,9 @@ function gisLoaded() {
     }
 }
 
+
 // دالة موحدة لبدء المصادقة وتحميل البيانات الأولية
-async function maybePerformAuthAndAndLoadData() {
+async function maybePerformAuthAndLoadData() { // Corrected function name here
     if (!gapiInited || !gisInited) {
         console.log('GAPI or GIS not yet initialized. Waiting...');
         return;
@@ -214,6 +215,9 @@ async function maybePerformAuthAndAndLoadData() {
     }
     window.authInProgress = false;
 }
+
+
+
 
 async function handleAuthClick(silent = false) {
     if (window.authClickInProgress) {
