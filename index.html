@@ -10,7 +10,7 @@
 </head>
 <body>
     <!-- عنصر الرسائل - يجب أن يكون في الأعلى -->
-    <div id="messageContainer"></div>
+    <div id="messageContainer" style="position: fixed; top: 20px; right: 20px; z-index: 10000;"></div>
 
     <!-- صفحة تسجيل الدخول -->
     <div id="loginPage" class="page active">
@@ -22,7 +22,7 @@
                     <p>New Mind POS Management System</p>
                 </div>
                 
-                <form id="loginForm" class="login-form">
+                <form id="loginForm" class="login-form" onsubmit="event.preventDefault(); login();">
                     <div class="form-group">
                         <label for="username">اسم المستخدم</label>
                         <div class="input-group">
@@ -426,10 +426,10 @@
     <div class="stat-icon" style="background-color: #ff6b6b;">
         <i class="fas fa-undo-alt"></i>
     </div>
-    <div class="stat-content">
-        <h3>إجمالي المرتجعات</h3>
-        <div class="stat-value" id="totalReturnsAccountant">0.00</div>
-        <div class="stat-period">عدد الفواتير: <span id="countReturnsAccountant">0</span></div>
+    <div class="stat-info">
+        <h3 id="totalReturnsAccountant">0.00</h3>
+        <p>إجمالي المرتجعات</p>
+        <span class="stat-count" id="countReturnsAccountant">0</span>
     </div>
 </div>
             <div class="dashboard-filters">
@@ -476,8 +476,6 @@
                                 <th>عدد فواتير (إنستا)</th>
                                 <th>إجمالي الأونلاين</th>
                                 <th>عدد فواتير (أونلاين)</th>
-                                <th>إجمالي المرتجعات</th>
-                                <th>عدد فواتير (مرتجعات)</th>
                                 <th>آخر نشاط</th>
                                 <th>الحالة</th>
                             </tr>
@@ -653,7 +651,7 @@
             
             <div class="accountant-shift-form">
                 <div class="form-row">
-                    <div class="filter-group">
+                    <div class="form-group">
                         <label for="selectedCashierAccountant">البحث عن الكاشير:</label>
                         <select id="selectedCashierAccountant" onchange="searchCashierClosuresAccountant()">
                             <option value="">اختر الكاشير</option>
@@ -661,22 +659,22 @@
                         </select>
                     </div>
                     
-                    <div class="filter-group">
+                    <div class="form-group">
                         <label for="accountantShiftDateFrom">من تاريخ:</label>
                         <input type="date" id="accountantShiftDateFrom">
                     </div>
                     
-                    <div class="filter-group">
+                    <div class="form-group">
                         <label for="accountantShiftDateTo">إلى تاريخ:</label>
                         <input type="date" id="accountantShiftDateTo">
                     </div>
                     
-                    <div class="filter-group">
+                    <div class="form-group">
                         <label for="accountantShiftTimeFrom">من الساعة:</label>
                         <input type="time" id="accountantShiftTimeFrom">
                     </div>
                     
-                    <div class="filter-group">
+                    <div class="form-group">
                         <label for="accountantShiftTimeTo">إلى الساعة:</label>
                         <input type="time" id="accountantShiftTimeTo">
                     </div>
@@ -692,22 +690,22 @@
                 <div class="closure-info">
                     <h3>نتائج البحث</h3>
                     <div class="closure-summary" id="closureSummaryAccountant">
-                        <p>إجمالي المصروفات (عادي): <span id="accTotalNormalExpenses">0</span></p>
-                        <p>إجمالي الفيزا: <span id="accTotalVisa">0</span></p>
-                        <p>إجمالي الإنستا: <span id="accTotalInsta">0</span></p>
-                        <p>إجمالي الأونلاين: <span id="accTotalOnline">0</span></p>
-                        <p>إجمالي المرتجعات: <span id="accTotalReturns">0.00</span> (<span class="invoice-count" id="accReturnsCount">0 فاتورة</span>)</p>
-                        <div class="form-group">
-                            <label class="switch">
-                                <input type="checkbox" id="deductReturnsAccountant" onchange="updateAccountantClosureDisplay()">
-                                <span class="slider round"></span>
-                            </label>
-                            <label for="deductReturnsAccountant" style="display: inline-block; margin-right: 10px;">إضافة المرتجعات إلى الإجمالي</label>
-                        </div>
-                        <p>إجمالي الكاش في الدرج: <span id="accDrawerCash">0</span></p>
-                        <p><strong>الإجمالي الكلي للكاشير: <span id="accGrandTotalCashier">0</span></strong></p>
-                        <p id="accGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد إضافة المرتجع: <span id="accGrandTotalAfterReturns">0.00</span></strong></p>
-                    </div>
+    <p>إجمالي المصروفات (عادي): <span id="accTotalNormalExpenses">0</span></p>
+    <p>إجمالي الفيزا: <span id="accTotalVisa">0</span></p>
+    <p>إجمالي الإنستا: <span id="accTotalInsta">0</span></p>
+    <p>إجمالي الأونلاين: <span id="accTotalOnline">0</span></p>
+    <p>إجمالي المرتجعات: <span id="accTotalReturns">0.00</span> (<span class="invoice-count" id="accReturnsCount">0 فاتورة</span>)</p>
+    <div class="form-group">
+        <label class="switch">
+            <input type="checkbox" id="deductReturnsAccountant" onchange="updateAccountantClosureDisplay()">
+            <span class="slider round"></span>
+        </label>
+        <label for="deductReturnsAccountant" style="display: inline-block; margin-right: 10px;">إضافة المرتجعات إلى الإجمالي</label>
+    </div>
+    <p>إجمالي الكاش في الدرج: <span id="accDrawerCash">0</span></p>
+    <p><strong>الإجمالي الكلي للكاشير: <span id="accGrandTotalCashier">0</span></strong></p>
+    <p id="accGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد إضافة المرتجع: <span id="accGrandTotalAfterReturns">0.00</span></strong></p>
+</div>
                     <div class="newmind-input">
                         <div class="form-group">
                             <label for="newmindTotalAccountant">إجمالي نيو مايند:</label>
@@ -765,7 +763,7 @@
                 <h3><i class="fas fa-plus"></i> إضافة تصنيف جديد</h3>
                 <button class="close-btn" onclick="closeModal('addCategoryModal')">&times;</button>
             </div>
-            <form id="addCategoryForm">
+            <form id="addCategoryForm" onsubmit="event.preventDefault(); addCategory();">
                 <div class="form-group">
                     <label for="categoryCode">كود التصنيف:</label>
                     <input type="text" id="categoryCode" required placeholder="مثال: BG001">
@@ -816,7 +814,7 @@
                 <h3><i class="fas fa-plus"></i> إضافة مصروف جديد</h3>
                 <button class="close-btn" onclick="closeModal('addExpenseModal')">&times;</button>
             </div>
-            <form id="addExpenseForm">
+            <form id="addExpenseForm" onsubmit="event.preventDefault(); addExpense();">
                 <div class="form-group">
                     <label for="expenseCategorySearch">البحث عن التصنيف:</label>
                     <div class="input-group">
@@ -854,7 +852,7 @@
                 <h3><i class="fas fa-plus"></i> إضافة عميل جديد</h3>
                 <button class="close-btn" onclick="closeModal('addCustomerModal')">&times;</button>
             </div>
-            <form id="addCustomerForm">
+            <form id="addCustomerForm" onsubmit="event.preventDefault(); addCustomer();">
                 <div class="form-group">
                     <label for="customerName">اسم العميل:</label>
                     <input type="text" id="customerName" required placeholder="أدخل اسم العميل">
@@ -882,11 +880,11 @@
     <!-- نافذة إضافة مستخدم -->
     <div id="addUserModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class-header">
                 <h3><i class="fas fa-plus"></i> إضافة مستخدم جديد</h3>
                 <button class="close-btn" onclick="closeModal('addUserModal')">&times;</button>
             </div>
-            <form id="addUserForm">
+            <form id="addUserForm" onsubmit="event.preventDefault(); addUser();">
                 <div class="form-group">
                     <label for="userName">الاسم:</label>
                     <input type="text" id="userName" required placeholder="أدخل اسم المستخدم">
@@ -937,7 +935,7 @@
                 <h3><i class="fab fa-whatsapp"></i> إرسال التقرير عبر واتساب</h3>
                 <button class="close-btn" onclick="closeModal('whatsappModal')">&times;</button>
             </div>
-            <form id="whatsappForm">
+            <form id="whatsappForm" onsubmit="event.preventDefault(); sendReportViaWhatsApp();">
                 <div class="form-group">
                     <label for="whatsappNumber">رقم الواتساب:</label>
                     <input type="tel" id="whatsappNumber" required placeholder="أدخل رقم الواتساب">
@@ -993,14 +991,14 @@
                 <p><strong>إجمالي الأونلاين:</strong> <span id="accountantClosureModalTotalOnline">0.00</span></p>
                 <p><strong>إجمالي المرتجعات:</strong> <span id="accountantClosureModalTotalReturns">0.00</span></p>
                <div class="form-group">
-                    <label class="switch">
-                        <input type="checkbox" id="accountantClosureModalDeductReturns" onchange="updateAccountantClosureDifference()">
-                        <span class="slider round"></span>
-                    </label>
-                    <label for="accountantClosureModalDeductReturns" style="display: inline-block; margin-right: 10px;">إضافة المرتجعات إلى الإجمالي</label>
-                </div>
-                <p><strong>إجمالي الكلي للكاشير:</strong> <span id="accountantClosureModalGrandTotal">0.00</span></p>
-                <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد إضافة المرتجع:</strong> <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></p>
+    <label class="switch">
+        <input type="checkbox" id="accountantClosureModalDeductReturns" onchange="updateAccountantClosureDifference()">
+        <span class="slider round"></span>
+    </label>
+    <label for="accountantClosureModalDeductReturns" style="display: inline-block; margin-right: 10px;">إضافة المرتجعات إلى الإجمالي</label>
+</div>
+<p><strong>الإجمالي الكلي للكاشير:</strong> <span id="accountantClosureModalGrandTotal">0.00</span></p>
+<p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد إضافة المرتجع:</strong> <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></p>
                 <hr style="margin: 20px 0;">
 
                 <div class="form-group">
@@ -1012,7 +1010,7 @@
                 <p><strong>الحالة:</strong> <span id="accountantClosureModalStatus" class="status open">في انتظار الإدخال</span></p>
             </div>
             <div class="modal-actions">
-                <button type="button" class="save-btn" id="saveAccountantClosureBtn" disabled>
+                <button type="button" class="save-btn" id="saveAccountantClosureBtn" onclick="saveAccountantClosure()" disabled>
                     <i class="fas fa-check"></i>
                     حفظ التقفيل
                 </button>
@@ -1025,7 +1023,7 @@
     </div>
 
     <!-- تراكب التحميل -->
-    <div id="loadingOverlay" class="loading-overlay">
+    <div id="loadingOverlay" class="loading-overlay hidden">
         <div class="loading-spinner">
             <i class="fas fa-spinner fa-spin"></i>
             <p>جار التحميل...</p>
@@ -1033,8 +1031,6 @@
     </div>
 
     <!-- تحميل الملفات -->
-    <script src="https://apis.google.com/js/api.js" defer></script>
-    <script src="https://accounts.google.com/gsi/client" defer></script>
     <script src="script.js"></script>
 </body>
 </html>
