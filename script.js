@@ -31,7 +31,7 @@ function handleAuthFailure() {
 // --- Google Sheets API Configuration ---
 const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU';
 const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com';
-const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; // تأكد من تحديث هذا الـ ID إذا كان مختلفًا
+const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
 const SHEETS = {
@@ -40,9 +40,7 @@ const SHEETS = {
     EXPENSES: 'Expenses',
     CUSTOMERS: 'Customers',
     SHIFT_CLOSURES: 'ShiftClosures',
-    CUSTOMER_CREDIT_HISTORY: 'CustomerCreditHistory',
-    EMPLOYEES: 'Employees', // ورقة جديدة للموظفين
-    EMPLOYEE_ADVANCE_HISTORY: 'EmployeeAdvanceHistory' // ورقة جديدة لسجل سلف الموظفين
+    CUSTOMER_CREDIT_HISTORY: 'CustomerCreditHistory'
 };
 
 let gapiInited = false;
@@ -53,12 +51,10 @@ let tokenClient;
 let users = [];
 let categories = [];
 let customers = [];
-let employees = []; // قائمة الموظفين
 let currentUser = null;
 let currentUserName = '';
 let currentUserRole = '';
 let currentSelectedCustomerId = null; // لتتبع العميل المحدد في تفاصيل الأجل
-let currentSelectedEmployeeId = null; // لتتبع الموظف المحدد في تفاصيل السلف
 let currentEditUserId = null; // لتتبع المستخدم الذي يتم تعديله
 let currentEditCategoryId = null; // لتتبع التصنيف الذي يتم تعديله
 let currentEditExpenseId = null; // لتتبع المصروف الذي يتم تعديله
@@ -71,7 +67,7 @@ window.authClickInProgress = false;
 let googleScriptsLoadedAndInitialized = false; // متغير جديد لتتبع حالة التحميل والتهيئة الكاملة
 
 // كلمة مرور التعديل (يجب استبدالها بآلية أكثر أمانًا في بيئة إنتاج)
-const EDIT_PASSWORD = '2552';
+const EDIT_PASSWORD = '2552'; 
 
 // دالة لتحميل مكتبات Google API و GIS
 function loadGoogleScripts() {
@@ -301,12 +297,7 @@ async function readSheet(sheetName, range = 'A:Z') {
         return response.result.values || [];
     } catch (error) {
         console.error(`Error reading sheet ${sheetName}:`, error);
-        // Check if the error is a 404 (sheet not found)
-        if (error.result && error.result.error && error.result.error.code === 404) {
-            showMessage(`الورقة "${sheetName}" غير موجودة في جدول البيانات. يرجى التأكد من وجودها.`, 'error');
-        } else {
-            showMessage(`خطأ في قراءة البيانات من ${sheetName}`, 'error');
-        }
+        showMessage(`خطأ في قراءة البيانات من ${sheetName}`, 'error');
         return [];
     }
 }
@@ -445,29 +436,18 @@ async function loadCategories() {
     try {
         const data = await readSheet(SHEETS.CATEGORIES);
         if (data.length > 1) {
-            categories = data.slice(1).map(row => {
-                // افتراض أن الحقول المخصصة مخزنة كـ JSON في العمود الخامس (index 4)
-                let customFields = [];
-                try {
-                    if (row[5]) { // Custom fields are in column F (index 5)
-                        customFields = JSON.parse(row[5]);
-                    }
-                } catch (e) {
-                    console.error('Error parsing custom fields for category:', row[1], e);
-                }
-                return {
-                    id: row[0] || '', // ID in A (index 0)
-                    code: row[1] || '', // Code in B (index 1)
-                    name: row[2] || '', // Name in C (index 2)
-                    formType: row[3] || 'عادي', // Type in D (index 3)
-                    creationDate: row[4] || '', // Creation Date in E (index 4)
-                    customFields: customFields // Custom Fields in F (index 5)
-                };
-            });
+            categories = data.slice(1).map(row => ({
+                // إزالة ID، وإعادة ترتيب الفهارس لتطابق الشيت الحالي
+                code: row[0] || '',        // كود في A (row[0])
+                name: row[1] || '',        // اسم في B (row[1])
+                formType: row[2] || 'عادي', // نوع في C (row[2]) ← هذا التصحيح الرئيسي
+                creationDate: row[3] || '',
+                createdBy: row[4] || ''
+            }));
         } else {
             categories = [];
         }
-
+        
         // التحقق من وجود تصنيف المرتجعات
         const returnsCategory = categories.find(cat => cat.formType === 'مرتجع');
         if (!returnsCategory) {
@@ -525,89 +505,32 @@ async function loadCustomerCreditHistory(customerId) {
     }
 }
 
-async function loadEmployees() {
-    try {
-        const data = await readSheet(SHEETS.EMPLOYEES);
-        if (data.length > 1) {
-            employees = data.slice(1).map(row => ({
-                id: row[0] || '',
-                name: row[1] || '',
-                phone: row[2] || '',
-                // معالجة القيمة الرقمية: إزالة الفواصل قبل التحويل
-                totalAdvance: parseFloat((row[3] || '0').replace(/,/g, '')),
-                creationDate: row[4] || '',
-                lastUpdate: row[5] || ''
-            }));
-        } else {
-            employees = [];
-        }
-    } catch (error) {
-        console.error('Error loading employees:', error);
-        employees = [];
-    }
-}
-
-async function loadEmployeeAdvanceHistory(employeeId) {
-    try {
-        const data = await readSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY);
-        if (data.length <= 1) return [];
-
-        return data.slice(1).filter(row => row[1] === employeeId).map(row => ({
-            id: row[0] || '',
-            employeeId: row[1] || '',
-            date: row[2] || '',
-            type: row[3] || '',
-            amount: parseFloat((row[4] || '0').replace(/,/g, '')),
-            notes: row[5] || '',
-            recordedBy: row[6] || ''
-        }));
-    } catch (error) {
-        console.error('Error loading employee advance history:', error);
-        return [];
-    }
-}
-
 async function loadExpenses(filters = {}) {
     try {
         const data = await readSheet(SHEETS.EXPENSES);
         if (data.length <= 1) return [];
 
-        let expenses = data.slice(1).map(row => {
-            // افتراض أن الحقول المخصصة تبدأ من العمود 18 (index 17)
-            const customFieldsData = {};
-            const category = categories.find(cat => cat.name === row[1] || cat.code === row[2]);
-            if (category && category.customFields) {
-                category.customFields.forEach((field, index) => {
-                    // يجب أن يكون هناك طريقة لربط بيانات الحقول المخصصة بالعمود الصحيح
-                    // هنا نفترض أنها تأتي بعد الحقول الثابتة بترتيب معين
-                    // هذا الجزء قد يحتاج إلى تعديل دقيق بناءً على كيفية تخزينك للبيانات في الشيت
-                    customFieldsData[field.id] = row[17 + index] || '';
-                });
-            }
-
-            return {
-                id: row[0] || '',
-                category: row[1] || '',
-                categoryCode: row[2] || '',
-                invoiceNumber: row[3] || '',
-                amount: parseFloat((row[4] || '0').replace(/,/g, '')),
-                notes: row[5] || '',
-                date: row[6] || '',
-                time: row[7] || '',
-                cashier: row[8] || '',
-                year: row[9] || '',
-                referenceNumber: row[10] || '', // Visa Ref
-                tabName: row[11] || '',
-                tabPhone: row[12] || '',
-                location: row[13] || '', // Electricity Location
-                personName: row[14] || '', // Benzine, Advances, Old Debts (for customers)
-                companyName: row[15] || '',
-                companyCode: row[16] || '',
-                customer: row[17] || '', // Customer ID for 'اجل'
-                employee: row[18] || '', // Employee ID for 'سلف'
-                customFields: customFieldsData // Custom fields data
-            };
-        });
+        let expenses = data.slice(1).map(row => ({
+            id: row[0] || '',
+            category: row[1] || '',
+            categoryCode: row[2] || '',
+            invoiceNumber: row[3] || '',
+            // معالجة القيمة الرقمية: إزالة الفواصل قبل التحويل
+            amount: parseFloat((row[4] || '0').replace(/,/g, '')),
+            notes: row[5] || '',
+            date: row[6] || '',
+            time: row[7] || '',
+            cashier: row[8] || '',
+            year: row[9] || '',
+            referenceNumber: row[10] || '',
+            tabName: row[11] || '',
+            tabPhone: row[12] || '',
+            location: row[13] || '',
+            personName: row[14] || '',
+            companyName: row[15] || '',
+            companyCode: row[16] || '',
+            customer: row[17] || ''
+        }));
 
         // Apply filters
         if (filters.cashier) {
@@ -708,14 +631,13 @@ async function loadInitialData() {
         console.log('Initial data already loaded, skipping...');
         return;
     }
-
+    
     try {
         showLoading(true);
         await Promise.all([
             loadUsers(),
             loadCategories(),
-            loadCustomers(),
-            loadEmployees() // تحميل الموظفين
+            loadCustomers()
         ]);
         populateUserDropdown();
         initialDataLoaded = true;
@@ -844,18 +766,10 @@ async function showTab(tabId) {
             if (customerDetailsAccountant) {
                 customerDetailsAccountant.style.display = 'none';
             }
-        } else if (tabId === 'employeesTabAccountant') { // قسم الموظفين الجديد
-            await loadEmployees();
-            displayEmployees('employeesTableBodyAccountant');
-            const employeeDetailsAccountant = document.getElementById('employeeDetailsAccountant');
-            if (employeeDetailsAccountant) {
-                employeeDetailsAccountant.style.display = 'none';
-            }
         } else if (tabId === 'dashboardTabAccountant') {
             await loadUsers(); // لضمان تحديث قائمة الكاشيرز في الفلتر
             await loadCategories(); // لضمان تحديث أنواع المصروفات
             await loadCustomers(); // لضمان تحديث إحصائيات العملاء
-            await loadEmployees(); // لضمان تحديث إحصائيات الموظفين
             populateAccountantFilters();
             await updateAccountantDashboard();
         } else if (tabId === 'usersTabAccountant') {
@@ -974,7 +888,6 @@ function showAddCategoryModal() {
         document.getElementById('addCategoryModalTitle').textContent = 'إضافة تصنيف جديد';
         document.getElementById('addCategoryModalSaveBtn').onclick = addCategory;
         currentEditCategoryId = null; // مسح أي ID لتصنيف سابق
-        document.getElementById('customFieldsContainer').innerHTML = ''; // Clear custom fields
     }
     const modal = document.getElementById('addCategoryModal');
     if (modal) {
@@ -993,13 +906,6 @@ async function showEditCategoryModal(categoryId) {
     document.getElementById('categoryName').value = category.name;
     document.getElementById('formType').value = category.formType;
 
-    // Populate custom fields
-    const customFieldsContainer = document.getElementById('customFieldsContainer');
-    customFieldsContainer.innerHTML = '';
-    if (category.customFields && category.customFields.length > 0) {
-        category.customFields.forEach(field => addCustomFieldToEditor(field));
-    }
-
     document.getElementById('addCategoryModalTitle').textContent = 'تعديل تصنيف';
     document.getElementById('addCategoryModalSaveBtn').onclick = updateCategory;
     currentEditCategoryId = categoryId;
@@ -1010,66 +916,13 @@ async function showEditCategoryModal(categoryId) {
     }
 }
 
-function addCustomFieldToEditor(field = {}) {
-    const container = document.getElementById('customFieldsContainer');
-    const fieldId = field.id || `field_${Date.now()}`;
-
-    const fieldDiv = document.createElement('div');
-    fieldDiv.className = 'custom-field-item';
-    fieldDiv.dataset.fieldId = fieldId;
-    fieldDiv.innerHTML = `
-        <div class="field-handle"><i class="fas fa-grip-vertical"></i></div>
-        <div class="form-group">
-            <label for="fieldName_${fieldId}">اسم الحقل:</label>
-            <input type="text" id="fieldName_${fieldId}" value="${field.name || ''}" placeholder="مثال: رقم السيارة" required>
-        </div>
-        <div class="form-group">
-            <label for="fieldType_${fieldId}">نوع الحقل:</label>
-            <select id="fieldType_${fieldId}" required>
-                <option value="text" ${field.type === 'text' ? 'selected' : ''}>نص</option>
-                <option value="number" ${field.type === 'number' ? 'selected' : ''}>رقم</option>
-                <option value="date" ${field.type === 'date' ? 'selected' : ''}>تاريخ</option>
-                <option value="textarea" ${field.type === 'textarea' ? 'selected' : ''}>نص طويل</option>
-            </select>
-        </div>
-        <div class="form-group checkbox-group">
-            <input type="checkbox" id="fieldRequired_${fieldId}" ${field.required ? 'checked' : ''}>
-            <label for="fieldRequired_${fieldId}">مطلوب</label>
-        </div>
-        <button type="button" class="delete-btn" onclick="this.closest('.custom-field-item').remove()"><i class="fas fa-trash"></i></button>
-    `;
-    container.appendChild(fieldDiv);
-
-    // Make fields sortable
-    Sortable.create(container, {
-        handle: '.field-handle',
-        animation: 150
-    });
-}
-
-function getCustomFieldsFromEditor() {
-    const customFields = [];
-    document.querySelectorAll('.custom-field-item').forEach(item => {
-        const fieldId = item.dataset.fieldId;
-        customFields.push({
-            id: fieldId,
-            name: document.getElementById(`fieldName_${fieldId}`).value,
-            type: document.getElementById(`fieldType_${fieldId}`).value,
-            required: document.getElementById(`fieldRequired_${fieldId}`).checked
-        });
-    });
-    return customFields;
-}
-
 async function addCategory() {
-    const id = 'CAT_' + new Date().getTime();
     const code = document.getElementById('categoryCode')?.value.trim();
     const name = document.getElementById('categoryName')?.value.trim();
     const formType = document.getElementById('formType')?.value;
-    const customFields = getCustomFieldsFromEditor();
 
     if (!code || !name || !formType) {
-        showMessage('يرجى ملء جميع حقول التصنيف الأساسية.', 'warning');
+        showMessage('يرجى ملء جميع حقول التصنيف.', 'warning');
         return;
     }
 
@@ -1081,13 +934,14 @@ async function addCategory() {
 
     showLoading(true);
     try {
+        const categoryId = 'CAT_' + new Date().getTime();
         const newCategoryData = [
-            id,
+            categoryId,
             code,
             name,
             formType,
             new Date().toISOString().split('T')[0],
-            JSON.stringify(customFields) // حفظ الحقول المخصصة كـ JSON
+            currentUserName
         ];
 
         const result = await appendToSheet(SHEETS.CATEGORIES, newCategoryData);
@@ -1120,10 +974,9 @@ async function updateCategory() {
     const code = document.getElementById('categoryCode')?.value.trim();
     const name = document.getElementById('categoryName')?.value.trim();
     const formType = document.getElementById('formType')?.value;
-    const customFields = getCustomFieldsFromEditor();
 
     if (!code || !name || !formType) {
-        showMessage('يرجى ملء جميع حقول التصنيف الأساسية.', 'warning');
+        showMessage('يرجى ملء جميع حقول التصنيف.', 'warning');
         return;
     }
 
@@ -1141,17 +994,15 @@ async function updateCategory() {
             return;
         }
 
-        const oldCategory = categories.find(cat => cat.id === currentEditCategoryId);
         const updatedCategoryData = [
             currentEditCategoryId,
             code,
             name,
             formType,
-            oldCategory.creationDate, // الحفاظ على تاريخ الإنشاء الأصلي
-            JSON.stringify(customFields) // تحديث الحقول المخصصة
+            categories.find(cat => cat.id === currentEditCategoryId).creationDate, // الحفاظ على تاريخ الإنشاء الأصلي
+            categories.find(cat => cat.id === currentEditCategoryId).createdBy // الحفاظ على من أنشأه
         ];
 
-        // تحديث الصف بالكامل
         const result = await updateSheet(SHEETS.CATEGORIES, `A${rowIndex}:F${rowIndex}`, [updatedCategoryData]);
 
         if (result.success) {
@@ -1228,12 +1079,22 @@ function showAddExpenseModal() {
     document.getElementById('addExpenseModalSaveBtn').onclick = addExpense;
     currentEditExpenseId = null;
 
-    // إعادة تعيين حالة زر التثبيت عند فتح المودال
-    const pinButton = document.getElementById('pinExpenseFormToggle');
-    if (pinButton) {
-        pinButton.checked = false; // افتراضيًا غير مثبت
-        // لا حاجة لـ dispatchEvent هنا، لأننا لا نعتمد على حدث التغيير لتحديث الـ dataset
+    // إضافة زر تثبيت الفورم
+    const modalActions = document.querySelector('#addExpenseModal .modal-actions');
+    let pinButton = document.getElementById('pinExpenseFormBtn');
+    if (!pinButton) {
+        pinButton = document.createElement('button');
+        pinButton.type = 'button';
+        pinButton.id = 'pinExpenseFormBtn';
+        pinButton.className = 'pin-btn';
+        pinButton.innerHTML = '<i class="fas fa-thumbtack"></i> تثبيت الفورم';
+        pinButton.onclick = togglePinExpenseForm;
+        modalActions.prepend(pinButton); // أضف الزر قبل أزرار الحفظ والإلغاء
     }
+    // إعادة تعيين حالة زر التثبيت عند فتح المودال
+    pinButton.classList.remove('active');
+    pinButton.dataset.pinned = 'false';
+
 
     const modal = document.getElementById('addExpenseModal');
     if (modal) modal.classList.add('active');
@@ -1262,60 +1123,32 @@ async function showEditExpenseModal(expenseId) {
         document.getElementById('selectedExpenseCategoryFormType').value = category.formType;
 
         // توليد الفورم الديناميكي وملء البيانات
-        generateDynamicExpenseForm(category.formType, category.customFields);
+        generateDynamicExpenseForm(category.formType);
 
-        // ملء الحقول الثابتة
         document.getElementById('expenseInvoiceNumber').value = expense.invoiceNumber || '';
         document.getElementById('expenseAmount').value = expense.amount;
         document.getElementById('expenseNotes').value = expense.notes || '';
 
         // ملء الحقول الخاصة بنوع الفورم
         if (category.formType === 'فيزا') {
-            const visaRefInput = document.getElementById('visaReferenceNumber');
-            if (visaRefInput) visaRefInput.value = expense.referenceNumber || '';
+            document.getElementById('visaReferenceNumber').value = expense.referenceNumber || '';
         } else if (category.formType === 'شحن_تاب') {
-            const tabNameInput = document.getElementById('tabName');
-            const tabPhoneInput = document.getElementById('tabPhone');
-            if (tabNameInput) tabNameInput.value = expense.tabName || '';
-            if (tabPhoneInput) tabPhoneInput.value = expense.tabPhone || '';
+            document.getElementById('tabName').value = expense.tabName || '';
+            document.getElementById('tabPhone').value = expense.tabPhone || '';
         } else if (category.formType === 'شحن_كهربا') {
-            const electricityLocationInput = document.getElementById('electricityLocation');
-            if (electricityLocationInput) electricityLocationInput.value = expense.location || '';
-        } else if (category.formType === 'سلف') { // For advances
-            const employee = employees.find(emp => emp.id === expense.employee);
-            const employeeSearchInput = document.getElementById('employeeSearch');
-            const selectedEmployeeIdInput = document.getElementById('selectedEmployeeId');
-            const selectedEmployeeNameInput = document.getElementById('selectedEmployeeName');
-            if (employee && employeeSearchInput && selectedEmployeeIdInput && selectedEmployeeNameInput) {
-                employeeSearchInput.value = `${employee.name} (${employee.phone})`;
-                selectedEmployeeIdInput.value = employee.id;
-                selectedEmployeeNameInput.value = employee.name;
-            }
+            document.getElementById('electricityLocation').value = expense.location || '';
+        } else if (['بنزين', 'سلف', 'عجوزات'].includes(category.formType)) {
+            document.getElementById('personName').value = expense.personName || '';
         } else if (category.formType === 'دفعة_شركة') {
-            const companyNameInput = document.getElementById('companyName');
-            const companyCodeInput = document.getElementById('companyCode');
-            if (companyNameInput) companyNameInput.value = expense.companyName || '';
-            if (companyCodeInput) companyCodeInput.value = expense.companyCode || '';
+            document.getElementById('companyName').value = expense.companyName || '';
+            document.getElementById('companyCode').value = expense.companyCode || '';
         } else if (category.formType === 'اجل') {
             const customer = customers.find(cust => cust.id === expense.customer);
-            const customerSearchInput = document.getElementById('customerSearch');
-            const selectedCustomerIdInput = document.getElementById('selectedCustomerId');
-            const selectedCustomerNameInput = document.getElementById('selectedCustomerName');
-            if (customer && customerSearchInput && selectedCustomerIdInput && selectedCustomerNameInput) {
-                customerSearchInput.value = `${customer.name} (${customer.phone})`;
-                selectedCustomerIdInput.value = customer.id;
-                selectedCustomerNameInput.value = customer.name;
+            if (customer) {
+                document.getElementById('customerSearch').value = `${customer.name} (${customer.phone})`;
+                document.getElementById('selectedCustomerId').value = customer.id;
+                document.getElementById('selectedCustomerName').value = customer.name;
             }
-        }
-
-        // Fill custom fields
-        if (category.customFields) {
-            category.customFields.forEach(field => {
-                const input = document.getElementById(`customField_${field.id}`);
-                if (input) {
-                    input.value = expense.customFields[field.id] || '';
-                }
-            });
         }
 
         document.getElementById('addExpenseModalTitle').textContent = 'تعديل مصروف';
@@ -1323,10 +1156,8 @@ async function showEditExpenseModal(expenseId) {
         currentEditExpenseId = expenseId;
 
         // إخفاء زر التثبيت في وضع التعديل
-        const pinButton = document.getElementById('pinExpenseFormToggle');
-        if (pinButton) {
-            pinButton.checked = false; // لا تثبت الفورم عند التعديل
-        }
+        const pinButton = document.getElementById('pinExpenseFormBtn');
+        if (pinButton) pinButton.style.display = 'none';
 
         const modal = document.getElementById('addExpenseModal');
         if (modal) modal.classList.add('active');
@@ -1385,125 +1216,95 @@ function selectExpenseCategory(category) {
     const expenseCategorySuggestions = document.getElementById('expenseCategorySuggestions');
     if (expenseCategorySuggestions) expenseCategorySuggestions.style.display = 'none';
 
-    generateDynamicExpenseForm(category.formType, category.customFields);
+    generateDynamicExpenseForm(category.formType);
 }
 
-function generateDynamicExpenseForm(formType, customFields = []) {
+function generateDynamicExpenseForm(formType) {
     const dynamicFormDiv = document.getElementById('dynamicExpenseForm');
     if (!dynamicFormDiv) return;
 
     let formHtml = ``;
 
-    // تعريف الحقول الثابتة مع إمكانية التحكم في ظهورها
-    const fixedFields = [
-        { id: 'expenseInvoiceNumber', label: 'رقم الفاتورة', type: 'text', required: true, alwaysShow: false },
-        { id: 'expenseAmount', label: 'القيمة', type: 'number', required: true, alwaysShow: true },
-        { id: 'expenseNotes', label: 'الملاحظات', type: 'textarea', required: false, alwaysShow: true }
-    ];
-
-    // تعريف الحقول الخاصة بأنواع الفورم
-    const specificFields = {
-        'فيزا': [{ id: 'visaReferenceNumber', label: 'الرقم المرجعي للفيزا (آخر 4 أرقام)', type: 'text', pattern: '\\d{4}', maxlength: '4', required: true }],
-        'شحن_تاب': [
-            { id: 'tabName', label: 'اسم التاب', type: 'text', required: false },
-            { id: 'tabPhone', label: 'رقم تليفون التاب', type: 'tel', required: true }
-        ],
-        'شحن_كهربا': [{ id: 'electricityLocation', label: 'مكان الشحن', type: 'text', required: true }],
-        'سلف': [
-            { id: 'employeeSearch', label: 'البحث عن الموظف', type: 'search_employee', required: true },
-            { id: 'selectedEmployeeId', type: 'hidden' },
-            { id: 'selectedEmployeeName', type: 'hidden' }
-        ],
-        'دفعة_شركة': [
-            { id: 'companyName', label: 'اسم الشركة', type: 'text', required: true },
-            { id: 'companyCode', label: 'كود الشركة', type: 'text', required: false }
-        ],
-        'اجل': [
-            { id: 'customerSearch', label: 'البحث عن العميل', type: 'search_customer', required: true },
-            { id: 'selectedCustomerId', type: 'hidden' },
-            { id: 'selectedCustomerName', type: 'hidden' }
-        ]
-    };
-
-    // دمج الحقول المخصصة مع الحقول الثابتة والخاصة
-    let allFields = [];
-
-    // إضافة الحقول الثابتة أولاً (إذا كانت alwaysShow أو إذا كان formType يتطلبها)
-    fixedFields.forEach(field => {
-        // رقم الفاتورة يظهر فقط إذا لم يكن formType "مرتجع" أو "سلف" أو "خصم عميل"
-        if (field.id === 'expenseInvoiceNumber') {
-            if (!['مرتجع', 'سلف', 'خصم عميل'].includes(formType)) {
-                allFields.push(field);
-            }
-        } else {
-            allFields.push(field);
-        }
-    });
-
-    // إضافة الحقول الخاصة بنوع الفورم
-    if (specificFields[formType]) {
-        allFields = allFields.concat(specificFields[formType]);
+    // إضافة حقل رقم الفاتورة لجميع الأنواع التي تتطلبها، بما في ذلك "أجل"
+    if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات'].includes(formType)) {
+        formHtml += `
+            <div class="form-group">
+                <label for="expenseInvoiceNumber">رقم الفاتورة: <span style="color: red;">*</span></label>
+                <input type="text" id="expenseInvoiceNumber" required placeholder="أدخل رقم الفاتورة">
+            </div>
+        `;
     }
 
-    // إضافة الحقول المخصصة (التي تم تعريفها في التصنيف)
-    if (customFields && customFields.length > 0) {
-        allFields = allFields.concat(customFields.map(f => ({
-            id: `customField_${f.id}`,
-            label: f.name,
-            type: f.type,
-            required: f.required
-        })));
+    formHtml += `
+        <div class="form-group">
+            <label for="expenseAmount">القيمة: <span style="color: red;">*</span></label>
+            <input type="number" id="expenseAmount" step="0.01" required placeholder="أدخل القيمة">
+        </div>
+        <div class="form-group">
+            <label for="expenseNotes">الملاحظات (اختياري):</label>
+            <input type="text" id="expenseNotes" placeholder="أدخل ملاحظات">
+        </div>
+    `;
+
+    if (formType === 'فيزا') {
+        formHtml += `
+            <div class="form-group">
+                <label for="visaReferenceNumber">الرقم المرجعي للفيزا (آخر 4 أرقام): <span style="color: red;">*</span></label>
+                <input type="text" id="visaReferenceNumber" pattern="\\d{4}" maxlength="4" required placeholder="أدخل آخر 4 أرقام من الفيزا">
+            </div>
+        `;
+    } else if (formType === 'شحن_تاب') {
+        formHtml += `
+            <div class="form-group">
+                <label for="tabName">اسم التاب (اختياري):</label>
+                <input type="text" id="tabName" placeholder="أدخل اسم التاب">
+            </div>
+            <div class="form-group">
+                <label for="tabPhone">رقم تليفون التاب:</label>
+                <input type="tel" id="tabPhone" required placeholder="أدخل رقم تليفون التاب">
+            </div>
+        `;
+    } else if (formType === 'شحن_كهربا') {
+        formHtml += `
+            <div class="form-group">
+                <label for="electricityLocation">مكان الشحن:</label>
+                <input type="text" id="electricityLocation" required placeholder="أدخل مكان الشحن">
+            </div>
+        `;
+    } else if (['بنزين', 'سلف', 'عجوزات'].includes(formType)) {
+        formHtml += `
+            <div class="form-group">
+                <label for="personName">اسم الشخص:</label>
+                <input type="text" id="personName" required placeholder="أدخل اسم الشخص">
+            </div>
+        `;
+    } else if (formType === 'دفعة_شركة') {
+        formHtml += `
+            <div class="form-group">
+                <label for="companyName">اسم الشركة:</label>
+                <input type="text" id="companyName" required placeholder="أدخل اسم الشركة">
+            </div>
+            <div class="form-group">
+                <label for="companyCode">كود الشركة:</label>
+                <input type="text" id="companyCode" placeholder="أدخل كود الشركة">
+            </div>
+        `;
+    } else if (formType === 'اجل') {
+        formHtml += `
+            <div class="form-group">
+                <label for="customerSearch">البحث عن العميل: <span style="color: red;">*</span></label>
+                <div class="input-group">
+                    <input type="text" id="customerSearch" placeholder="ابحث بالاسم أو الرقم" onkeyup="searchCustomersForExpense(this.value)" autocomplete="off">
+                    <div id="customerSuggestions" class="suggestions"></div>
+                </div>
+                <input type="hidden" id="selectedCustomerId">
+                <input type="hidden" id="selectedCustomerName">
+            </div>
+            <button type="button" class="add-btn" onclick="showAddCustomerModalFromExpense()" style="margin-top: 10px;">
+                <i class="fas fa-plus"></i> إضافة عميل جديد
+            </button>
+        `;
     }
-
-    // بناء HTML للفورم
-    allFields.forEach(field => {
-        const requiredAttr = field.required ? 'required' : '';
-        const placeholder = field.label ? `أدخل ${field.label}` : '';
-
-        if (field.type === 'hidden') {
-            formHtml += `<input type="hidden" id="${field.id}">`;
-        } else if (field.type === 'search_customer') {
-            formHtml += `
-                <div class="form-group">
-                    <label for="${field.id}">${field.label}: ${field.required ? '<span style="color: red;">*</span>' : ''}</label>
-                    <div class="input-group">
-                        <input type="text" id="${field.id}" placeholder="${placeholder}" onkeyup="searchCustomersForExpense(this.value)" autocomplete="off" ${requiredAttr}>
-                        <div id="customerSuggestions" class="suggestions"></div>
-                    </div>
-                    <button type="button" class="add-btn" onclick="showAddCustomerModalFromExpense()" style="margin-top: 10px;">
-                        <i class="fas fa-plus"></i> إضافة عميل جديد
-                    </button>
-                </div>
-            `;
-        } else if (field.type === 'search_employee') {
-            formHtml += `
-                <div class="form-group">
-                    <label for="${field.id}">${field.label}: ${field.required ? '<span style="color: red;">*</span>' : ''}</label>
-                    <div class="input-group">
-                        <input type="text" id="${field.id}" placeholder="${placeholder}" onkeyup="searchEmployeesForAdvance(this.value)" autocomplete="off" ${requiredAttr}>
-                        <div id="employeeSuggestions" class="suggestions"></div>
-                    </div>
-                    <button type="button" class="add-btn" onclick="showAddEmployeeModalFromExpense()" style="margin-top: 10px;">
-                        <i class="fas fa-plus"></i> إضافة موظف جديد
-                    </button>
-                </div>
-            `;
-        } else if (field.type === 'textarea') {
-            formHtml += `
-                <div class="form-group">
-                    <label for="${field.id}">${field.label}: ${field.required ? '<span style="color: red;">*</span>' : ''}</label>
-                    <textarea id="${field.id}" placeholder="${placeholder}" ${requiredAttr}></textarea>
-                </div>
-            `;
-        } else {
-            formHtml += `
-                <div class="form-group">
-                    <label for="${field.id}">${field.label}: ${field.required ? '<span style="color: red;">*</span>' : ''}</label>
-                    <input type="${field.type}" id="${field.id}" placeholder="${placeholder}" ${requiredAttr} ${field.pattern ? `pattern="${field.pattern}"` : ''} ${field.maxlength ? `maxlength="${field.maxlength}"` : ''} step="${field.type === 'number' ? '0.01' : ''}">
-                </div>
-            `;
-        }
-    });
 
     dynamicFormDiv.innerHTML = formHtml;
 }
@@ -1559,57 +1360,6 @@ function showAddCustomerModalFromExpense() {
     }, 300);
 }
 
-function searchEmployeesForAdvance(searchTerm) {
-    const suggestionsDiv = document.getElementById('employeeSuggestions');
-    if (!suggestionsDiv) return;
-
-    suggestionsDiv.innerHTML = '';
-
-    if (searchTerm.length < 2) {
-        suggestionsDiv.style.display = 'none';
-        return;
-    }
-
-    const filtered = employees.filter(emp =>
-        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.phone.includes(searchTerm)
-    );
-
-    if (filtered.length === 0) {
-        suggestionsDiv.innerHTML = '<div class="suggestion-item">لا توجد نتائج</div>';
-        suggestionsDiv.style.display = 'block';
-        return;
-    }
-
-    filtered.forEach(emp => {
-        const item = document.createElement('div');
-        item.className = 'suggestion-item';
-        item.textContent = `${emp.name} (${emp.phone}) - سلف: ${emp.totalAdvance.toFixed(2)}`;
-        item.onclick = () => selectEmployeeForAdvance(emp);
-        suggestionsDiv.appendChild(item);
-    });
-
-    suggestionsDiv.style.display = 'block';
-}
-
-function selectEmployeeForAdvance(employee) {
-    const employeeSearch = document.getElementById('employeeSearch');
-    if (employeeSearch) employeeSearch.value = `${employee.name} (${employee.phone})`;
-    const selectedEmployeeId = document.getElementById('selectedEmployeeId');
-    if (selectedEmployeeId) selectedEmployeeId.value = employee.id;
-    const selectedEmployeeName = document.getElementById('selectedEmployeeName');
-    if (selectedEmployeeName) selectedEmployeeName.value = employee.name;
-    const employeeSuggestions = document.getElementById('employeeSuggestions');
-    if (employeeSuggestions) employeeSuggestions.style.display = 'none';
-}
-
-function showAddEmployeeModalFromExpense() {
-    closeModal('addExpenseModal');
-    setTimeout(() => {
-        showAddEmployeeModal(true);
-    }, 300);
-}
-
 async function addExpense() {
     if (expenseSubmissionInProgress) {
         console.log('Expense submission already in progress, skipping...');
@@ -1631,35 +1381,19 @@ async function addExpense() {
         const invoiceNumber = document.getElementById('expenseInvoiceNumber')?.value.trim() || '';
         const visaReferenceNumber = document.getElementById('visaReferenceNumber')?.value.trim() || '';
 
+
         if (!categoryCode || isNaN(amount) || amount <= 0) {
             showMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة وموجبة.', 'warning');
             return;
         }
 
-        // Validate custom fields
-        const category = categories.find(cat => cat.code === categoryCode);
-        const customFieldsData = {};
-        if (category && category.customFields) {
-            for (const field of category.customFields) {
-                const input = document.getElementById(`customField_${field.id}`);
-                if (input) {
-                    if (field.required && !input.value.trim()) {
-                        showMessage(`الحقل "${field.name}" مطلوب.`, 'warning');
-                        return;
-                    }
-                    customFieldsData[field.id] = input.value.trim();
-                }
+        // التحقق من رقم الفاتورة إذا كان مطلوبًا
+        if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات'].includes(formType)) {
+            if (!invoiceNumber) {
+                showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
+                return;
             }
-        }
 
-        // التحقق من رقم الفاتورة إذا كان موجودًا في الفورم ومطلوبًا
-        const invoiceNumberInput = document.getElementById('expenseInvoiceNumber');
-        if (invoiceNumberInput && invoiceNumberInput.hasAttribute('required') && !invoiceNumber) {
-            showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
-            return;
-        }
-
-        if (invoiceNumber) { // فقط إذا كان رقم الفاتورة موجودًا
             const allExistingExpenses = await readSheet(SHEETS.EXPENSES);
             const isInvoiceNumberDuplicate = allExistingExpenses.slice(1).some(row =>
                 row[3] && row[3].trim() === invoiceNumber
@@ -1672,18 +1406,14 @@ async function addExpense() {
         }
 
         // التحقق من الرقم المرجعي للفيزا إذا كان نوع الفورم "فيزا"
-        const visaReferenceNumberInput = document.getElementById('visaReferenceNumber');
-        if (formType === 'فيزا' && visaReferenceNumberInput && visaReferenceNumberInput.hasAttribute('required') && !visaReferenceNumber) {
+        if (formType === 'فيزا' && !visaReferenceNumber) {
             showMessage('يرجى إدخال الرقم المرجعي للفيزا.', 'warning');
             return;
         }
 
-        let customerId = '';
-        let employeeId = '';
-
         // Handle customer credit for "اجل" type
         if (formType === 'اجل') {
-            customerId = document.getElementById('selectedCustomerId')?.value;
+            const customerId = document.getElementById('selectedCustomerId')?.value;
             if (!customerId) {
                 showMessage('يرجى اختيار العميل الآجل.', 'warning');
                 return;
@@ -1731,64 +1461,9 @@ async function addExpense() {
                 return;
             }
         }
-
-        // Handle employee advances for "سلف" type
-        if (formType === 'سلف') {
-            employeeId = document.getElementById('selectedEmployeeId')?.value;
-            if (!employeeId) {
-                showMessage('يرجى اختيار الموظف.', 'warning');
-                return;
-            }
-
-            const employeeIndex = employees.findIndex(e => e.id === employeeId);
-            if (employeeIndex !== -1) {
-                const currentEmployee = employees[employeeIndex];
-                const newTotalAdvance = currentEmployee.totalAdvance + amount;
-
-                const rowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, employeeId);
-                if (rowIndex !== -1) {
-                    const updateResult = await updateSheet(SHEETS.EMPLOYEES, `D${rowIndex}`, [[newTotalAdvance.toFixed(2)]]);
-                    if (!updateResult.success) {
-                        showMessage('فشل تحديث إجمالي السلف للموظف.', 'error');
-                        return;
-                    }
-                    await updateSheet(SHEETS.EMPLOYEES, `F${rowIndex}`, [[currentDateTimeISO.split('T')[0]]]);
-                } else {
-                    showMessage('لم يتم العثور على الموظف لتحديث السلف.', 'error');
-                    return;
-                }
-
-                currentEmployee.totalAdvance = newTotalAdvance;
-                employees[employeeIndex] = currentEmployee;
-
-                const historyId = 'EAH_' + now.getTime();
-                const newHistoryEntry = [
-                    historyId,
-                    employeeId,
-                    currentDateTimeISO.split('T')[0],
-                    'سلفة',
-                    amount.toFixed(2),
-                    notes,
-                    currentUser.username
-                ];
-                const historyResult = await appendToSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY, newHistoryEntry);
-                if (!historyResult.success) {
-                    showMessage('فشل تسجيل حركة السلفة.', 'error');
-                    return;
-                }
-            } else {
-                showMessage('الموظف المختار غير موجود.', 'error');
-                return;
-            }
-        }
-
+        
         const expenseId = 'EXP_' + now.getTime();
 
-        // بناء مصفوفة البيانات لإضافتها إلى الشيت
-        // يجب أن تتطابق هذه المصفوفة مع ترتيب الأعمدة في شيت المصروفات
-        // ID, Category, CategoryCode, InvoiceNumber, Amount, Notes, Date, Time, Cashier, Year,
-        // ReferenceNumber (Visa), TabName, TabPhone, Location (Electricity), PersonName (for old debts, etc.),
-        // CompanyName, CompanyCode, CustomerID, EmployeeID, CustomField1, CustomField2, ...
         let expenseData = [
             expenseId,
             categoryName,
@@ -1800,23 +1475,15 @@ async function addExpense() {
             currentDateTimeISO.split('T')[1].substring(0, 8), // Time (HH:MM:SS)
             currentUser.username,
             now.getFullYear().toString(),
-            visaReferenceNumber, // ReferenceNumber (Visa)
+            visaReferenceNumber, // استخدام visaReferenceNumber هنا
             document.getElementById('tabName')?.value.trim() || '',
             document.getElementById('tabPhone')?.value.trim() || '',
             document.getElementById('electricityLocation')?.value.trim() || '',
-            document.getElementById('personName')?.value.trim() || '', // PersonName (for old debts, etc.)
+            document.getElementById('personName')?.value.trim() || '',
             document.getElementById('companyName')?.value.trim() || '',
             document.getElementById('companyCode')?.value.trim() || '',
-            customerId, // Customer ID for 'اجل'
-            employeeId // Employee ID for 'سلف'
+            document.getElementById('selectedCustomerId')?.value || ''
         ];
-
-        // إضافة بيانات الحقول المخصصة إلى نهاية المصفوفة
-        if (category && category.customFields) {
-            category.customFields.forEach(field => {
-                expenseData.push(customFieldsData[field.id] || '');
-            });
-        }
 
         const result = await appendToSheet(SHEETS.EXPENSES, expenseData);
 
@@ -1827,56 +1494,29 @@ async function addExpense() {
                 await loadCustomers(); // تحديث قائمة العملاء بعد إضافة أجل
                 displayCustomers('customersTableBodyCashier');
             }
-            if (formType === 'سلف') {
-                await loadEmployees(); // تحديث قائمة الموظفين بعد إضافة سلفة
-                displayEmployees('employeesTableBodyAccountant');
-            }
 
             // إذا كان الفورم مثبتًا، قم بمسح الحقول ذات الصلة فقط
-            const pinButton = document.getElementById('pinExpenseFormToggle');
-            if (pinButton && pinButton.checked) {
-                // Clear only dynamic fields, keep category selected
-                const invoiceNumInput = document.getElementById('expenseInvoiceNumber');
-                if (invoiceNumInput) invoiceNumInput.value = '';
+            const pinButton = document.getElementById('pinExpenseFormBtn');
+            if (pinButton && pinButton.dataset.pinned === 'true') {
+                document.getElementById('expenseInvoiceNumber').value = '';
                 document.getElementById('expenseAmount').value = '';
                 document.getElementById('expenseNotes').value = '';
                 if (formType === 'فيزا') {
-                    const visaRefInput = document.getElementById('visaReferenceNumber');
-                    if (visaRefInput) visaRefInput.value = '';
+                    document.getElementById('visaReferenceNumber').value = '';
                 } else if (formType === 'شحن_تاب') {
-                    const tabNameInput = document.getElementById('tabName');
-                    const tabPhoneInput = document.getElementById('tabPhone');
-                    if (tabNameInput) tabNameInput.value = '';
-                    if (tabPhoneInput) tabPhoneInput.value = '';
+                    document.getElementById('tabName').value = '';
+                    document.getElementById('tabPhone').value = '';
                 } else if (formType === 'شحن_كهربا') {
-                    const electricityLocationInput = document.getElementById('electricityLocation');
-                    if (electricityLocationInput) electricityLocationInput.value = '';
-                } else if (formType === 'سلف') {
-                    const employeeSearchInput = document.getElementById('employeeSearch');
-                    const selectedEmployeeIdInput = document.getElementById('selectedEmployeeId');
-                    const selectedEmployeeNameInput = document.getElementById('selectedEmployeeName');
-                    if (employeeSearchInput) employeeSearchInput.value = '';
-                    if (selectedEmployeeIdInput) selectedEmployeeIdInput.value = '';
-                    if (selectedEmployeeNameInput) selectedEmployeeNameInput.value = '';
+                    document.getElementById('electricityLocation').value = '';
+                } else if (['بنزين', 'سلف', 'عجوزات'].includes(formType)) {
+                    document.getElementById('personName').value = '';
                 } else if (formType === 'دفعة_شركة') {
-                    const companyNameInput = document.getElementById('companyName');
-                    const companyCodeInput = document.getElementById('companyCode');
-                    if (companyNameInput) companyNameInput.value = '';
-                    if (companyCodeInput) companyCodeInput.value = '';
+                    document.getElementById('companyName').value = '';
+                    document.getElementById('companyCode').value = '';
                 } else if (formType === 'اجل') {
-                    const customerSearchInput = document.getElementById('customerSearch');
-                    const selectedCustomerIdInput = document.getElementById('selectedCustomerId');
-                    const selectedCustomerNameInput = document.getElementById('selectedCustomerName');
-                    if (customerSearchInput) customerSearchInput.value = '';
-                    if (selectedCustomerIdInput) selectedCustomerIdInput.value = '';
-                    if (selectedCustomerNameInput) selectedCustomerNameInput.value = '';
-                }
-                // Clear custom fields
-                if (category && category.customFields) {
-                    category.customFields.forEach(field => {
-                        const input = document.getElementById(`customField_${field.id}`);
-                        if (input) input.value = '';
-                    });
+                    document.getElementById('customerSearch').value = '';
+                    document.getElementById('selectedCustomerId').value = '';
+                    document.getElementById('selectedCustomerName').value = '';
                 }
             } else {
                 closeModal('addExpenseModal');
@@ -1913,34 +1553,17 @@ async function updateExpense() {
         const invoiceNumber = document.getElementById('expenseInvoiceNumber')?.value.trim() || '';
         const visaReferenceNumber = document.getElementById('visaReferenceNumber')?.value.trim() || '';
 
+
         if (!categoryCode || isNaN(amount) || amount <= 0) {
             showMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة وموجبة.', 'warning');
             return;
         }
 
-        // Validate custom fields
-        const category = categories.find(cat => cat.code === categoryCode);
-        const customFieldsData = {};
-        if (category && category.customFields) {
-            for (const field of category.customFields) {
-                const input = document.getElementById(`customField_${field.id}`);
-                if (input) {
-                    if (field.required && !input.value.trim()) {
-                        showMessage(`الحقل "${field.name}" مطلوب.`, 'warning');
-                        return;
-                    }
-                    customFieldsData[field.id] = input.value.trim();
-                }
+        if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات'].includes(formType)) {
+            if (!invoiceNumber) {
+                showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
+                return;
             }
-        }
-
-        const invoiceNumberInput = document.getElementById('expenseInvoiceNumber');
-        if (invoiceNumberInput && invoiceNumberInput.hasAttribute('required') && !invoiceNumber) {
-            showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
-            return;
-        }
-
-        if (invoiceNumber) {
             // التحقق من تكرار رقم الفاتورة باستثناء المصروف الحالي
             const allExistingExpenses = await readSheet(SHEETS.EXPENSES);
             const isInvoiceNumberDuplicate = allExistingExpenses.slice(1).some(row =>
@@ -1954,8 +1577,7 @@ async function updateExpense() {
         }
 
         // التحقق من الرقم المرجعي للفيزا إذا كان نوع الفورم "فيزا"
-        const visaReferenceNumberInput = document.getElementById('visaReferenceNumber');
-        if (formType === 'فيزا' && visaReferenceNumberInput && visaReferenceNumberInput.hasAttribute('required') && !visaReferenceNumber) {
+        if (formType === 'فيزا' && !visaReferenceNumber) {
             showMessage('يرجى إدخال الرقم المرجعي للفيزا.', 'warning');
             return;
         }
@@ -1966,12 +1588,9 @@ async function updateExpense() {
             return;
         }
 
-        let customerId = oldExpense.customer;
-        let employeeId = oldExpense.employee;
-
         // معالجة تعديل الأجل
         if (formType === 'اجل') {
-            customerId = document.getElementById('selectedCustomerId')?.value;
+            const customerId = document.getElementById('selectedCustomerId')?.value;
             if (!customerId) {
                 showMessage('يرجى اختيار العميل الآجل.', 'warning');
                 return;
@@ -2023,62 +1642,13 @@ async function updateExpense() {
             }
         }
 
-        // معالجة تعديل السلف للموظفين
-        if (formType === 'سلف') {
-            employeeId = document.getElementById('selectedEmployeeId')?.value;
-            if (!employeeId) {
-                showMessage('يرجى اختيار الموظف.', 'warning');
-                return;
-            }
-
-            const oldEmployeeId = oldExpense.employee;
-            const oldAmount = oldExpense.amount;
-
-            if (oldEmployeeId !== employeeId || oldAmount !== amount) {
-                if (oldEmployeeId) {
-                    const oldEmployee = employees.find(e => e.id === oldEmployeeId);
-                    if (oldEmployee) {
-                        const oldEmployeeRowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, oldEmployeeId);
-                        if (oldEmployeeRowIndex !== -1) {
-                            const newOldEmployeeAdvance = oldEmployee.totalAdvance - oldAmount;
-                            await updateSheet(SHEETS.EMPLOYEES, `D${oldEmployeeRowIndex}`, [[newOldEmployeeAdvance.toFixed(2)]]);
-                            oldEmployee.totalAdvance = newOldEmployeeAdvance;
-                        }
-                    }
-                }
-
-                const newEmployee = employees.find(e => e.id === employeeId);
-                if (newEmployee) {
-                    const newEmployeeRowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, employeeId);
-                    if (newEmployeeRowIndex !== -1) {
-                        const newNewEmployeeAdvance = newEmployee.totalAdvance + amount;
-                        await updateSheet(SHEETS.EMPLOYEES, `D${newEmployeeRowIndex}`, [[newNewEmployeeAdvance.toFixed(2)]]);
-                        newEmployee.totalAdvance = newNewEmployeeAdvance;
-                    }
-                }
-
-                const historyId = 'EAH_' + now.getTime();
-                const newHistoryEntry = [
-                    historyId,
-                    employeeId,
-                    currentDateTimeISO.split('T')[0],
-                    'تعديل سلفة',
-                    amount.toFixed(2),
-                    `تعديل مصروف ${currentEditExpenseId} بواسطة ${currentUser.username}`,
-                    currentUser.username
-                ];
-                await appendToSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY, newHistoryEntry);
-            }
-        }
-
         const rowIndex = await findRowIndex(SHEETS.EXPENSES, 0, currentEditExpenseId);
         if (rowIndex === -1) {
             showMessage('لم يتم العثور على المصروف لتحديثه.', 'error');
             return;
         }
 
-        // بناء مصفوفة البيانات المحدثة
-        let updatedExpenseData = [
+        const updatedExpenseData = [
             currentEditExpenseId,
             categoryName,
             categoryCode,
@@ -2089,27 +1659,17 @@ async function updateExpense() {
             oldExpense.time, // الحفاظ على وقت الإنشاء الأصلي
             currentUser.username, // تحديث الكاشير الذي قام بالتعديل
             oldExpense.year,
-            visaReferenceNumber,
+            visaReferenceNumber, // استخدام visaReferenceNumber هنا
             document.getElementById('tabName')?.value.trim() || '',
             document.getElementById('tabPhone')?.value.trim() || '',
             document.getElementById('electricityLocation')?.value.trim() || '',
             document.getElementById('personName')?.value.trim() || '',
             document.getElementById('companyName')?.value.trim() || '',
             document.getElementById('companyCode')?.value.trim() || '',
-            customerId,
-            employeeId
+            document.getElementById('selectedCustomerId')?.value || ''
         ];
 
-        // إضافة بيانات الحقول المخصصة إلى نهاية المصفوفة
-        if (category && category.customFields) {
-            category.customFields.forEach(field => {
-                updatedExpenseData.push(customFieldsData[field.id] || '');
-            });
-        }
-
-        // تحديد النطاق الصحيح للتحديث بناءً على عدد الحقول
-        const endColumn = String.fromCharCode('A'.charCodeAt(0) + updatedExpenseData.length - 1);
-        const result = await updateSheet(SHEETS.EXPENSES, `A${rowIndex}:${endColumn}${rowIndex}`, [updatedExpenseData]);
+        const result = await updateSheet(SHEETS.EXPENSES, `A${rowIndex}:R${rowIndex}`, [updatedExpenseData]);
 
         if (result.success) {
             showMessage('تم تعديل المصروف بنجاح.', 'success');
@@ -2118,10 +1678,6 @@ async function updateExpense() {
             if (formType === 'اجل') {
                 await loadCustomers(); // تحديث قائمة العملاء بعد تعديل أجل
                 displayCustomers('customersTableBodyCashier');
-            }
-            if (formType === 'سلف') {
-                await loadEmployees(); // تحديث قائمة الموظفين بعد تعديل سلفة
-                displayEmployees('employeesTableBodyAccountant');
             }
         } else {
             showMessage('فشل تعديل المصروف.', 'error');
@@ -2184,32 +1740,6 @@ async function deleteExpense(expenseId, expenseCategory, expenseAmount, expenseI
             }
         }
 
-        // إذا كان المصروف من نوع "سلف"، يجب تعديل رصيد الموظف
-        if (formType === 'سلف' && expense.employee) {
-            const employee = employees.find(e => e.id === expense.employee);
-            if (employee) {
-                const employeeRowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, expense.employee);
-                if (employeeRowIndex !== -1) {
-                    const newTotalAdvance = employee.totalAdvance - expense.amount;
-                    await updateSheet(SHEETS.EMPLOYEES, `D${employeeRowIndex}`, [[newTotalAdvance.toFixed(2)]]);
-                    employee.totalAdvance = newTotalAdvance; // تحديث الحالة المحلية
-                }
-                // تسجيل حركة الحذف في سجل الموظف
-                const now = new Date();
-                const historyId = 'EAH_' + now.getTime();
-                const newHistoryEntry = [
-                    historyId,
-                    expense.employee,
-                    now.toISOString().split('T')[0],
-                    'حذف سلفة',
-                    (-expense.amount).toFixed(2), // قيمة سالبة للدلالة على الخصم
-                    `حذف مصروف ${expenseId} بواسطة ${currentUser.username}`,
-                    currentUser.username
-                ];
-                await appendToSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY, newHistoryEntry);
-            }
-        }
-
         const result = await deleteSheetRow(SHEETS.EXPENSES, rowIndex);
 
         if (result.success) {
@@ -2218,10 +1748,6 @@ async function deleteExpense(expenseId, expenseCategory, expenseAmount, expenseI
             if (formType === 'اجل') {
                 await loadCustomers(); // تحديث قائمة العملاء بعد حذف أجل
                 displayCustomers('customersTableBodyCashier');
-            }
-            if (formType === 'سلف') {
-                await loadEmployees(); // تحديث قائمة الموظفين بعد حذف سلفة
-                displayEmployees('employeesTableBodyAccountant');
             }
         } else {
             showMessage('فشل حذف المصروف.', 'error');
@@ -2668,334 +2194,6 @@ async function deleteCustomer(customerId, customerName) {
     }
 }
 
-// --- Employees Management (New Section) ---
-function displayEmployees(tableBodyId) {
-    const tableBody = document.getElementById(tableBodyId);
-    if (!tableBody) return;
-
-    tableBody.innerHTML = '';
-    if (employees.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5">لا توجد موظفين مسجلين.</td></tr>';
-        return;
-    }
-
-    employees.sort((a, b) => new Date(b.creationDate) - new Date(a.creationDate));
-
-    employees.forEach(emp => {
-        const row = tableBody.insertRow();
-        row.insertCell().textContent = emp.name;
-        row.insertCell().textContent = emp.phone;
-        row.insertCell().textContent = emp.totalAdvance.toFixed(2);
-        row.insertCell().textContent = new Date(emp.creationDate).toLocaleDateString('ar-EG');
-        const actionsCell = row.insertCell();
-
-        actionsCell.innerHTML = `
-            <button class="edit-btn" onclick="showEditEmployeeModal('${emp.id}')"><i class="fas fa-edit"></i> تعديل</button>
-            <button class="delete-btn" onclick="deleteEmployee('${emp.id}', '${emp.name}')"><i class="fas fa-trash"></i> حذف</button>
-            <button class="view-btn" onclick="viewEmployeeDetails('${emp.id}', '${emp.name}')"><i class="fas fa-eye"></i> تفاصيل</button>
-        `;
-    });
-}
-
-async function viewEmployeeDetails(employeeId, employeeName) {
-    showLoading(true);
-    try {
-        currentSelectedEmployeeId = employeeId;
-        const employeeDetailsName = document.getElementById('employeeDetailsName');
-        if (employeeDetailsName) employeeDetailsName.textContent = employeeName;
-        const employeeDetailsAccountant = document.getElementById('employeeDetailsAccountant');
-        if (employeeDetailsAccountant) employeeDetailsAccountant.style.display = 'block';
-        const employeePaymentAmount = document.getElementById('employeePaymentAmount');
-        if (employeePaymentAmount) employeePaymentAmount.value = '';
-
-        const history = await loadEmployeeAdvanceHistory(employeeId);
-        const tableBody = document.getElementById('employeeAdvanceHistoryBody');
-        if (!tableBody) return;
-
-        tableBody.innerHTML = '';
-        if (history.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="5">لا توجد حركات سلف/سداد لهذا الموظف.</td></tr>';
-            return;
-        }
-
-        history.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        history.forEach(item => {
-            const row = tableBody.insertRow();
-            row.insertCell().textContent = item.date;
-            row.insertCell().textContent = item.type;
-            row.insertCell().textContent = item.amount.toFixed(2);
-            row.insertCell().textContent = item.notes || '--';
-            row.insertCell().textContent = item.recordedBy;
-        });
-    } catch (error) {
-        console.error('Error viewing employee details:', error);
-        showMessage('حدث خطأ أثناء عرض تفاصيل الموظف.', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-async function processEmployeePayment() {
-    if (!currentSelectedEmployeeId) {
-        showMessage('يرجى اختيار موظف أولاً.', 'warning');
-        return;
-    }
-
-    const paymentAmountInput = document.getElementById('employeePaymentAmount');
-    const paymentAmount = paymentAmountInput ? parseFloat(paymentAmountInput.value) : NaN;
-    if (isNaN(paymentAmount) || paymentAmount <= 0) {
-        showMessage('يرجى إدخال مبلغ سداد صحيح وموجب.', 'warning');
-        return;
-    }
-
-    showLoading(true);
-    try {
-        const employeeIndex = employees.findIndex(e => e.id === currentSelectedEmployeeId);
-        if (employeeIndex === -1) {
-            showMessage('الموظف غير موجود.', 'error');
-            return;
-        }
-
-        const currentEmployee = employees[employeeIndex];
-        if (currentEmployee.totalAdvance < paymentAmount) {
-            showMessage('مبلغ السداد أكبر من إجمالي السلف المستحقة.', 'warning');
-            return;
-        }
-
-        const newTotalAdvance = currentEmployee.totalAdvance - paymentAmount;
-        const now = new Date();
-        const date = now.toISOString().split('T')[0];
-
-        const rowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, currentSelectedEmployeeId);
-        if (rowIndex !== -1) {
-            const updateResult = await updateSheet(SHEETS.EMPLOYEES, `D${rowIndex}`, [[newTotalAdvance.toFixed(2)]]);
-            if (!updateResult.success) {
-                showMessage('فشل تحديث إجمالي السلف للموظف.', 'error');
-                return;
-            }
-            await updateSheet(SHEETS.EMPLOYEES, `F${rowIndex}`, [[date]]);
-        } else {
-            showMessage('لم يتم العثور على الموظف لتحديث السلف.', 'error');
-            return;
-        }
-
-        const historyId = 'EAH_' + now.getTime();
-        const newHistoryEntry = [
-            historyId,
-            currentSelectedEmployeeId,
-            date,
-            'سداد سلفة',
-            paymentAmount.toFixed(2),
-            `سداد من المحاسب ${currentUserName}`,
-            currentUser.username
-        ];
-        const historyResult = await appendToSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY, newHistoryEntry);
-        if (!historyResult.success) {
-            showMessage('فشل تسجيل حركة السداد.', 'error');
-            return;
-        }
-
-        currentEmployee.totalAdvance = newTotalAdvance;
-        employees[employeeIndex] = currentEmployee;
-
-        showMessage('تم سداد السلفة بنجاح.', 'success');
-        if (paymentAmountInput) paymentAmountInput.value = '';
-        await viewEmployeeDetails(currentSelectedEmployeeId, currentEmployee.name); // تحديث عرض التفاصيل
-        displayEmployees('employeesTableBodyAccountant'); // تحديث جدول الموظفين
-        updateAccountantDashboard(); // تحديث لوحة التحكم
-    } catch (error) {
-        console.error('Error processing employee payment:', error);
-        showMessage('حدث خطأ أثناء معالجة السداد.', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-function showAddEmployeeModal(fromExpense = false) {
-    const form = document.getElementById('addEmployeeForm');
-    if (form) {
-        form.reset();
-        document.getElementById('addEmployeeModalTitle').textContent = 'إضافة موظف جديد';
-        document.getElementById('addEmployeeModalSaveBtn').onclick = addEmployee;
-        currentSelectedEmployeeId = null; // مسح أي ID لموظف سابق
-    }
-
-    const modal = document.getElementById('addEmployeeModal');
-    if (modal) {
-        modal.classList.add('active');
-        modal.dataset.fromExpense = fromExpense;
-    }
-}
-
-async function showEditEmployeeModal(employeeId) {
-    const employee = employees.find(emp => emp.id === employeeId);
-    if (!employee) {
-        showMessage('الموظف غير موجود.', 'error');
-        return;
-    }
-
-    document.getElementById('employeeName').value = employee.name;
-    document.getElementById('employeePhone').value = employee.phone;
-
-    document.getElementById('addEmployeeModalTitle').textContent = 'تعديل موظف';
-    document.getElementById('addEmployeeModalSaveBtn').onclick = updateEmployee;
-    currentSelectedEmployeeId = employeeId;
-
-    const modal = document.getElementById('addEmployeeModal');
-    if (modal) {
-        modal.classList.add('active');
-    }
-}
-
-async function addEmployee() {
-    const name = document.getElementById('employeeName')?.value.trim();
-    const phone = document.getElementById('employeePhone')?.value.trim();
-
-    if (!name || !phone) {
-        showMessage('يرجى ملء جميع حقول الموظف.', 'warning');
-        return;
-    }
-
-    const existingEmployee = employees.find(emp => emp.phone === phone);
-    if (existingEmployee) {
-        showMessage('رقم التليفون موجود بالفعل لموظف آخر.', 'warning');
-        return;
-    }
-
-    showLoading(true);
-    try {
-        const employeeId = 'EMP_' + new Date().getTime();
-        const newEmployeeData = [
-            employeeId,
-            name,
-            phone,
-            '0.00', // Total Advance starts at 0
-            new Date().toISOString().split('T')[0],
-            new Date().toISOString().split('T')[0]
-        ];
-
-        const result = await appendToSheet(SHEETS.EMPLOYEES, newEmployeeData);
-
-        if (result.success) {
-            showMessage('تم إضافة الموظف بنجاح.', 'success');
-            closeModal('addEmployeeModal');
-            await loadEmployees();
-            displayEmployees('employeesTableBodyAccountant');
-            updateAccountantDashboard();
-
-            const modal = document.getElementById('addEmployeeModal');
-            if (modal && modal.dataset.fromExpense === 'true') {
-                showAddExpenseModal();
-                const newEmployeeObj = { id: employeeId, name: name, phone: phone, totalAdvance: 0 };
-                selectEmployeeForAdvance(newEmployeeObj);
-            }
-        } else {
-            showMessage('فشل إضافة الموظف.', 'error');
-        }
-    } catch (error) {
-        console.error('Error adding employee:', error);
-        showMessage('حدث خطأ أثناء إضافة الموظف.', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-async function updateEmployee() {
-    if (!currentSelectedEmployeeId) {
-        showMessage('لا يوجد موظف محدد للتعديل.', 'error');
-        return;
-    }
-
-    const name = document.getElementById('employeeName')?.value.trim();
-    const phone = document.getElementById('employeePhone')?.value.trim();
-
-    if (!name || !phone) {
-        showMessage('يرجى ملء جميع حقول الموظف.', 'warning');
-        return;
-    }
-
-    const existingEmployee = employees.find(emp => emp.phone === phone && emp.id !== currentSelectedEmployeeId);
-    if (existingEmployee) {
-        showMessage('رقم التليفون موجود بالفعل لموظف آخر. يرجى استخدام رقم فريد.', 'warning');
-        return;
-    }
-
-    showLoading(true);
-    try {
-        const rowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, currentSelectedEmployeeId);
-        if (rowIndex === -1) {
-            showMessage('لم يتم العثور على الموظف لتحديثه.', 'error');
-            return;
-        }
-
-        const oldEmployee = employees.find(emp => emp.id === currentSelectedEmployeeId);
-        const updatedEmployeeData = [
-            currentSelectedEmployeeId,
-            name,
-            phone,
-            oldEmployee.totalAdvance.toFixed(2), // الحفاظ على إجمالي السلف
-            oldEmployee.creationDate, // الحفاظ على تاريخ الإنشاء
-            new Date().toISOString().split('T')[0] // تحديث تاريخ آخر تعديل
-        ];
-
-        const result = await updateSheet(SHEETS.EMPLOYEES, `A${rowIndex}:F${rowIndex}`, [updatedEmployeeData]);
-
-        if (result.success) {
-            showMessage('تم تعديل الموظف بنجاح.', 'success');
-            closeModal('addEmployeeModal');
-            await loadEmployees();
-            displayEmployees('employeesTableBodyAccountant');
-            updateAccountantDashboard();
-        } else {
-            showMessage('فشل تعديل الموظف.', 'error');
-        }
-    } catch (error) {
-        console.error('Error updating employee:', error);
-        showMessage('حدث خطأ أثناء تعديل الموظف.', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-async function deleteEmployee(employeeId, employeeName) {
-    if (!confirm(`هل أنت متأكد من حذف الموظف "${employeeName}"؟ هذا الإجراء لا يمكن التراجع عنه.`)) {
-        return;
-    }
-
-    showLoading(true);
-    try {
-        const rowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, employeeId);
-        if (rowIndex === -1) {
-            showMessage('لم يتم العثور على الموظف لحذفه.', 'error');
-            return;
-        }
-
-        // التحقق مما إذا كان الموظف لديه سلف مستحقة
-        const employee = employees.find(e => e.id === employeeId);
-        if (employee && employee.totalAdvance > 0) {
-            showMessage('لا يمكن حذف الموظف لديه سلف مستحقة. يرجى تسوية السلف أولاً.', 'error');
-            return;
-        }
-
-        const result = await deleteSheetRow(SHEETS.EMPLOYEES, rowIndex);
-
-        if (result.success) {
-            showMessage('تم حذف الموظف بنجاح.', 'success');
-            await loadEmployees();
-            displayEmployees('employeesTableBodyAccountant');
-            updateAccountantDashboard();
-        } else {
-            showMessage('فشل حذف الموظف.', 'error');
-        }
-    } catch (error) {
-        console.error('Error deleting employee:', error);
-        showMessage('حدث خطأ أثناء حذف الموظف.', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
 // --- Shift Management ---
 async function calculateCashierShift() {
     const dateFrom = document.getElementById('shiftDateFromCashier')?.value;
@@ -3111,7 +2309,7 @@ async function finalizeCashierShiftCloseout() {
         const onlineCount = parseInt(document.getElementById('onlineCountCashier')?.textContent) || 0;
         const totalReturns = parseFloat(document.getElementById('totalReturnsCashier')?.textContent) || 0;
         const returnsCount = parseInt(document.getElementById('returnsCountCashier')?.textContent) || 0;
-
+        
         // grandTotal for cashier closure should include drawerCash and all transactions *excluding* returns
         const grandTotalTransactions = totalExpenses + totalInsta + totalVisa + totalOnline;
         const grandTotalWithDrawerCash = grandTotalTransactions + drawerCash; // هذا هو الإجمالي الذي سجله الكاشير
@@ -3189,7 +2387,7 @@ async function loadCashierPreviousClosures() {
         closures.forEach(closure => {
             const row = tableBody.insertRow();
             row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom} - ${closure.dateTo} ${closure.timeTo}`;
-
+            
             // إجمالي الكاشير يجب أن يشمل الكاش في الدرج
             // closure.grandTotal هو الإجمالي الذي سجله الكاشير (يشمل الكاش في الدرج ويستثني المرتجعات)
             row.insertCell().textContent = closure.grandTotal.toFixed(2);
@@ -3344,7 +2542,7 @@ async function updateAccountantDashboard() {
 
         document.getElementById('totalOnlineAccountant').textContent = totalOnline.toFixed(2);
         document.getElementById('countOnlineAccountant').textContent = onlineCount;
-
+        
         document.getElementById('totalReturnsAccountant').textContent = totalReturns.toFixed(2);
         document.getElementById('countReturnsAccountant').textContent = returnsCount;
 
@@ -3367,18 +2565,6 @@ async function updateAccountantDashboard() {
         document.getElementById('customersWithCreditAccountant').textContent = customersWithCredit;
         document.getElementById('totalCreditAmountAccountant').textContent = totalCredit.toFixed(2);
         document.getElementById('customersWithZeroCreditAccountant').textContent = zeroCreditCustomers;
-
-        // Employees stats (New)
-        const totalEmployees = employees.length;
-        const employeesWithAdvance = employees.filter(e => e.totalAdvance > 0).length;
-       const totalAdvanceAmount = employees.reduce((sum, e) => sum + e.totalAdvance, 0);
-        const zeroAdvanceEmployees = employees.filter(e => e.totalAdvance === 0).length;
-
-        document.getElementById('totalEmployeesAccountant').textContent = totalEmployees;
-        document.getElementById('employeesWithAdvanceAccountant').textContent = employeesWithAdvance;
-        document.getElementById('totalAdvanceAmountAccountant').textContent = totalAdvanceAmount.toFixed(2);
-        document.getElementById('employeesWithZeroAdvanceAccountant').textContent = zeroAdvanceEmployees;
-
 
         // Update cashier overview table
         await updateAccountantCashierOverview(filters);
@@ -3583,7 +2769,7 @@ async function generateAccountantReport() {
     try {
         const expenses = await loadExpenses(filters);
         // تحميل جميع التقفيلات لتجميع الكاش في الدرج
-        const allClosures = await loadShiftClosures({});
+        const allClosures = await loadShiftClosures({}); 
         const reportContent = document.getElementById('reportContentAccountant');
         if (!reportContent) return;
 
@@ -3805,6 +2991,7 @@ function printReport() {
                     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
                     th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
                     th { background-color: #f2f2f2; }
+                    .stats-summary p, .report-footer p { margin: 5px 0; }
                     .edit-btn, .delete-btn { display: none; /* Hide buttons in print */ }
                 </style>
             </head>
@@ -4263,7 +3450,7 @@ function calculateDifferenceAccountant() {
 
     const addReturns = document.getElementById('deductReturnsAccountant')?.checked || false;
     // window.currentClosureData.grandTotal هو الإجمالي الذي سجله الكاشير (يشمل الكاش في الدرج ويستثني المرتجعات)
-    let cashierTotalForComparison = window.currentClosureData.grandTotal;
+    let cashierTotalForComparison = window.currentClosureData.grandTotal; 
     let grandTotalAfterReturnsDisplayValue = cashierTotalForComparison; // القيمة التي ستعرض في "الإجمالي الكلي للكاشير بعد إضافة المرتجع"
 
     if (addReturns) {
@@ -4279,7 +3466,7 @@ function calculateDifferenceAccountant() {
 
     let statusText = '';
     let statusClass = '';
-
+    
     if (difference === 0) {
         statusText = 'مطابق ✓';
         statusClass = 'status-match';
@@ -4317,7 +3504,7 @@ function normalizeTimeToHHMMSS(timeStr) {
     if (!timeStr || typeof timeStr !== 'string') {
         return '00:00:00';
     }
-
+    
     // إذا كان الوقت بالفعل بتنسيق 24 ساعة
     if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/)) {
         const parts = timeStr.split(':');
@@ -4325,12 +3512,12 @@ function normalizeTimeToHHMMSS(timeStr) {
         if (parts.length === 2) return timeStr + ':00';
         return '00:00:00';
     }
-
+    
     // تحويل من AM/PM إلى 24 ساعة
     try {
         let period = '';
         let timePart = timeStr.trim();
-
+        
         // فصل الفترة (ص/م) إذا وُجدت
         if (timeStr.includes('ص') || timeStr.includes('م')) {
             const match = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(ص|م)/);
@@ -4339,25 +3526,25 @@ function normalizeTimeToHHMMSS(timeStr) {
                 period = match[4];
             }
         }
-
+        
         let [hours, minutes, seconds = '00'] = timePart.split(':').map(Number);
-
+        
         if (isNaN(hours) || isNaN(minutes)) {
             return '00:00:00';
         }
-
+        
         // تحويل إلى 24 ساعة
         if (period.includes('م') && hours !== 12) {
             hours += 12;
         } else if (period.includes('ص') && hours === 12) {
             hours = 0;
         }
-
+        
         // التأكد من أن الأرقام ضمن النطاق الصحيح
         hours = Math.max(0, Math.min(23, hours));
         minutes = Math.max(0, Math.min(59, minutes));
         seconds = Math.max(0, Math.min(59, seconds));
-
+        
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     } catch (error) {
         console.error('Error normalizing time:', error, timeStr);
@@ -4452,14 +3639,14 @@ async function searchCashierClosuresAccountant() {
             const normalizedClosureTimeTo = normalizeTimeToHHMMSS(closure.timeTo);
             const closureEndDateTimeStr = `${closure.dateTo}T${normalizedClosureTimeTo}`;
             const closureEndDateTime = new Date(closureEndDateTimeStr);
-
+            
             if (isNaN(closureEndDateTime.getTime())) {
                 console.error(`وقت غير صالح للإغلاق ${closure.id}: ${closureEndDateTimeStr} (normalized: ${normalizedClosureTimeTo})`);
                 return false;
             }
 
-            return closure.cashier === selectedCashier &&
-                   closureEndDateTime >= searchStartDateTime &&
+            return closure.cashier === selectedCashier && 
+                   closureEndDateTime >= searchStartDateTime && 
                    closureEndDateTime <= searchEndDateTime;
         });
 
@@ -4474,7 +3661,7 @@ async function searchCashierClosuresAccountant() {
                 const normalizedClosureTimeTo = normalizeTimeToHHMMSS(closure.timeTo);
                 const closureEndDateTimeStr = `${closure.dateTo}T${normalizedClosureTimeTo}`;
                 const closureEndDateTime = new Date(closureEndDateTimeStr);
-
+                
                 if (isNaN(closureEndDateTime.getTime())) {
                     console.error(`وقت غير صالح للإغلاق السابق ${closure.id}: ${closureEndDateTimeStr}`);
                     return false;
@@ -4506,9 +3693,9 @@ async function searchCashierClosuresAccountant() {
         const onlineCount = onlineExpenses.length;
         const totalReturns = returnExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const returnsCount = returnExpenses.length;
-
+        
         // grandTotal for accountant should include all transactions *excluding* returns, plus drawer cash
-        const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash;
+        const grandTotal = totalNormal + totalVisa + totalInsta + totalOnline + drawerCash; 
 
         // عرض النتائج
         const closureResultsAccountant = document.getElementById('closureResultsAccountant');
@@ -4551,8 +3738,8 @@ async function searchCashierClosuresAccountant() {
 
         updateAccountantClosureDisplay(); // تحديث العرض بعد تحميل البيانات
 
-        const cashierUser = users.find(u => u.username === selectedCashier);
-        const cashierDisplayName = cashierUser ? cashierUser.name : selectedCashier;
+        const cashierUser  = users.find(u => u.username === selectedCashier);
+        const cashierDisplayName = cashierUser  ? cashierUser .name : selectedCashier;
         let cashSource = '';
         if (closuresInPeriod.length > 0) {
             cashSource = ` (مجموع من ${closuresInPeriod.length} إغلاق داخل الفترة)`;
@@ -4610,7 +3797,7 @@ function updateAccountantClosureDisplay() {
 function isValidDate(dateString) {
     const regex = /^\d{4}-\d{2}-\d{2}$/;
     if (!regex.test(dateString)) return false;
-
+    
     const date = new Date(dateString);
     return date instanceof Date && !isNaN(date.getTime());
 }
@@ -4640,7 +3827,7 @@ async function closeCashierByAccountant() {
 
     if (addReturns) {
         cashierTotalForComparison = cashierTotalForComparison + window.currentClosureData.totalReturns;
-        grandTotalAfterReturnsValue = grandTotalForComparison;
+        grandTotalAfterReturnsValue = cashierTotalForComparison;
     } else {
         grandTotalAfterReturnsValue = cashierTotalForComparison; // إذا لم يتم إضافة المرتجعات، يكون هو نفسه grandTotal
     }
@@ -4667,7 +3854,7 @@ async function closeCashierByAccountant() {
             window.currentClosureData.visaCount,
             window.currentClosureData.totalOnline.toFixed(2),
             window.currentClosureData.onlineCount,
-            cashierTotalForComparison.toFixed(2), // grandTotal (الكاشير)
+            window.currentClosureData.grandTotal.toFixed(2), // grandTotal (الكاشير)
             window.currentClosureData.drawerCash.toFixed(2),
             newMindTotal.toFixed(2),
             difference.toFixed(2),
@@ -4720,7 +3907,7 @@ async function loadAccountantShiftClosuresHistory() {
         const cashierDisplayName = cashierUser ? cashierUser.name : closure.cashier;
 
         row.insertCell().textContent = cashierDisplayName;
-        row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom.substring(0, 5)} - ${closure.dateTo} ${closure.timeTo.substring(0, 5)}`;
+        row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom.substring(0,5)} - ${closure.dateTo} ${closure.timeTo.substring(0,5)}`;
 
         // إجمالي الكاشير هو grandTotal الذي سجله الكاشير (يشمل الكاش في الدرج ويستثني المرتجعات)
         row.insertCell().textContent = closure.grandTotal.toFixed(2);
@@ -4775,16 +3962,16 @@ async function showAccountantClosureModal(closureId, isEdit = false) {
 
         // Populate the modal with closure data
         document.getElementById('accountantClosureModalCashierName').textContent = users.find(u => u.username === closure.cashier)?.name || closure.cashier;
-        document.getElementById('accountantClosureModalPeriod').textContent = `${closure.dateFrom} ${closure.timeFrom.substring(0, 5)} - ${closure.dateTo} ${closure.timeTo.substring(0, 5)}`;
+        document.getElementById('accountantClosureModalPeriod').textContent = `${closure.dateFrom} ${closure.timeFrom.substring(0,5)} - ${closure.dateTo} ${closure.timeTo.substring(0,5)}`;
         document.getElementById('accountantClosureModalTotalExpenses').textContent = closure.totalExpenses.toFixed(2);
         document.getElementById('accountantClosureModalTotalInsta').textContent = closure.totalInsta.toFixed(2);
         document.getElementById('accountantClosureModalTotalVisa').textContent = closure.totalVisa.toFixed(2);
         document.getElementById('accountantClosureModalTotalOnline').textContent = closure.totalOnline.toFixed(2);
         document.getElementById('accountantClosureModalDrawerCash').textContent = closure.drawerCash.toFixed(2);
-
+        
         // grandTotal for modal should be the cashier's recorded grandTotal (includes drawerCash, excludes returns)
         document.getElementById('accountantClosureModalGrandTotal').textContent = closure.grandTotal.toFixed(2);
-
+        
         // إضافة حقول المرتجعات والإجمالي بعد خصم المرتجعات
         document.getElementById('accountantClosureModalTotalReturns').textContent = closure.totalReturns.toFixed(2);
 
@@ -5083,7 +4270,7 @@ async function viewClosureDetails(closureId) {
         let detailsHtml = `
             <h3>تفاصيل تقفيلة الشيفت</h3>
             <p><strong>الكاشير:</strong> ${cashierDisplayName}</p>
-            <p><strong>الفترة:</strong> ${closure.dateFrom} ${closure.timeFrom.substring(0, 5)} - ${closure.dateTo} ${closure.timeTo.substring(0, 5)}</p>
+            <p><strong>الفترة:</strong> ${closure.dateFrom} ${closure.timeFrom.substring(0,5)} - ${closure.dateTo} ${closure.timeTo.substring(0,5)}</p>
             <p><strong>إجمالي المصروفات (عادي):</strong> ${closure.totalExpenses.toFixed(2)} (${closure.expenseCount} فاتورة) <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'normal'); return false;"><i class="fas fa-eye"></i></a></p>
             <p><strong>إجمالي الإنستا:</strong> ${closure.totalInsta.toFixed(2)} (${closure.instaCount} فاتورة) <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'إنستا'); return false;"><i class="fas fa-eye"></i></a></p>
             <p><strong>إجمالي الفيزا:</strong> ${closure.totalVisa.toFixed(2)} (${closure.visaCount} فاتورة) <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'فيزا'); return false;"><i class="fas fa-eye"></i></a></p>
@@ -5095,7 +4282,7 @@ async function viewClosureDetails(closureId) {
             <p><strong>إجمالي نيو مايند:</strong> ${closure.newMindTotal.toFixed(2)}</p>
             <p><strong>الفرق:</strong> ${closure.difference.toFixed(2)}</p>
             <p><strong>الحالة:</strong> ${closure.status}</p>
-            <p><strong>تاريخ التقفيل:</strong> ${closure.closureDate} ${closure.closureTime.substring(0, 5)}</p>
+            <p><strong>تاريخ التقفيل:</strong> ${closure.closureDate} ${closure.closureTime.substring(0,5)}</p>
             ${closure.accountant ? `<p><strong>تم التقفيل بواسطة المحاسب:</strong> ${accountantDisplayName}</p>` : ''}
         `;
 
@@ -5128,7 +4315,7 @@ async function viewExpenseDetails(cashierUsername, dateFrom, timeFrom, dateTo, t
             timeFrom: timeFrom,
             timeTo: timeTo
         };
-
+        
         // إذا كان formType هو 'normal'، نحتاج إلى استبعاد أنواع معينة
         if (formType === 'normal') {
             // لا نمرر formType هنا، بل نفلتر بعد تحميل جميع المصروفات
@@ -5143,7 +4330,7 @@ async function viewExpenseDetails(cashierUsername, dateFrom, timeFrom, dateTo, t
             filteredExpenses = expenses.filter(exp => {
                 const category = categories.find(c => c.name === exp.category || c.code === exp.categoryCode);
                 // استبعاد أنواع الفورم التي لها تبويبات خاصة بها
-                return category && !['فيزا', 'إنستا', 'اونلاين', 'مرتجع', 'اجل', 'سلف'].includes(category.formType);
+                return category && !['فيزا', 'إنستا', 'اونلاين', 'مرتجع', 'اجل'].includes(category.formType);
             });
         } else {
             filteredExpenses = expenses; // المصروفات التي تم تحميلها بالفعل مفلترة حسب formType
@@ -5151,7 +4338,7 @@ async function viewExpenseDetails(cashierUsername, dateFrom, timeFrom, dateTo, t
 
         let detailsHtml = `
             <h3>تفاصيل ${formType === 'normal' ? 'المصروفات العادية' : formType} للكاشير ${users.find(u => u.username === cashierUsername)?.name || cashierUsername}</h3>
-            <p>الفترة: ${dateFrom} ${timeFrom.substring(0, 5)} - ${dateTo} ${timeTo.substring(0, 5)}</p>
+            <p>الفترة: ${dateFrom} ${timeFrom.substring(0,5)} - ${dateTo} ${timeTo.substring(0,5)}</p>
         `;
 
         if (filteredExpenses.length === 0) {
@@ -5232,8 +4419,8 @@ function setupModalCloseOnOutsideClick() {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 // إذا كان الفورم مثبتًا، لا تغلق المودال
-                const pinButton = document.getElementById('pinExpenseFormToggle');
-                if (modal.id === 'addExpenseModal' && pinButton && pinButton.checked) {
+                const pinButton = document.getElementById('pinExpenseFormBtn');
+                if (modal.id === 'addExpenseModal' && pinButton && pinButton.dataset.pinned === 'true') {
                     return;
                 }
                 closeModal(modal.id);
@@ -5283,6 +4470,18 @@ function showLoading(show = true) {
     }
 }
 
+// دالة لتبديل حالة تثبيت فورم المصروفات
+function togglePinExpenseForm() {
+    const pinButton = document.getElementById('pinExpenseFormBtn');
+    if (pinButton) {
+        const isPinned = pinButton.dataset.pinned === 'true';
+        pinButton.dataset.pinned = (!isPinned).toString();
+        pinButton.classList.toggle('active', !isPinned);
+        showMessage(`تم ${isPinned ? 'إلغاء تثبيت' : 'تثبيت'} الفورم.`, 'info');
+    }
+}
+
+
 // --- Event Listeners and Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
     // إعداد إغلاق الـ modals عند الضغط خارجها
@@ -5313,13 +4512,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // Initialize SortableJS for custom fields
-    // تم إزالة هذا الجزء لأنه يسبب خطأ "Sortable is not defined"
-    // إذا كنت ترغب في استخدام SortableJS، تأكد من تضمين مكتبته بشكل صحيح
-    // <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    // في ملف index.html قبل script.js
-
     console.log('DOM loaded and initialized successfully.');
+});
+
+// --- Error Handling for Authentication ---
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+    // showMessage('حدث خطأ غير متوقع. يرجى إعادة تحميل الصفحة.', 'error'); // قد تكون مزعجة
 });
 
 // --- End of Script ---
