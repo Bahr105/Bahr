@@ -3337,7 +3337,7 @@ async function updateAccountantDashboard() {
         // Employees stats (New)
         const totalEmployees = employees.length;
         const employeesWithAdvance = employees.filter(e => e.totalAdvance > 0).length;
-        const totalAdvanceAmount = employees.reduce((sum, e => sum + e.totalAdvance, 0);
+       const totalAdvanceAmount = employees.reduce((sum, e) => sum + e.totalAdvance, 0);
         const zeroAdvanceEmployees = employees.filter(e => e.totalAdvance === 0).length;
 
         document.getElementById('totalEmployeesAccountant').textContent = totalEmployees;
