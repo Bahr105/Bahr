@@ -75,7 +75,7 @@ let googleScriptsLoadedAndInitialized = false; // متغير جديد لتتبع
 
 // كلمة مرور التعديل (يجب استبدالها بآلية أكثر أمانًا في بيئة إنتاج)
 const EDIT_PASSWORD = '2552'; 
-
+const MODIFICATION_PASSWORD = '2552025';
 // دالة لتحميل مكتبات Google API و GIS
 function loadGoogleScripts() {
     return new Promise((resolve, reject) => {
@@ -1042,6 +1042,15 @@ function displayCategories(gridId) {
     });
 }
 
+function verifyModificationPassword() {
+    const password = prompt('يرجى إدخال كلمة المرور للتعديل أو الحذف:');
+    if (password === MODIFICATION_PASSWORD) {
+        return true;
+    } else {
+        showMessage('كلمة المرور غير صحيحة.', 'error');
+        return false;
+    }
+}
 function showAddCategoryModal() {
     const form = document.getElementById('addCategoryForm');
     if (form) {
@@ -1226,6 +1235,7 @@ async function addCategory() {
 }
 
 async function updateCategory() {
+    if (!(await verifyModificationPassword())) return;
     if (!currentEditCategoryId) {
         showMessage('لا يوجد تصنيف محدد للتعديل.', 'error');
         return;
@@ -1380,6 +1390,7 @@ async function updateCategory() {
 }
 
 async function deleteCategory(categoryId, categoryName) {
+    if (!(await verifyModificationPassword())) return;
     if (!confirm(`هل أنت متأكد من حذف التصنيف "${categoryName}"؟ هذا الإجراء لا يمكن التراجع عنه.`)) {
         return;
     }
@@ -2175,6 +2186,7 @@ function showAddEmployeeModalFromExpense() {
 }
 
 async function updateExpense() {
+    if (!(await verifyModificationPassword())) return;
     if (!currentEditExpenseId) {
         showMessage('لا يوجد مصروف محدد للتعديل.', 'error');
         return;
@@ -2403,6 +2415,7 @@ async function updateExpense() {
 }
 
 async function deleteExpense(expenseId, expenseCategory, expenseAmount, expenseInvoiceNumber) {
+    if (!(await verifyModificationPassword())) return;
     if (!confirm(`هل أنت متأكد من حذف المصروف "${expenseCategory}" بقيمة ${expenseAmount} ورقم فاتورة ${expenseInvoiceNumber}؟ هذا الإجراء لا يمكن التراجع عنه.`)) {
         return;
     }
