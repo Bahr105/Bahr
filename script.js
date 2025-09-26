@@ -1446,20 +1446,11 @@ function showAddExpenseModal() {
     document.getElementById('addExpenseModalSaveBtn').onclick = addExpense;
     currentEditExpenseId = null;
 
-    // إضافة زر تثبيت الفورم
-    const modalActions = document.querySelector('#addExpenseModal .modal-actions');
-    let pinButton = document.getElementById('pinExpenseFormBtn');
-    if (!pinButton) {
-        pinButton = document.createElement('button');
-        pinButton.type = 'button';
-        pinButton.id = 'pinExpenseFormBtn';
-        pinButton.className = 'pin-btn';
-        pinButton.innerHTML = '<i class="fas fa-thumbtack"></i> تثبيت الفورم';
-        pinButton.onclick = togglePinExpenseForm;
-        modalActions.prepend(pinButton);
+    // إعادة تعيين مفتاح التثبيت إلى وضع غير نشط
+    const pinToggle = document.getElementById('pinExpenseFormToggle');
+    if (pinToggle) {
+        pinToggle.checked = false;
     }
-    pinButton.classList.remove('active');
-    pinButton.dataset.pinned = 'false';
 
     const modal = document.getElementById('addExpenseModal');
     if (modal) modal.classList.add('active');
@@ -1467,10 +1458,9 @@ function showAddExpenseModal() {
     // تحميل بيانات الموظفين عند فتح النموذج
     loadEmployees().then(() => {
         console.log('تم تحميل بيانات الموظفين للبحث');
-        
     });
-    
 }
+
 
 async function showEditExpenseModal(expenseId) {
     showLoading(true);
@@ -1902,16 +1892,16 @@ function showAddEmployeeModalFromExpense() {
 }
 
  async function addExpense() {
-        if (expenseSubmissionInProgress) {
-            console.log('Expense submission already in progress, skipping...');
-            return;
-        }
-        expenseSubmissionInProgress = true;
-        showLoading(true);
-        try {
-            // تعريف المتغير now هنا
-            const now = new Date();
-            const currentDateTimeISO = now.toISOString();
+    if (expenseSubmissionInProgress) {
+        console.log('Expense submission already in progress, skipping...');
+        return;
+    }
+    expenseSubmissionInProgress = true;
+    showLoading(true);
+    try {
+        // تعريف المتغير now هنا
+        const now = new Date();
+        const currentDateTimeISO = now.toISOString();
         // التحقق المفصل من التصنيف باستخدام القيم الفعلية من DOM
         const categoryIdElement = document.getElementById('selectedExpenseCategoryId');
         const categoryCodeElement = document.getElementById('selectedExpenseCategoryCode');
@@ -2121,7 +2111,7 @@ function showAddEmployeeModalFromExpense() {
             expenseData.push(fieldValue);
         }
 
-        const result = await appendToSheet(SHEETS.EXPENSES, expenseData);
+         const result = await appendToSheet(SHEETS.EXPENSES, expenseData);
 
         if (result.success) {
             showMessage(`تم إضافة ${categoryName} بنجاح.`, 'success');
@@ -2135,9 +2125,10 @@ function showAddEmployeeModalFromExpense() {
                 displayEmployees('employeesTableBodyAccountant');
             }
 
-            // إذا كان الفورم مثبتًا، قم بمسح الحقول ذات الصلة فقط
-            const pinButton = document.getElementById('pinExpenseFormBtn');
-            if (pinButton && pinButton.dataset.pinned === 'true') {
+            // التحقق من حالة مفتاح التثبيت بدلاً من الزر
+            const pinToggle = document.getElementById('pinExpenseFormToggle');
+            if (pinToggle && pinToggle.checked) {
+                // إذا كان مفتاح التثبيت نشطًا، امسح الحقول فقط
                 document.getElementById('expenseInvoiceNumber').value = '';
                 document.getElementById('expenseAmount').value = '';
                 document.getElementById('expenseNotes').value = '';
@@ -5620,16 +5611,7 @@ function showLoading(show = true) {
     }
 }
 
-// دالة لتبديل حالة تثبيت فورم المصروفات
-function togglePinExpenseForm() {
-    const pinButton = document.getElementById('pinExpenseFormBtn');
-    if (pinButton) {
-        const isPinned = pinButton.dataset.pinned === 'true';
-        pinButton.dataset.pinned = (!isPinned).toString();
-        pinButton.classList.toggle('active', !isPinned);
-        showMessage(`تم ${isPinned ? 'إلغاء تثبيت' : 'تثبيت'} الفورم.`, 'info');
-    }
-}
+
 
 
 // --- Event Listeners and Initialization ---
