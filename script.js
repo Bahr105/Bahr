@@ -1082,6 +1082,7 @@ async function addCategory() {
         return;
     }
 
+    // البحث عن التصنيف باستخدام الكود في العمود B (index 1)
     const existingCategory = categories.find(cat => cat.code === code);
     if (existingCategory) {
         showMessage('كود التصنيف موجود بالفعل. يرجى استخدام كود آخر.', 'warning');
@@ -1164,6 +1165,7 @@ async function updateCategory() {
         return;
     }
 
+    // البحث عن التصنيف باستخدام الكود في العمود B (index 1)
     const existingCategory = categories.find(cat => cat.code === code && cat.id !== currentEditCategoryId);
     if (existingCategory) {
         showMessage('كود التصنيف موجود بالفعل لتصنيف آخر. يرجى استخدام كود فريد.', 'warning');
@@ -1172,8 +1174,7 @@ async function updateCategory() {
 
     showLoading(true);
     try {
-        // البحث عن الصف باستخدام ID التصنيف (العمود 0)
-        const rowIndex = await findRowIndex(SHEETS.CATEGORIES, 0, currentEditCategoryId); 
+        const rowIndex = await findRowIndex(SHEETS.CATEGORIES, 0, currentEditCategoryId); // البحث بالـ ID في العمود A (index 0)
         if (rowIndex === -1) {
             showMessage('لم يتم العثور على التصنيف لتحديثه.', 'error');
             return;
@@ -1254,8 +1255,7 @@ async function deleteCategory(categoryId, categoryName) {
 
     showLoading(true);
     try {
-        // البحث عن الصف باستخدام ID التصنيف (العمود 0)
-        const rowIndex = await findRowIndex(SHEETS.CATEGORIES, 0, categoryId);
+        const rowIndex = await findRowIndex(SHEETS.CATEGORIES, 0, categoryId); // البحث بالـ ID في العمود A (index 0)
         if (rowIndex === -1) {
             showMessage('لم يتم العثور على التصنيف لحذفه.', 'error');
             return;
@@ -2224,6 +2224,7 @@ async function updateExpense() {
         console.error('Error updating expense:', error);
         showMessage('حدث خطأ أثناء تعديل المصروف.', 'error');
     } finally {
+        expenseSubmissionInProgress = false;
         showLoading(false);
     }
 }
@@ -3235,7 +3236,7 @@ async function finalizeCashierShiftCloseout() {
         const grandTotalTransactions = totalExpenses + totalInsta + totalVisa + totalOnline;
         const grandTotalWithDrawerCash = grandTotalTransactions + drawerCash; // هذا هو الإجمالي الذي سجله الكاشير
 
-        // الإجمالي بعد خصم المرتجعات (للحفظ في الشيت، هذا هو الإجمالي الذي قارنه المحاسب مع نيو مايند)
+        // الإجمالي بعد خصم المرتجعات (للحفظ في الشيت، هذا هو ما سيقارنه المحاسب مع نيو مايند)
         const grandTotalAfterReturns = grandTotalWithDrawerCash - totalReturns;
 
         const shiftClosureData = [
@@ -4659,7 +4660,7 @@ async function searchCashierClosuresAccountant() {
             normalCount: normalCount,
             totalVisa: totalVisa,
             visaCount: visaCount,
-            totalInsta: instaCount,
+            totalInsta: instaInsta,
             instaCount: instaCount,
             totalOnline: onlineCount,
             onlineCount: onlineCount,
@@ -4761,7 +4762,7 @@ async function closeCashierByAccountant() {
 
     if (addReturns) {
         cashierTotalForComparison = cashierTotalForComparison + window.currentClosureData.totalReturns;
-        grandTotalAfterReturnsValue = grandTotalForComparison;
+        grandTotalAfterReturnsValue = cashierTotalForComparison;
     } else {
         grandTotalAfterReturnsValue = cashierTotalForComparison; // إذا لم يتم إضافة المرتجعات، يكون هو نفسه grandTotal
     }
