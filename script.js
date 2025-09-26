@@ -1079,6 +1079,23 @@ function showAddExpenseModal() {
     document.getElementById('addExpenseModalSaveBtn').onclick = addExpense;
     currentEditExpenseId = null;
 
+    // إضافة زر تثبيت الفورم
+    const modalActions = document.querySelector('#addExpenseModal .modal-actions');
+    let pinButton = document.getElementById('pinExpenseFormBtn');
+    if (!pinButton) {
+        pinButton = document.createElement('button');
+        pinButton.type = 'button';
+        pinButton.id = 'pinExpenseFormBtn';
+        pinButton.className = 'pin-btn';
+        pinButton.innerHTML = '<i class="fas fa-thumbtack"></i> تثبيت الفورم';
+        pinButton.onclick = togglePinExpenseForm;
+        modalActions.prepend(pinButton); // أضف الزر قبل أزرار الحفظ والإلغاء
+    }
+    // إعادة تعيين حالة زر التثبيت عند فتح المودال
+    pinButton.classList.remove('active');
+    pinButton.dataset.pinned = 'false';
+
+
     const modal = document.getElementById('addExpenseModal');
     if (modal) modal.classList.add('active');
 }
@@ -1137,6 +1154,10 @@ async function showEditExpenseModal(expenseId) {
         document.getElementById('addExpenseModalTitle').textContent = 'تعديل مصروف';
         document.getElementById('addExpenseModalSaveBtn').onclick = updateExpense;
         currentEditExpenseId = expenseId;
+
+        // إخفاء زر التثبيت في وضع التعديل
+        const pinButton = document.getElementById('pinExpenseFormBtn');
+        if (pinButton) pinButton.style.display = 'none';
 
         const modal = document.getElementById('addExpenseModal');
         if (modal) modal.classList.add('active');
@@ -1228,8 +1249,8 @@ function generateDynamicExpenseForm(formType) {
     if (formType === 'فيزا') {
         formHtml += `
             <div class="form-group">
-                <label for="visaReferenceNumber">الرقم المرجعي للفيزا (آخر 4 أرقام):</label>
-                <input type="text" id="visaReferenceNumber" pattern="\\d{4}" maxlength="4" placeholder="أدخل آخر 4 أرقام من الفيزا">
+                <label for="visaReferenceNumber">الرقم المرجعي للفيزا (آخر 4 أرقام): <span style="color: red;">*</span></label>
+                <input type="text" id="visaReferenceNumber" pattern="\\d{4}" maxlength="4" required placeholder="أدخل آخر 4 أرقام من الفيزا">
             </div>
         `;
     } else if (formType === 'شحن_تاب') {
@@ -1358,6 +1379,8 @@ async function addExpense() {
         const amount = amountInput ? parseFloat(amountInput.value) : NaN;
         const notes = document.getElementById('expenseNotes')?.value.trim() || '';
         const invoiceNumber = document.getElementById('expenseInvoiceNumber')?.value.trim() || '';
+        const visaReferenceNumber = document.getElementById('visaReferenceNumber')?.value.trim() || '';
+
 
         if (!categoryCode || isNaN(amount) || amount <= 0) {
             showMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة وموجبة.', 'warning');
@@ -1380,6 +1403,12 @@ async function addExpense() {
                 showMessage('رقم الفاتورة هذا موجود بالفعل. يرجى إدخال رقم فاتورة فريد.', 'error');
                 return;
             }
+        }
+
+        // التحقق من الرقم المرجعي للفيزا إذا كان نوع الفورم "فيزا"
+        if (formType === 'فيزا' && !visaReferenceNumber) {
+            showMessage('يرجى إدخال الرقم المرجعي للفيزا.', 'warning');
+            return;
         }
 
         // Handle customer credit for "اجل" type
@@ -1446,7 +1475,7 @@ async function addExpense() {
             currentDateTimeISO.split('T')[1].substring(0, 8), // Time (HH:MM:SS)
             currentUser.username,
             now.getFullYear().toString(),
-            document.getElementById('visaReferenceNumber')?.value.trim() || '',
+            visaReferenceNumber, // استخدام visaReferenceNumber هنا
             document.getElementById('tabName')?.value.trim() || '',
             document.getElementById('tabPhone')?.value.trim() || '',
             document.getElementById('electricityLocation')?.value.trim() || '',
@@ -1460,11 +1489,37 @@ async function addExpense() {
 
         if (result.success) {
             showMessage(`تم إضافة ${categoryName} بنجاح.`, 'success');
-            closeModal('addExpenseModal');
             await loadCashierExpenses(); // إعادة تحميل المصروفات وتحديث العرض
             if (formType === 'اجل') {
                 await loadCustomers(); // تحديث قائمة العملاء بعد إضافة أجل
                 displayCustomers('customersTableBodyCashier');
+            }
+
+            // إذا كان الفورم مثبتًا، قم بمسح الحقول ذات الصلة فقط
+            const pinButton = document.getElementById('pinExpenseFormBtn');
+            if (pinButton && pinButton.dataset.pinned === 'true') {
+                document.getElementById('expenseInvoiceNumber').value = '';
+                document.getElementById('expenseAmount').value = '';
+                document.getElementById('expenseNotes').value = '';
+                if (formType === 'فيزا') {
+                    document.getElementById('visaReferenceNumber').value = '';
+                } else if (formType === 'شحن_تاب') {
+                    document.getElementById('tabName').value = '';
+                    document.getElementById('tabPhone').value = '';
+                } else if (formType === 'شحن_كهربا') {
+                    document.getElementById('electricityLocation').value = '';
+                } else if (['بنزين', 'سلف', 'عجوزات'].includes(formType)) {
+                    document.getElementById('personName').value = '';
+                } else if (formType === 'دفعة_شركة') {
+                    document.getElementById('companyName').value = '';
+                    document.getElementById('companyCode').value = '';
+                } else if (formType === 'اجل') {
+                    document.getElementById('customerSearch').value = '';
+                    document.getElementById('selectedCustomerId').value = '';
+                    document.getElementById('selectedCustomerName').value = '';
+                }
+            } else {
+                closeModal('addExpenseModal');
             }
         } else {
             showMessage('فشل إضافة المصروف.', 'error');
@@ -1496,6 +1551,8 @@ async function updateExpense() {
         const amount = amountInput ? parseFloat(amountInput.value) : NaN;
         const notes = document.getElementById('expenseNotes')?.value.trim() || '';
         const invoiceNumber = document.getElementById('expenseInvoiceNumber')?.value.trim() || '';
+        const visaReferenceNumber = document.getElementById('visaReferenceNumber')?.value.trim() || '';
+
 
         if (!categoryCode || isNaN(amount) || amount <= 0) {
             showMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة وموجبة.', 'warning');
@@ -1517,6 +1574,12 @@ async function updateExpense() {
                 showMessage('رقم الفاتورة هذا موجود بالفعل لمصروف آخر. يرجى إدخال رقم فاتورة فريد.', 'error');
                 return;
             }
+        }
+
+        // التحقق من الرقم المرجعي للفيزا إذا كان نوع الفورم "فيزا"
+        if (formType === 'فيزا' && !visaReferenceNumber) {
+            showMessage('يرجى إدخال الرقم المرجعي للفيزا.', 'warning');
+            return;
         }
 
         const oldExpense = (await loadExpenses({})).find(exp => exp.id === currentEditExpenseId);
@@ -1596,7 +1659,7 @@ async function updateExpense() {
             oldExpense.time, // الحفاظ على وقت الإنشاء الأصلي
             currentUser.username, // تحديث الكاشير الذي قام بالتعديل
             oldExpense.year,
-            document.getElementById('visaReferenceNumber')?.value.trim() || '',
+            visaReferenceNumber, // استخدام visaReferenceNumber هنا
             document.getElementById('tabName')?.value.trim() || '',
             document.getElementById('tabPhone')?.value.trim() || '',
             document.getElementById('electricityLocation')?.value.trim() || '',
@@ -1721,7 +1784,12 @@ function displayCashierExpensesTable(expenses) {
         return;
     }
 
-    expenses.sort((a, b) => new Date(`${b.date}T${b.time}`) - new Date(`${a.date}T${a.time}`));
+    // ترتيب الفواتير من الأحدث إلى الأقدم بناءً على التاريخ والوقت
+    expenses.sort((a, b) => {
+        const dateTimeA = new Date(`${a.date}T${a.time}`);
+        const dateTimeB = new Date(`${b.date}T${b.time}`);
+        return dateTimeB - dateTimeA; // الأحدث أولاً
+    });
 
     expenses.forEach(exp => {
         const row = tableBody.insertRow();
@@ -4350,6 +4418,11 @@ function setupModalCloseOnOutsideClick() {
     modals.forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
+                // إذا كان الفورم مثبتًا، لا تغلق المودال
+                const pinButton = document.getElementById('pinExpenseFormBtn');
+                if (modal.id === 'addExpenseModal' && pinButton && pinButton.dataset.pinned === 'true') {
+                    return;
+                }
                 closeModal(modal.id);
             }
         });
@@ -4396,6 +4469,18 @@ function showLoading(show = true) {
         }
     }
 }
+
+// دالة لتبديل حالة تثبيت فورم المصروفات
+function togglePinExpenseForm() {
+    const pinButton = document.getElementById('pinExpenseFormBtn');
+    if (pinButton) {
+        const isPinned = pinButton.dataset.pinned === 'true';
+        pinButton.dataset.pinned = (!isPinned).toString();
+        pinButton.classList.toggle('active', !isPinned);
+        showMessage(`تم ${isPinned ? 'إلغاء تثبيت' : 'تثبيت'} الفورم.`, 'info');
+    }
+}
+
 
 // --- Event Listeners and Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
