@@ -95,6 +95,10 @@
                 <i class="fas fa-users"></i>
                 العملاء
             </button>
+            <button class="nav-tab" onclick="showTab('employeesTabCashier')">
+                <i class="fas fa-user-tie"></i>
+                الموظفين
+            </button>
             <button class="nav-tab" onclick="showTab('shiftCloseTabCashier')">
                 <i class="fas fa-calculator"></i>
                 تقفيل الشيفت
@@ -193,6 +197,34 @@
                             </tr>
                         </thead>
                         <tbody id="customersTableBodyCashier">
+                            <!-- سيتم ملء البيانات ديناميكياً -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- قسم الموظفين (للكاشير) -->
+            <div id="employeesTabCashier" class="tab-content">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-tie"></i> إدارة الموظفين</h2>
+                    <button class="add-btn" onclick="showAddEmployeeModal()">
+                        <i class="fas fa-plus"></i>
+                        إضافة موظف
+                    </button>
+                </div>
+                
+                <div class="employees-table">
+                    <table id="employeesTableCashier">
+                        <thead>
+                            <tr>
+                                <th>اسم الموظف</th>
+                                <th>رقم التليفون</th>
+                                <th>إجمالي السلف</th>
+                                <th>تاريخ الإنشاء</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeesTableBodyCashier">
                             <!-- سيتم ملء البيانات ديناميكياً -->
                         </tbody>
                     </table>
@@ -349,14 +381,13 @@
             <i class="fas fa-users"></i>
             العملاء
         </button>
-        <button type="button" class="nav-tab" onclick="showTab('shiftCloseTabAccountant')">
-            <i class="fas fa-calculator"></i>
-            تقفيل الشيفت
-        </button>
-        <!-- New Employees Tab -->
         <button type="button" class="nav-tab" onclick="showTab('employeesTabAccountant')">
             <i class="fas fa-user-tie"></i>
             الموظفين
+        </button>
+        <button type="button" class="nav-tab" onclick="showTab('shiftCloseTabAccountant')">
+            <i class="fas fa-calculator"></i>
+            تقفيل الشيفت
         </button>
     </nav>
 
@@ -671,10 +702,10 @@
         <div id="employeesTabAccountant" class="tab-content">
             <div class="section-header">
                 <h2><i class="fas fa-user-tie"></i> إدارة الموظفين</h2>
-                <button type="button" class="add-btn" onclick="showAddEmployeeModal()">
-                    <i class="fas fa-plus"></i>
-                    إضافة موظف
-                </button>
+                <button type="button" class="add-btn" id="addEmployeeBtnAccountant">
+      <i class="fas fa-plus"></i>
+      إضافة موظف
+  </button>
             </div>
             
             <div class="employees-table">
@@ -869,8 +900,7 @@
                         <option value="اجل">أجل</option>
                         <option value="اونلاين">أونلاين</option>
                         <option value="إنستا">إنستا</option>
-                        <option value="مرتجع">مرتجع</option> <!-- إضافة نوع المرتجع -->
-                        <option value="سلف_موظف">سلف موظف</option> <!-- إضافة نوع سلف الموظف -->
+                        <option value="مرتجع">مرتجع</option>
                     </select>
                 </div>
 
@@ -913,15 +943,15 @@
                         <input type="text" id="expenseCategorySearch" placeholder="ابحث بالاسم أو الكود" onkeyup="searchExpenseCategories(this.value)" autocomplete="off">
                         <div id="expenseCategorySuggestions" class="suggestions"></div>
                     </div>
-                    <input type="hidden" id="selectedExpenseCategoryCode">
-                    <input type="hidden" id="selectedExpenseCategoryName">
-                    <input type="hidden" id="selectedExpenseCategoryFormType">
-                    <input type="hidden" id="selectedExpenseCategoryId"> <!-- إضافة حقل لـ ID التصنيف -->
+                   <input type="hidden" id="selectedExpenseCategoryId">
+<input type="hidden" id="selectedExpenseCategoryCode">
+<input type="hidden" id="selectedExpenseCategoryName">
+<input type="hidden" id="selectedExpenseCategoryFormType">
+                    <input type="hidden" id="selectedExpenseCategoryCustomFields">
                 </div>
                 
                 <div id="dynamicExpenseForm">
                     <!-- سيتم إنشاء الفورم ديناميكياً حسب نوع التصنيف -->
-                    <!-- هنا سيتم إضافة حقل رقم الفاتورة لـ "اجل" -->
                 </div>
 
                 <div class="form-group checkbox-group" style="margin-top: 15px;">
