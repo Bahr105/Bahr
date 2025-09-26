@@ -408,11 +408,41 @@ async function findRowIndex(sheetName, columnIndex, searchValue) {
     const data = await readSheet(sheetName);
     // نبدأ من الصف الثاني (index 1) لتجاهل الرأس
     for (let i = 1; i < data.length; i++) {
-        if (data[i][columnIndex] === searchValue) {
-            return i + 1; // +1 لأن Google Sheets API تستخدم 1-based index للصفوف
+        // معالجة خاصة للتصنيفات - مقارنة مرنة للـ IDs
+        if (sheetName === SHEETS.CATEGORIES) {
+            const cellValue = data[i][columnIndex] || '';
+            const normalizedCellValue = normalizeCategoryId(cellValue);
+            const normalizedSearchValue = normalizeCategoryId(searchValue);
+            
+            if (normalizedCellValue === normalizedSearchValue) {
+                return i + 1; // +1 لأن Google Sheets API تستخدم 1-based index للصفوف
+            }
+        } else {
+            // السلوك الأصلي للجداول الأخرى
+            if (data[i][columnIndex] === searchValue) {
+                return i + 1;
+            }
         }
     }
     return -1;
+}
+// دالة مساعدة لتوحيد تنسيق الـ IDs
+function normalizeCategoryId(id) {
+    if (!id) return '';
+    
+    let normalized = id.toString().trim();
+    
+    // إذا كان ID رقمي فقط، نضيف البادئة
+    if (!isNaN(normalized) && normalized.length < 10) {
+        normalized = 'CAT_' + normalized;
+    }
+    
+    // إذا كان يحتوي على البادئة لكن بشكل غير متسق
+    if (normalized.startsWith('CAT') && !normalized.startsWith('CAT_')) {
+        normalized = 'CAT_' + normalized.substring(3);
+    }
+    
+    return normalized;
 }
 
 // --- Data Loading Functions ---
@@ -443,20 +473,22 @@ async function loadCategories() {
     try {
         const data = await readSheet(SHEETS.CATEGORIES);
         if (data.length > 1) {
-            categories = data.slice(1).map(row => ({
-                id: row[0] || '', // العمود A - يجب أن يكون فريداً
-                code: row[1] || '',        // العمود B
-                name: row[2] || '',        // العمود C
-                formType: row[3] || 'عادي', // العمود D
-                creationDate: row[4] || '',
-                createdBy: row[5] || ''
-            }));
-            
-            // إذا كانت الـ IDs أرقاماً فقط، نقوم بتحويلها إلى تنسيق فريد
-            categories.forEach(cat => {
-                if (cat.id && !isNaN(cat.id) && cat.id.length < 10) {
-                    cat.id = 'CAT_' + cat.id;
+            categories = data.slice(1).map(row => {
+                let id = row[0] || '';
+                // توحيد تنسيق الـ ID عند التحميل
+                if (id && !isNaN(id) && id.length < 10) {
+                    id = 'CAT_' + id;
                 }
+                
+                return {
+                    id: id,
+                    code: row[1] || '',
+                    name: row[2] || '',
+                    formType: row[3] || 'عادي',
+                    creationDate: row[4] || '',
+                    createdBy: row[5] || '',
+                    originalId: row[0] || '' // حفظ الـ ID الأصلي كما في الجدول
+                };
             });
         } else {
             categories = [];
@@ -469,6 +501,29 @@ async function loadCategories() {
     }
 }
 
+// إضافة هذه الدالة للتحقق من وجود التصنيف قبل التحديث
+async function verifyCategoryExists(categoryId) {
+    const normalizedId = normalizeCategoryId(categoryId);
+    
+    // البحث في الذاكرة أولاً
+    const inMemory = categories.find(cat => normalizeCategoryId(cat.id) === normalizedId);
+    if (inMemory) return true;
+    
+    // البحث في الجدول مباشرةً
+    try {
+        const data = await readSheet(SHEETS.CATEGORIES);
+        for (let i = 1; i < data.length; i++) {
+            const rowId = data[i][0] || '';
+            if (normalizeCategoryId(rowId) === normalizedId) {
+                return true;
+            }
+        }
+        return false;
+    } catch (error) {
+        console.error('Error verifying category:', error);
+        return false;
+    }
+}
 async function loadCategoryCustomFields() {
     try {
         const data = await readSheet(SHEETS.CATEGORY_CUSTOM_FIELDS);
@@ -1179,20 +1234,66 @@ async function updateCategory() {
         return;
     }
 
+    // البحث عن التصنيف باستخدام الـ ID المعياري
+    const existingCategory = categories.find(cat => {
+        const normalizedCatId = normalizeCategoryId(cat.id);
+        const normalizedEditId = normalizeCategoryId(currentEditCategoryId);
+        return normalizedCatId === normalizedEditId;
+    });
+
+    if (!existingCategory) {
+        showMessage('التصنيف غير موجود في الذاكرة.', 'error');
+        return;
+    }
+
     // البحث عن التصنيف باستخدام الكود في العمود B (index 1)
-    const existingCategory = categories.find(cat => cat.code === code && cat.id !== currentEditCategoryId);
-    if (existingCategory) {
+    const duplicateCategory = categories.find(cat => {
+        const normalizedCatId = normalizeCategoryId(cat.id);
+        const normalizedEditId = normalizeCategoryId(currentEditCategoryId);
+        return cat.code === code && normalizedCatId !== normalizedEditId;
+    });
+
+    if (duplicateCategory) {
         showMessage('كود التصنيف موجود بالفعل لتصنيف آخر. يرجى استخدام كود فريد.', 'warning');
         return;
     }
 
     showLoading(true);
     try {
-        const rowIndex = await findRowIndex(SHEETS.CATEGORIES, 0, currentEditCategoryId); // البحث بالـ ID في العمود A (index 0)
+        // استخدام الـ ID الأصلي للبحث في الجدول
+        const originalId = existingCategory.id; // استخدام الـ ID كما هو في الجدول
+        const rowIndex = await findRowIndex(SHEETS.CATEGORIES, 0, originalId);
+        
         if (rowIndex === -1) {
-            showMessage('لم يتم العثور على التصنيف لتحديثه.', 'error');
-            return;
+            // محاولة بديلة: البحث بالكود إذا فشل البحث بالـ ID
+            const rowIndexByCode = await findRowIndex(SHEETS.CATEGORIES, 1, existingCategory.code);
+            if (rowIndexByCode === -1) {
+                showMessage('لم يتم العثور على التصنيف لتحديثه.', 'error');
+                return;
+            }
+            // تحديث الـ ID أيضاً إذا كان مختلفاً
+            const updatedCategoryData = [
+                currentEditCategoryId, // استخدام الـ ID الجديد إذا كان مختلفاً
+                code,
+                name,
+                formType,
+                existingCategory.creationDate,
+                existingCategory.createdBy
+            ];
+            const result = await updateSheet(SHEETS.CATEGORIES, `A${rowIndexByCode}:F${rowIndexByCode}`, [updatedCategoryData]);
+        } else {
+            // التحديث العادي
+            const updatedCategoryData = [
+                originalId, // الحفاظ على الـ ID الأصلي
+                code,
+                name,
+                formType,
+                existingCategory.creationDate,
+                existingCategory.createdBy
+            ];
+            const result = await updateSheet(SHEETS.CATEGORIES, `A${rowIndex}:F${rowIndex}`, [updatedCategoryData]);
         }
+
 
         const oldCategory = categories.find(cat => cat.id === currentEditCategoryId);
         const updatedCategoryData = [
