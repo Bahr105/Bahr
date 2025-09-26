@@ -1121,6 +1121,8 @@ async function addExpense() {
 
     try {
         const now = new Date();
+        const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        const currentTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
 
         const categoryCode = document.getElementById('selectedExpenseCategoryCode')?.value;
         const categoryName = document.getElementById('selectedExpenseCategoryName')?.value;
@@ -1172,7 +1174,7 @@ async function addExpense() {
                         showMessage('فشل تحديث إجمالي الأجل للعميل.', 'error');
                         return; // الخروج المبكر
                     }
-                    await updateSheet(SHEETS.CUSTOMERS, `F${rowIndex}`, [now.toISOString().split('T')[0]]);
+                    await updateSheet(SHEETS.CUSTOMERS, `F${rowIndex}`, [currentDate]);
                 } else {
                     showMessage('لم يتم العثور على العميل لتحديث الأجل.', 'error');
                     return; // الخروج المبكر
@@ -1185,7 +1187,7 @@ async function addExpense() {
                 const newHistoryEntry = [
                     historyId,
                     customerId,
-                    now.toISOString().split('T')[0],
+                    currentDate,
                     'أجل',
                     amount,
                     invoiceNumber,
@@ -1212,8 +1214,8 @@ async function addExpense() {
             invoiceNumber,
             amount.toFixed(2), // تنسيق القيمة كرقم عشري بسلسلة نصية
             notes,
-            now.toISOString().split('T')[0], // Date
-            now.toTimeString().split(' ')[0], // Time
+            currentDate, // Date
+            currentTime, // Time
             currentUser.username,
             now.getFullYear().toString(),
             document.getElementById('visaReferenceNumber')?.value.trim() || '',
@@ -1239,8 +1241,8 @@ async function addExpense() {
                 invoiceNumber: invoiceNumber,
                 amount: amount,
                 notes: notes,
-                date: expenseData[6],
-                time: expenseData[7],
+                date: currentDate,
+                time: currentTime,
                 cashier: currentUser.username
             };
 
@@ -2897,9 +2899,9 @@ async function searchCashierClosuresAccountant() {
         const accTotalVisa = document.getElementById('accTotalVisa');
         if (accTotalVisa) accTotalVisa.innerHTML = `${totalVisa.toFixed(2)} (<span class="invoice-count">${visaCount} فاتورة</span>)`;
         const accTotalInsta = document.getElementById('accTotalInsta');
-        if (accTotalInsta) accTotalInsta.innerHTML = `${totalInsta.toFixed(2)} (<span class="invoice-count">${instaCount} فاتورة</span>)`;
+        if (accTotalInsta) accTotalInsta.innerHTML = `${instaCount.toFixed(2)} (<span class="invoice-count">${instaCount} فاتورة</span>)`;
         const accTotalOnline = document.getElementById('accTotalOnline');
-        if (accTotalOnline) accTotalOnline.innerHTML = `${totalOnline.toFixed(2)} (<span class="invoice-count">${onlineCount} فاتورة</span>)`;
+        if (accTotalOnline) accTotalOnline.innerHTML = `${onlineCount.toFixed(2)} (<span class="invoice-count">${onlineCount} فاتورة</span>)`;
         const accTotalReturns = document.getElementById('accTotalReturns');
         if (accTotalReturns) accTotalReturns.textContent = totalReturns.toFixed(2);
         const accReturnsCount = document.getElementById('accReturnsCount');
@@ -3031,10 +3033,10 @@ async function closeCashierByAccountant() {
     let grandTotalAfterReturns = cashierTotalForComparison;
 
     if (addReturns) {
-        grandTotalAfterReturns = cashierTotalForComparison + window.currentClosureData.totalReturns;
+        grandTotalForReturns = cashierTotalForComparison + window.currentClosureData.totalReturns;
     }
 
-    const difference = newMindTotal - grandTotalAfterReturns;
+    const difference = newMindTotal - grandTotalForReturns;
 
     showLoading(true);
     try {
@@ -3571,7 +3573,7 @@ async function viewExpenseDetails(cashierUsername, dateFrom, timeFrom, dateTo, t
                     <tbody>
             `;
 
-            filteredExpenses.sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.time}`));
+            filteredExpenses.sort((a, b) => new Date(`${b.date} ${b.time}`) - new Date(`${a.date} ${a.date}`));
 
             filteredExpenses.forEach(exp => {
                 detailsHtml += `
