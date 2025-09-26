@@ -1773,6 +1773,14 @@ async function addExpense() {
         const categoryName = categoryNameElement?.value;
         const formType = formTypeElement?.value;
 
+        // الحصول على قيمة amount قبل استخدامها
+        const amountInput = document.getElementById('expenseAmount');
+        const amount = amountInput ? parseFloat(amountInput.value) : NaN;
+
+        const notes = document.getElementById('expenseNotes')?.value.trim() || '';
+        const invoiceNumber = document.getElementById('expenseInvoiceNumber')?.value.trim() || '';
+        const visaReferenceNumber = document.getElementById('visaReferenceNumber')?.value.trim() || '';
+
         console.log('قيم التصنيف من DOM:', {
             categoryId,
             categoryCode,
@@ -1792,12 +1800,15 @@ async function addExpense() {
             console.log('selectedExpenseCategoryFormType:', formTypeElement?.value, formTypeElement);
             
             return;
-        
         }
+
+        // الآن amount معرّف ويمكن استخدامه
         if (isNaN(amount) || amount <= 0) {
             showMessage('يرجى إدخال قيمة صحيحة وموجبة للمصروف.', 'warning');
             return;
         }
+        
+        
 
         // التحقق من رقم الفاتورة إذا كان مطلوبًا
         if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات', 'سلف_موظف'].includes(formType)) {
