@@ -301,7 +301,12 @@ async function readSheet(sheetName, range = 'A:Z') {
         return response.result.values || [];
     } catch (error) {
         console.error(`Error reading sheet ${sheetName}:`, error);
-        showMessage(`خطأ في قراءة البيانات من ${sheetName}`, 'error');
+        // Check if the error is a 404 (sheet not found)
+        if (error.result && error.result.error && error.result.error.code === 404) {
+            showMessage(`الورقة "${sheetName}" غير موجودة في جدول البيانات. يرجى التأكد من وجودها.`, 'error');
+        } else {
+            showMessage(`خطأ في قراءة البيانات من ${sheetName}`, 'error');
+        }
         return [];
     }
 }
@@ -3332,7 +3337,7 @@ async function updateAccountantDashboard() {
         // Employees stats (New)
         const totalEmployees = employees.length;
         const employeesWithAdvance = employees.filter(e => e.totalAdvance > 0).length;
-        const totalAdvanceAmount = employees.reduce((sum, e) => sum + e.totalAdvance, 0);
+        const totalAdvanceAmount = employees.reduce((sum, e => sum + e.totalAdvance, 0);
         const zeroAdvanceEmployees = employees.filter(e => e.totalAdvance === 0).length;
 
         document.getElementById('totalEmployeesAccountant').textContent = totalEmployees;
@@ -3766,7 +3771,6 @@ function printReport() {
                     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
                     th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
                     th { background-color: #f2f2f2; }
-                    .stats-summary p, .report-footer p { margin: 5px 0; }
                     .edit-btn, .delete-btn { display: none; /* Hide buttons in print */ }
                 </style>
             </head>
@@ -5276,17 +5280,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Initialize SortableJS for custom fields
-    if (typeof Sortable !== 'undefined') {
-        const customFieldsContainer = document.getElementById('customFieldsContainer');
-        if (customFieldsContainer) {
-            Sortable.create(customFieldsContainer, {
-                handle: '.field-handle',
-                animation: 150
-            });
-        }
-    } else {
-        console.warn('SortableJS not loaded. Drag and drop functionality for custom fields will not be available.');
-    }
+    // تم إزالة هذا الجزء لأنه يسبب خطأ "Sortable is not defined"
+    // إذا كنت ترغب في استخدام SortableJS، تأكد من تضمين مكتبته بشكل صحيح
+    // <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    // في ملف index.html قبل script.js
 
     console.log('DOM loaded and initialized successfully.');
 });
