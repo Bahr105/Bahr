@@ -1232,7 +1232,7 @@ function showAddExpenseModal() {
     const pinButton = document.getElementById('pinExpenseFormToggle');
     if (pinButton) {
         pinButton.checked = false; // افتراضيًا غير مثبت
-        pinButton.dispatchEvent(new Event('change')); // لتحديث الـ dataset
+        // لا حاجة لـ dispatchEvent هنا، لأننا لا نعتمد على حدث التغيير لتحديث الـ dataset
     }
 
     const modal = document.getElementById('addExpenseModal');
@@ -1264,34 +1264,47 @@ async function showEditExpenseModal(expenseId) {
         // توليد الفورم الديناميكي وملء البيانات
         generateDynamicExpenseForm(category.formType, category.customFields);
 
+        // ملء الحقول الثابتة
         document.getElementById('expenseInvoiceNumber').value = expense.invoiceNumber || '';
         document.getElementById('expenseAmount').value = expense.amount;
         document.getElementById('expenseNotes').value = expense.notes || '';
 
         // ملء الحقول الخاصة بنوع الفورم
         if (category.formType === 'فيزا') {
-            document.getElementById('visaReferenceNumber').value = expense.referenceNumber || '';
+            const visaRefInput = document.getElementById('visaReferenceNumber');
+            if (visaRefInput) visaRefInput.value = expense.referenceNumber || '';
         } else if (category.formType === 'شحن_تاب') {
-            document.getElementById('tabName').value = expense.tabName || '';
-            document.getElementById('tabPhone').value = expense.tabPhone || '';
+            const tabNameInput = document.getElementById('tabName');
+            const tabPhoneInput = document.getElementById('tabPhone');
+            if (tabNameInput) tabNameInput.value = expense.tabName || '';
+            if (tabPhoneInput) tabPhoneInput.value = expense.tabPhone || '';
         } else if (category.formType === 'شحن_كهربا') {
-            document.getElementById('electricityLocation').value = expense.location || '';
+            const electricityLocationInput = document.getElementById('electricityLocation');
+            if (electricityLocationInput) electricityLocationInput.value = expense.location || '';
         } else if (category.formType === 'سلف') { // For advances
             const employee = employees.find(emp => emp.id === expense.employee);
-            if (employee) {
-                document.getElementById('employeeSearch').value = `${employee.name} (${employee.phone})`;
-                document.getElementById('selectedEmployeeId').value = employee.id;
-                document.getElementById('selectedEmployeeName').value = employee.name;
+            const employeeSearchInput = document.getElementById('employeeSearch');
+            const selectedEmployeeIdInput = document.getElementById('selectedEmployeeId');
+            const selectedEmployeeNameInput = document.getElementById('selectedEmployeeName');
+            if (employee && employeeSearchInput && selectedEmployeeIdInput && selectedEmployeeNameInput) {
+                employeeSearchInput.value = `${employee.name} (${employee.phone})`;
+                selectedEmployeeIdInput.value = employee.id;
+                selectedEmployeeNameInput.value = employee.name;
             }
         } else if (category.formType === 'دفعة_شركة') {
-            document.getElementById('companyName').value = expense.companyName || '';
-            document.getElementById('companyCode').value = expense.companyCode || '';
+            const companyNameInput = document.getElementById('companyName');
+            const companyCodeInput = document.getElementById('companyCode');
+            if (companyNameInput) companyNameInput.value = expense.companyName || '';
+            if (companyCodeInput) companyCodeInput.value = expense.companyCode || '';
         } else if (category.formType === 'اجل') {
             const customer = customers.find(cust => cust.id === expense.customer);
-            if (customer) {
-                document.getElementById('customerSearch').value = `${customer.name} (${customer.phone})`;
-                document.getElementById('selectedCustomerId').value = customer.id;
-                document.getElementById('selectedCustomerName').value = customer.name;
+            const customerSearchInput = document.getElementById('customerSearch');
+            const selectedCustomerIdInput = document.getElementById('selectedCustomerId');
+            const selectedCustomerNameInput = document.getElementById('selectedCustomerName');
+            if (customer && customerSearchInput && selectedCustomerIdInput && selectedCustomerNameInput) {
+                customerSearchInput.value = `${customer.name} (${customer.phone})`;
+                selectedCustomerIdInput.value = customer.id;
+                selectedCustomerNameInput.value = customer.name;
             }
         }
 
@@ -1313,7 +1326,6 @@ async function showEditExpenseModal(expenseId) {
         const pinButton = document.getElementById('pinExpenseFormToggle');
         if (pinButton) {
             pinButton.checked = false; // لا تثبت الفورم عند التعديل
-            pinButton.dispatchEvent(new Event('change'));
         }
 
         const modal = document.getElementById('addExpenseModal');
@@ -1382,14 +1394,14 @@ function generateDynamicExpenseForm(formType, customFields = []) {
 
     let formHtml = ``;
 
-    // حقول ثابتة تظهر دائمًا
-    const defaultFields = [
-        { id: 'expenseInvoiceNumber', label: 'رقم الفاتورة', type: 'text', required: true, condition: ['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات'] },
-        { id: 'expenseAmount', label: 'القيمة', type: 'number', required: true },
-        { id: 'expenseNotes', label: 'الملاحظات', type: 'text', required: false }
+    // تعريف الحقول الثابتة مع إمكانية التحكم في ظهورها
+    const fixedFields = [
+        { id: 'expenseInvoiceNumber', label: 'رقم الفاتورة', type: 'text', required: true, alwaysShow: false },
+        { id: 'expenseAmount', label: 'القيمة', type: 'number', required: true, alwaysShow: true },
+        { id: 'expenseNotes', label: 'الملاحظات', type: 'textarea', required: false, alwaysShow: true }
     ];
 
-    // حقول خاصة بأنواع الفورم
+    // تعريف الحقول الخاصة بأنواع الفورم
     const specificFields = {
         'فيزا': [{ id: 'visaReferenceNumber', label: 'الرقم المرجعي للفيزا (آخر 4 أرقام)', type: 'text', pattern: '\\d{4}', maxlength: '4', required: true }],
         'شحن_تاب': [
@@ -1397,7 +1409,7 @@ function generateDynamicExpenseForm(formType, customFields = []) {
             { id: 'tabPhone', label: 'رقم تليفون التاب', type: 'tel', required: true }
         ],
         'شحن_كهربا': [{ id: 'electricityLocation', label: 'مكان الشحن', type: 'text', required: true }],
-        'سلف': [ // Changed from 'بنزين', 'سلف', 'عجوزات' to specific 'سلف'
+        'سلف': [
             { id: 'employeeSearch', label: 'البحث عن الموظف', type: 'search_employee', required: true },
             { id: 'selectedEmployeeId', type: 'hidden' },
             { id: 'selectedEmployeeName', type: 'hidden' }
@@ -1416,19 +1428,14 @@ function generateDynamicExpenseForm(formType, customFields = []) {
     // دمج الحقول المخصصة مع الحقول الثابتة والخاصة
     let allFields = [];
 
-    // إضافة الحقول المخصصة أولاً إذا كانت موجودة
-    if (customFields && customFields.length > 0) {
-        allFields = [...customFields.map(f => ({
-            id: `customField_${f.id}`,
-            label: f.name,
-            type: f.type,
-            required: f.required
-        }))];
-    }
-
-    // إضافة الحقول الثابتة
-    defaultFields.forEach(field => {
-        if (!field.condition || field.condition.includes(formType)) {
+    // إضافة الحقول الثابتة أولاً (إذا كانت alwaysShow أو إذا كان formType يتطلبها)
+    fixedFields.forEach(field => {
+        // رقم الفاتورة يظهر فقط إذا لم يكن formType "مرتجع" أو "سلف" أو "خصم عميل"
+        if (field.id === 'expenseInvoiceNumber') {
+            if (!['مرتجع', 'سلف', 'خصم عميل'].includes(formType)) {
+                allFields.push(field);
+            }
+        } else {
             allFields.push(field);
         }
     });
@@ -1436,6 +1443,16 @@ function generateDynamicExpenseForm(formType, customFields = []) {
     // إضافة الحقول الخاصة بنوع الفورم
     if (specificFields[formType]) {
         allFields = allFields.concat(specificFields[formType]);
+    }
+
+    // إضافة الحقول المخصصة (التي تم تعريفها في التصنيف)
+    if (customFields && customFields.length > 0) {
+        allFields = allFields.concat(customFields.map(f => ({
+            id: `customField_${f.id}`,
+            label: f.name,
+            type: f.type,
+            required: f.required
+        })));
     }
 
     // بناء HTML للفورم
@@ -1635,8 +1652,9 @@ async function addExpense() {
             }
         }
 
-        // التحقق من رقم الفاتورة إذا كان مطلوبًا
-        if (document.getElementById('expenseInvoiceNumber') && !invoiceNumber) {
+        // التحقق من رقم الفاتورة إذا كان موجودًا في الفورم ومطلوبًا
+        const invoiceNumberInput = document.getElementById('expenseInvoiceNumber');
+        if (invoiceNumberInput && invoiceNumberInput.hasAttribute('required') && !invoiceNumber) {
             showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
             return;
         }
@@ -1654,7 +1672,8 @@ async function addExpense() {
         }
 
         // التحقق من الرقم المرجعي للفيزا إذا كان نوع الفورم "فيزا"
-        if (formType === 'فيزا' && document.getElementById('visaReferenceNumber') && !visaReferenceNumber) {
+        const visaReferenceNumberInput = document.getElementById('visaReferenceNumber');
+        if (formType === 'فيزا' && visaReferenceNumberInput && visaReferenceNumberInput.hasAttribute('required') && !visaReferenceNumber) {
             showMessage('يرجى إدخال الرقم المرجعي للفيزا.', 'warning');
             return;
         }
@@ -1817,27 +1836,40 @@ async function addExpense() {
             const pinButton = document.getElementById('pinExpenseFormToggle');
             if (pinButton && pinButton.checked) {
                 // Clear only dynamic fields, keep category selected
-                document.getElementById('expenseInvoiceNumber').value = '';
+                const invoiceNumInput = document.getElementById('expenseInvoiceNumber');
+                if (invoiceNumInput) invoiceNumInput.value = '';
                 document.getElementById('expenseAmount').value = '';
                 document.getElementById('expenseNotes').value = '';
                 if (formType === 'فيزا') {
-                    document.getElementById('visaReferenceNumber').value = '';
+                    const visaRefInput = document.getElementById('visaReferenceNumber');
+                    if (visaRefInput) visaRefInput.value = '';
                 } else if (formType === 'شحن_تاب') {
-                    document.getElementById('tabName').value = '';
-                    document.getElementById('tabPhone').value = '';
+                    const tabNameInput = document.getElementById('tabName');
+                    const tabPhoneInput = document.getElementById('tabPhone');
+                    if (tabNameInput) tabNameInput.value = '';
+                    if (tabPhoneInput) tabPhoneInput.value = '';
                 } else if (formType === 'شحن_كهربا') {
-                    document.getElementById('electricityLocation').value = '';
+                    const electricityLocationInput = document.getElementById('electricityLocation');
+                    if (electricityLocationInput) electricityLocationInput.value = '';
                 } else if (formType === 'سلف') {
-                    document.getElementById('employeeSearch').value = '';
-                    document.getElementById('selectedEmployeeId').value = '';
-                    document.getElementById('selectedEmployeeName').value = '';
+                    const employeeSearchInput = document.getElementById('employeeSearch');
+                    const selectedEmployeeIdInput = document.getElementById('selectedEmployeeId');
+                    const selectedEmployeeNameInput = document.getElementById('selectedEmployeeName');
+                    if (employeeSearchInput) employeeSearchInput.value = '';
+                    if (selectedEmployeeIdInput) selectedEmployeeIdInput.value = '';
+                    if (selectedEmployeeNameInput) selectedEmployeeNameInput.value = '';
                 } else if (formType === 'دفعة_شركة') {
-                    document.getElementById('companyName').value = '';
-                    document.getElementById('companyCode').value = '';
+                    const companyNameInput = document.getElementById('companyName');
+                    const companyCodeInput = document.getElementById('companyCode');
+                    if (companyNameInput) companyNameInput.value = '';
+                    if (companyCodeInput) companyCodeInput.value = '';
                 } else if (formType === 'اجل') {
-                    document.getElementById('customerSearch').value = '';
-                    document.getElementById('selectedCustomerId').value = '';
-                    document.getElementById('selectedCustomerName').value = '';
+                    const customerSearchInput = document.getElementById('customerSearch');
+                    const selectedCustomerIdInput = document.getElementById('selectedCustomerId');
+                    const selectedCustomerNameInput = document.getElementById('selectedCustomerName');
+                    if (customerSearchInput) customerSearchInput.value = '';
+                    if (selectedCustomerIdInput) selectedCustomerIdInput.value = '';
+                    if (selectedCustomerNameInput) selectedCustomerNameInput.value = '';
                 }
                 // Clear custom fields
                 if (category && category.customFields) {
@@ -1902,7 +1934,8 @@ async function updateExpense() {
             }
         }
 
-        if (document.getElementById('expenseInvoiceNumber') && !invoiceNumber) {
+        const invoiceNumberInput = document.getElementById('expenseInvoiceNumber');
+        if (invoiceNumberInput && invoiceNumberInput.hasAttribute('required') && !invoiceNumber) {
             showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
             return;
         }
@@ -1921,7 +1954,8 @@ async function updateExpense() {
         }
 
         // التحقق من الرقم المرجعي للفيزا إذا كان نوع الفورم "فيزا"
-        if (formType === 'فيزا' && document.getElementById('visaReferenceNumber') && !visaReferenceNumber) {
+        const visaReferenceNumberInput = document.getElementById('visaReferenceNumber');
+        if (formType === 'فيزا' && visaReferenceNumberInput && visaReferenceNumberInput.hasAttribute('required') && !visaReferenceNumber) {
             showMessage('يرجى إدخال الرقم المرجعي للفيزا.', 'warning');
             return;
         }
@@ -4606,7 +4640,7 @@ async function closeCashierByAccountant() {
 
     if (addReturns) {
         cashierTotalForComparison = cashierTotalForComparison + window.currentClosureData.totalReturns;
-        grandTotalAfterReturnsValue = cashierTotalForComparison;
+        grandTotalAfterReturnsValue = grandTotalForComparison;
     } else {
         grandTotalAfterReturnsValue = cashierTotalForComparison; // إذا لم يتم إضافة المرتجعات، يكون هو نفسه grandTotal
     }
@@ -4633,7 +4667,7 @@ async function closeCashierByAccountant() {
             window.currentClosureData.visaCount,
             window.currentClosureData.totalOnline.toFixed(2),
             window.currentClosureData.onlineCount,
-            window.currentClosureData.grandTotal.toFixed(2), // grandTotal (الكاشير)
+            cashierTotalForComparison.toFixed(2), // grandTotal (الكاشير)
             window.currentClosureData.drawerCash.toFixed(2),
             newMindTotal.toFixed(2),
             difference.toFixed(2),
@@ -5289,5 +5323,3 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // --- End of Script ---
-
-
