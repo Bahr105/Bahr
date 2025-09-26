@@ -1424,6 +1424,21 @@ async function showEditExpenseModal(expenseId) {
 
 
 function searchExpenseCategories(searchTerm) {
+
+
+     filtered.forEach(cat => {
+        // تحقق من أن التصنيف يحتوي على جميع البيانات المطلوبة
+        if (!cat.id || !cat.code || !cat.name || !cat.formType) {
+            console.warn('تصنيف ناقص البيانات:', cat);
+            return; // تخطي التصنيفات الناقصة
+        }
+        
+        const item = document.createElement('div');
+        item.className = 'suggestion-item';
+        item.textContent = `${cat.name} (${cat.code}) - ${cat.formType}`;
+        item.onclick = () => selectExpenseCategory(cat);
+        suggestionsDiv.appendChild(item);
+    });
     const suggestionsDiv = document.getElementById('expenseCategorySuggestions');
     if (!suggestionsDiv) return;
 
@@ -1456,22 +1471,36 @@ function searchExpenseCategories(searchTerm) {
     suggestionsDiv.style.display = 'block';
 }
 
-async function selectExpenseCategory(category) {
+function selectExpenseCategory(category) {
     const expenseCategorySearch = document.getElementById('expenseCategorySearch');
     if (expenseCategorySearch) expenseCategorySearch.value = `${category.name} (${category.code})`;
+    
     const selectedExpenseCategoryCode = document.getElementById('selectedExpenseCategoryCode');
     if (selectedExpenseCategoryCode) selectedExpenseCategoryCode.value = category.code;
+    
     const selectedExpenseCategoryName = document.getElementById('selectedExpenseCategoryName');
     if (selectedExpenseCategoryName) selectedExpenseCategoryName.value = category.name;
+    
     const selectedExpenseCategoryFormType = document.getElementById('selectedExpenseCategoryFormType');
     if (selectedExpenseCategoryFormType) selectedExpenseCategoryFormType.value = category.formType;
+    
     const selectedExpenseCategoryId = document.getElementById('selectedExpenseCategoryId');
-    if (selectedExpenseCategoryId) selectedExpenseCategoryId.value = category.id; // حفظ ID التصنيف
+    if (selectedExpenseCategoryId) selectedExpenseCategoryId.value = category.id;
+    
     const expenseCategorySuggestions = document.getElementById('expenseCategorySuggestions');
     if (expenseCategorySuggestions) expenseCategorySuggestions.style.display = 'none';
 
-    await generateDynamicExpenseForm(category.formType, category.id);
+    // إضافة console.log للتحقق من القيم
+    console.log('تم اختيار التصنيف:', {
+        id: category.id,
+        code: category.code,
+        name: category.name,
+        formType: category.formType
+    });
+
+    generateDynamicExpenseForm(category.formType, category.id);
 }
+
 
 async function generateDynamicExpenseForm(formType, categoryId, expenseData = {}) {
     const dynamicFormDiv = document.getElementById('dynamicExpenseForm');
