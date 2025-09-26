@@ -31,7 +31,7 @@ function handleAuthFailure() {
 // --- Google Sheets API Configuration ---
 const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU';
 const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com';
-const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDWWhfDvUtvQ7u7IC9Q'; // تأكد من تحديث هذا الـ ID إذا كان مختلفًا
+const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q'; // تأكد من تحديث هذا الـ ID إذا كان مختلفًا
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
 const SHEETS = {
