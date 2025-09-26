@@ -40,10 +40,7 @@ const SHEETS = {
     EXPENSES: 'Expenses',
     CUSTOMERS: 'Customers',
     SHIFT_CLOSURES: 'ShiftClosures',
-    CUSTOMER_CREDIT_HISTORY: 'CustomerCreditHistory',
-    CATEGORY_CUSTOM_FIELDS: 'CategoryCustomFields', // ورقة جديدة للحقول المخصصة
-    EMPLOYEES: 'Employees', // ورقة جديدة للموظفين
-    EMPLOYEE_ADVANCE_HISTORY: 'EmployeeAdvanceHistory' // ورقة جديدة لسجل سلف الموظفين
+    CUSTOMER_CREDIT_HISTORY: 'CustomerCreditHistory'
 };
 
 let gapiInited = false;
@@ -54,17 +51,13 @@ let tokenClient;
 let users = [];
 let categories = [];
 let customers = [];
-let employees = []; // حالة جديدة للموظفين
-let categoryCustomFields = []; // حالة جديدة للحقول المخصصة
 let currentUser = null;
 let currentUserName = '';
 let currentUserRole = '';
 let currentSelectedCustomerId = null; // لتتبع العميل المحدد في تفاصيل الأجل
-let currentSelectedEmployeeId = null; // لتتبع الموظف المحدد في تفاصيل السلف
 let currentEditUserId = null; // لتتبع المستخدم الذي يتم تعديله
 let currentEditCategoryId = null; // لتتبع التصنيف الذي يتم تعديله
 let currentEditExpenseId = null; // لتتبع المصروف الذي يتم تعديله
-let currentEditEmployeeId = null; // لتتبع الموظف الذي يتم تعديله
 
 // متغيرات جديدة لمنع التكرار
 let initialDataLoaded = false;
@@ -444,12 +437,12 @@ async function loadCategories() {
         const data = await readSheet(SHEETS.CATEGORIES);
         if (data.length > 1) {
             categories = data.slice(1).map(row => ({
-                id: row[0] || '', // إضافة ID للتصنيف
-                code: row[1] || '',        // كود في B (row[1])
-                name: row[2] || '',        // اسم في C (row[2])
-                formType: row[3] || 'عادي', // نوع في D (row[3])
-                creationDate: row[4] || '',
-                createdBy: row[5] || ''
+                // إزالة ID، وإعادة ترتيب الفهارس لتطابق الشيت الحالي
+                code: row[0] || '',        // كود في A (row[0])
+                name: row[1] || '',        // اسم في B (row[1])
+                formType: row[2] || 'عادي', // نوع في C (row[2]) ← هذا التصحيح الرئيسي
+                creationDate: row[3] || '',
+                createdBy: row[4] || ''
             }));
         } else {
             categories = [];
@@ -465,26 +458,6 @@ async function loadCategories() {
     } catch (error) {
         console.error('Error loading categories:', error);
         categories = [];
-    }
-}
-
-async function loadCategoryCustomFields() {
-    try {
-        const data = await readSheet(SHEETS.CATEGORY_CUSTOM_FIELDS);
-        if (data.length > 1) {
-            categoryCustomFields = data.slice(1).map(row => ({
-                categoryId: row[0] || '',
-                fieldName: row[1] || '',
-                fieldType: row[2] || 'text',
-                isRequired: (row[3] || 'false').toLowerCase() === 'true',
-                options: row[4] ? JSON.parse(row[4]) : [] // إذا كان FieldType هو 'select'
-            }));
-        } else {
-            categoryCustomFields = [];
-        }
-    } catch (error) {
-        console.error('Error loading category custom fields:', error);
-        categoryCustomFields = [];
     }
 }
 
@@ -532,87 +505,32 @@ async function loadCustomerCreditHistory(customerId) {
     }
 }
 
-async function loadEmployees() {
-    try {
-        const data = await readSheet(SHEETS.EMPLOYEES);
-        if (data.length > 1) {
-            employees = data.slice(1).map(row => ({
-                id: row[0] || '',
-                name: row[1] || '',
-                phone: row[2] || '',
-                totalAdvance: parseFloat((row[3] || '0').replace(/,/g, '')),
-                creationDate: row[4] || '',
-                lastUpdate: row[5] || ''
-            }));
-        } else {
-            employees = [];
-        }
-    } catch (error) {
-        console.error('Error loading employees:', error);
-        employees = [];
-    }
-}
-
-async function loadEmployeeAdvanceHistory(employeeId) {
-    try {
-        const data = await readSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY);
-        if (data.length <= 1) return [];
-
-        return data.slice(1).filter(row => row[1] === employeeId).map(row => ({
-            id: row[0] || '',
-            employeeId: row[1] || '',
-            date: row[2] || '',
-            type: row[3] || '',
-            amount: parseFloat((row[4] || '0').replace(/,/g, '')),
-            notes: row[5] || '',
-            recordedBy: row[6] || ''
-        }));
-    } catch (error) {
-        console.error('Error loading employee advance history:', error);
-        return [];
-    }
-}
-
 async function loadExpenses(filters = {}) {
     try {
         const data = await readSheet(SHEETS.EXPENSES);
         if (data.length <= 1) return [];
 
-        let expenses = data.slice(1).map(row => {
-            const expense = {
-                id: row[0] || '',
-                category: row[1] || '',
-                categoryCode: row[2] || '',
-                invoiceNumber: row[3] || '',
-                // معالجة القيمة الرقمية: إزالة الفواصل قبل التحويل
-                amount: parseFloat((row[4] || '0').replace(/,/g, '')),
-                notes: row[5] || '',
-                date: row[6] || '',
-                time: row[7] || '',
-                cashier: row[8] || '',
-                year: row[9] || '',
-                referenceNumber: row[10] || '',
-                tabName: row[11] || '',
-                tabPhone: row[12] || '',
-                location: row[13] || '',
-                personName: row[14] || '',
-                companyName: row[15] || '',
-                companyCode: row[16] || '',
-                customer: row[17] || '',
-                employee: row[18] || '' // حقل جديد للموظف
-            };
-            // إضافة الحقول المخصصة ديناميكيًا
-            const customFieldsStartIndex = 19; // بدء الحقول المخصصة بعد حقل الموظف
-            const categoryObj = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
-            if (categoryObj) {
-                const customFieldsForCategory = categoryCustomFields.filter(cf => cf.categoryId === categoryObj.id);
-                expense.customFields = {};
-                customFieldsForCategory.forEach((cf, index) => {
-                    expense.customFields[cf.fieldName] = row[customFieldsStartIndex + index] || '';
-                });
-            }
-            return expense;
-        });
+        let expenses = data.slice(1).map(row => ({
+            id: row[0] || '',
+            category: row[1] || '',
+            categoryCode: row[2] || '',
+            invoiceNumber: row[3] || '',
+            // معالجة القيمة الرقمية: إزالة الفواصل قبل التحويل
+            amount: parseFloat((row[4] || '0').replace(/,/g, '')),
+            notes: row[5] || '',
+            date: row[6] || '',
+            time: row[7] || '',
+            cashier: row[8] || '',
+            year: row[9] || '',
+            referenceNumber: row[10] || '',
+            tabName: row[11] || '',
+            tabPhone: row[12] || '',
+            location: row[13] || '',
+            personName: row[14] || '',
+            companyName: row[15] || '',
+            companyCode: row[16] || '',
+            customer: row[17] || ''
+        }));
 
         // Apply filters
         if (filters.cashier) {
@@ -719,9 +637,7 @@ async function loadInitialData() {
         await Promise.all([
             loadUsers(),
             loadCategories(),
-            loadCategoryCustomFields(), // تحميل الحقول المخصصة
-            loadCustomers(),
-            loadEmployees() // تحميل الموظفين
+            loadCustomers()
         ]);
         populateUserDropdown();
         initialDataLoaded = true;
@@ -835,13 +751,9 @@ async function showTab(tabId) {
     try {
         if (tabId === 'categoriesTabCashier' || tabId === 'categoriesTabAccountant') {
             await loadCategories(); // إعادة تحميل التصنيفات لضمان التحديث
-            await loadCategoryCustomFields(); // تحميل الحقول المخصصة
             displayCategories(tabId === 'categoriesTabCashier' ? 'categoriesGridCashier' : 'categoriesGridAccountant');
         } else if (tabId === 'expensesTabCashier') {
             await loadCategories(); // لضمان تحديث قائمة التصنيفات في الفلتر
-            await loadCategoryCustomFields(); // تحميل الحقول المخصصة
-            await loadCustomers(); // لضمان تحديث قائمة العملاء في الفورم
-            await loadEmployees(); // لضمان تحديث قائمة الموظفين في الفورم
             await loadCashierExpenses();
             populateExpenseCategoryFilter();
         } else if (tabId === 'customersTabCashier') {
@@ -854,18 +766,10 @@ async function showTab(tabId) {
             if (customerDetailsAccountant) {
                 customerDetailsAccountant.style.display = 'none';
             }
-        } else if (tabId === 'employeesTabAccountant') { // علامة تبويب الموظفين الجديدة
-            await loadEmployees();
-            displayEmployees('employeesTableBodyAccountant');
-            const employeeDetailsAccountant = document.getElementById('employeeDetailsAccountant');
-            if (employeeDetailsAccountant) {
-                employeeDetailsAccountant.style.display = 'none';
-            }
         } else if (tabId === 'dashboardTabAccountant') {
             await loadUsers(); // لضمان تحديث قائمة الكاشيرز في الفلتر
             await loadCategories(); // لضمان تحديث أنواع المصروفات
             await loadCustomers(); // لضمان تحديث إحصائيات العملاء
-            await loadEmployees(); // لضمان تحديث إحصائيات الموظفين
             populateAccountantFilters();
             await updateAccountantDashboard();
         } else if (tabId === 'usersTabAccountant') {
@@ -984,7 +888,6 @@ function showAddCategoryModal() {
         document.getElementById('addCategoryModalTitle').textContent = 'إضافة تصنيف جديد';
         document.getElementById('addCategoryModalSaveBtn').onclick = addCategory;
         currentEditCategoryId = null; // مسح أي ID لتصنيف سابق
-        document.getElementById('customFieldsContainer').innerHTML = ''; // مسح الحقول المخصصة القديمة
     }
     const modal = document.getElementById('addCategoryModal');
     if (modal) {
@@ -1003,14 +906,6 @@ async function showEditCategoryModal(categoryId) {
     document.getElementById('categoryName').value = category.name;
     document.getElementById('formType').value = category.formType;
 
-    // تحميل وعرض الحقول المخصصة لهذا التصنيف
-    const customFieldsContainer = document.getElementById('customFieldsContainer');
-    customFieldsContainer.innerHTML = '';
-    const customFieldsForCategory = categoryCustomFields.filter(cf => cf.categoryId === categoryId);
-    customFieldsForCategory.forEach(cf => {
-        addCustomFieldToEditor(cf.fieldName, cf.fieldType, cf.isRequired, cf.options);
-    });
-
     document.getElementById('addCategoryModalTitle').textContent = 'تعديل تصنيف';
     document.getElementById('addCategoryModalSaveBtn').onclick = updateCategory;
     currentEditCategoryId = categoryId;
@@ -1021,64 +916,13 @@ async function showEditCategoryModal(categoryId) {
     }
 }
 
-// دالة لإضافة حقل مخصص إلى محرر التصنيف
-function addCustomFieldToEditor(fieldName = '', fieldType = 'text', isRequired = false, options = []) {
-    const container = document.getElementById('customFieldsContainer');
-    const fieldId = `customField_${Date.now()}`;
-
-    const fieldDiv = document.createElement('div');
-    fieldDiv.className = 'custom-field-editor-item';
-    fieldDiv.id = fieldId;
-    fieldDiv.innerHTML = `
-        <div class="form-group">
-            <label for="${fieldId}_name">اسم الحقل:</label>
-            <input type="text" id="${fieldId}_name" value="${fieldName}" placeholder="مثال: رقم الطلب" required>
-        </div>
-        <div class="form-group">
-            <label for="${fieldId}_type">نوع الحقل:</label>
-            <select id="${fieldId}_type" onchange="toggleOptionsInput('${fieldId}')">
-                <option value="text" ${fieldType === 'text' ? 'selected' : ''}>نص</option>
-                <option value="number" ${fieldType === 'number' ? 'selected' : ''}>رقم</option>
-                <option value="date" ${fieldType === 'date' ? 'selected' : ''}>تاريخ</option>
-                <option value="select" ${fieldType === 'select' ? 'selected' : ''}>قائمة منسدلة</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <input type="checkbox" id="${fieldId}_required" ${isRequired ? 'checked' : ''}>
-            <label for="${fieldId}_required">مطلوب</label>
-        </div>
-        <div class="form-group options-group" id="${fieldId}_options_group" style="display: ${fieldType === 'select' ? 'block' : 'none'};">
-            <label for="${fieldId}_options">خيارات (افصل بينها بفاصلة):</label>
-            <input type="text" id="${fieldId}_options" value="${options.join(',')}" placeholder="مثال: خيار1,خيار2">
-        </div>
-        <button type="button" class="delete-btn" onclick="document.getElementById('${fieldId}').remove()">
-            <i class="fas fa-trash"></i> حذف
-        </button>
-    `;
-    container.appendChild(fieldDiv);
-}
-
-// دالة لتبديل عرض حقل الخيارات بناءً على نوع الحقل
-function toggleOptionsInput(fieldId) {
-    const fieldTypeSelect = document.getElementById(`${fieldId}_type`);
-    const optionsGroup = document.getElementById(`${fieldId}_options_group`);
-    if (fieldTypeSelect && optionsGroup) {
-        if (fieldTypeSelect.value === 'select') {
-            optionsGroup.style.display = 'block';
-        } else {
-            optionsGroup.style.display = 'none';
-        }
-    }
-}
-
 async function addCategory() {
-    const categoryId = 'CAT_' + new Date().getTime();
     const code = document.getElementById('categoryCode')?.value.trim();
     const name = document.getElementById('categoryName')?.value.trim();
     const formType = document.getElementById('formType')?.value;
 
     if (!code || !name || !formType) {
-        showMessage('يرجى ملء جميع حقول التصنيف الأساسية.', 'warning');
+        showMessage('يرجى ملء جميع حقول التصنيف.', 'warning');
         return;
     }
 
@@ -1090,8 +934,9 @@ async function addCategory() {
 
     showLoading(true);
     try {
+        const categoryId = 'CAT_' + new Date().getTime();
         const newCategoryData = [
-            categoryId, // ID جديد
+            categoryId,
             code,
             name,
             formType,
@@ -1102,37 +947,9 @@ async function addCategory() {
         const result = await appendToSheet(SHEETS.CATEGORIES, newCategoryData);
 
         if (result.success) {
-            // حفظ الحقول المخصصة
-            const customFieldsToSave = [];
-            const customFieldItems = document.querySelectorAll('.custom-field-editor-item');
-            for (const item of customFieldItems) {
-                const fieldName = item.querySelector('input[type="text"]').value.trim();
-                const fieldType = item.querySelector('select').value;
-                const isRequired = item.querySelector('input[type="checkbox"]').checked;
-                const options = fieldType === 'select' ? item.querySelector('.options-group input[type="text"]').value.split(',').map(opt => opt.trim()).filter(opt => opt) : [];
-
-                if (fieldName) {
-                    customFieldsToSave.push([
-                        categoryId,
-                        fieldName,
-                        fieldType,
-                        isRequired.toString(),
-                        JSON.stringify(options)
-                    ]);
-                }
-            }
-
-            if (customFieldsToSave.length > 0) {
-                const customFieldsResult = await appendToSheet(SHEETS.CATEGORY_CUSTOM_FIELDS, customFieldsToSave);
-                if (!customFieldsResult.success) {
-                    showMessage('تم إضافة التصنيف بنجاح، ولكن فشل حفظ بعض الحقول المخصصة.', 'warning');
-                }
-            }
-
             showMessage('تم إضافة التصنيف بنجاح.', 'success');
             closeModal('addCategoryModal');
             await loadCategories();
-            await loadCategoryCustomFields();
             displayCategories('categoriesGridCashier');
             displayCategories('categoriesGridAccountant');
             populateExpenseCategoryFilter();
@@ -1159,7 +976,7 @@ async function updateCategory() {
     const formType = document.getElementById('formType')?.value;
 
     if (!code || !name || !formType) {
-        showMessage('يرجى ملء جميع حقول التصنيف الأساسية.', 'warning');
+        showMessage('يرجى ملء جميع حقول التصنيف.', 'warning');
         return;
     }
 
@@ -1177,67 +994,21 @@ async function updateCategory() {
             return;
         }
 
-        const oldCategory = categories.find(cat => cat.id === currentEditCategoryId);
         const updatedCategoryData = [
             currentEditCategoryId,
             code,
             name,
             formType,
-            oldCategory.creationDate, // الحفاظ على تاريخ الإنشاء الأصلي
-            oldCategory.createdBy // الحفاظ على من أنشأه
+            categories.find(cat => cat.id === currentEditCategoryId).creationDate, // الحفاظ على تاريخ الإنشاء الأصلي
+            categories.find(cat => cat.id === currentEditCategoryId).createdBy // الحفاظ على من أنشأه
         ];
 
         const result = await updateSheet(SHEETS.CATEGORIES, `A${rowIndex}:F${rowIndex}`, [updatedCategoryData]);
 
         if (result.success) {
-            // تحديث الحقول المخصصة: حذف القديم وإضافة الجديد
-            const customFieldsToDelete = categoryCustomFields.filter(cf => cf.categoryId === currentEditCategoryId);
-            for (const cf of customFieldsToDelete) {
-                const cfRowIndex = await findRowIndex(SHEETS.CATEGORY_CUSTOM_FIELDS, 0, cf.categoryId); // البحث بـ CategoryId
-                if (cfRowIndex !== -1) {
-                    // يجب أن نكون أكثر دقة هنا، لأن CategoryId قد يتكرر
-                    // الأفضل هو قراءة كل الصفوف ثم فلترتها وحذفها
-                    const allCustomFieldsData = await readSheet(SHEETS.CATEGORY_CUSTOM_FIELDS);
-                    const rowsToDelete = allCustomFieldsData.map((row, idx) => ({ row, idx }))
-                                                            .filter(item => item.row[0] === currentEditCategoryId);
-                    // حذف الصفوف من الأسفل للأعلى لتجنب مشاكل الفهرسة
-                    for (let i = rowsToDelete.length - 1; i >= 0; i--) {
-                        await deleteSheetRow(SHEETS.CATEGORY_CUSTOM_FIELDS, rowsToDelete[i].idx + 1);
-                    }
-                    break; // تم حذف جميع الحقول المخصصة لهذا التصنيف
-                }
-            }
-
-            const customFieldsToSave = [];
-            const customFieldItems = document.querySelectorAll('.custom-field-editor-item');
-            for (const item of customFieldItems) {
-                const fieldName = item.querySelector('input[type="text"]').value.trim();
-                const fieldType = item.querySelector('select').value;
-                const isRequired = item.querySelector('input[type="checkbox"]').checked;
-                const options = fieldType === 'select' ? item.querySelector('.options-group input[type="text"]').value.split(',').map(opt => opt.trim()).filter(opt => opt) : [];
-
-                if (fieldName) {
-                    customFieldsToSave.push([
-                        currentEditCategoryId,
-                        fieldName,
-                        fieldType,
-                        isRequired.toString(),
-                        JSON.stringify(options)
-                    ]);
-                }
-            }
-
-            if (customFieldsToSave.length > 0) {
-                const customFieldsResult = await appendToSheet(SHEETS.CATEGORY_CUSTOM_FIELDS, customFieldsToSave);
-                if (!customFieldsResult.success) {
-                    showMessage('تم تعديل التصنيف بنجاح، ولكن فشل تحديث بعض الحقول المخصصة.', 'warning');
-                }
-            }
-
             showMessage('تم تعديل التصنيف بنجاح.', 'success');
             closeModal('addCategoryModal');
             await loadCategories();
-            await loadCategoryCustomFields();
             displayCategories('categoriesGridCashier');
             displayCategories('categoriesGridAccountant');
             populateExpenseCategoryFilter();
@@ -1269,17 +1040,8 @@ async function deleteCategory(categoryId, categoryName) {
         const result = await deleteSheetRow(SHEETS.CATEGORIES, rowIndex);
 
         if (result.success) {
-            // حذف الحقول المخصصة المرتبطة بهذا التصنيف
-            const allCustomFieldsData = await readSheet(SHEETS.CATEGORY_CUSTOM_FIELDS);
-            const rowsToDelete = allCustomFieldsData.map((row, idx) => ({ row, idx }))
-                                                    .filter(item => item.row[0] === categoryId);
-            for (let i = rowsToDelete.length - 1; i >= 0; i--) {
-                await deleteSheetRow(SHEETS.CATEGORY_CUSTOM_FIELDS, rowsToDelete[i].idx + 1);
-            }
-
             showMessage('تم حذف التصنيف بنجاح.', 'success');
             await loadCategories();
-            await loadCategoryCustomFields();
             displayCategories('categoriesGridCashier');
             displayCategories('categoriesGridAccountant');
             populateExpenseCategoryFilter();
@@ -1310,9 +1072,6 @@ function showAddExpenseModal() {
     if (selectedExpenseCategoryName) selectedExpenseCategoryName.value = '';
     const selectedExpenseCategoryFormType = document.getElementById('selectedExpenseCategoryFormType');
     if (selectedExpenseCategoryFormType) selectedExpenseCategoryFormType.value = '';
-    const selectedExpenseCategoryId = document.getElementById('selectedExpenseCategoryId'); // حقل جديد لـ CategoryId
-    if (selectedExpenseCategoryId) selectedExpenseCategoryId.value = '';
-
     const dynamicExpenseForm = document.getElementById('dynamicExpenseForm');
     if (dynamicExpenseForm) dynamicExpenseForm.innerHTML = '';
 
@@ -1362,10 +1121,9 @@ async function showEditExpenseModal(expenseId) {
         document.getElementById('selectedExpenseCategoryCode').value = category.code;
         document.getElementById('selectedExpenseCategoryName').value = category.name;
         document.getElementById('selectedExpenseCategoryFormType').value = category.formType;
-        document.getElementById('selectedExpenseCategoryId').value = category.id; // حفظ ID التصنيف
 
         // توليد الفورم الديناميكي وملء البيانات
-        await generateDynamicExpenseForm(category.formType, category.id, expense); // تمرير بيانات المصروف لملء الحقول المخصصة
+        generateDynamicExpenseForm(category.formType);
 
         document.getElementById('expenseInvoiceNumber').value = expense.invoiceNumber || '';
         document.getElementById('expenseAmount').value = expense.amount;
@@ -1390,13 +1148,6 @@ async function showEditExpenseModal(expenseId) {
                 document.getElementById('customerSearch').value = `${customer.name} (${customer.phone})`;
                 document.getElementById('selectedCustomerId').value = customer.id;
                 document.getElementById('selectedCustomerName').value = customer.name;
-            }
-        } else if (category.formType === 'سلف_موظف') { // نوع جديد لسلف الموظفين
-            const employee = employees.find(emp => emp.id === expense.employee);
-            if (employee) {
-                document.getElementById('employeeSearch').value = `${employee.name} (${employee.phone})`;
-                document.getElementById('selectedEmployeeId').value = employee.id;
-                document.getElementById('selectedEmployeeName').value = employee.name;
             }
         }
 
@@ -1453,7 +1204,7 @@ function searchExpenseCategories(searchTerm) {
     suggestionsDiv.style.display = 'block';
 }
 
-async function selectExpenseCategory(category) {
+function selectExpenseCategory(category) {
     const expenseCategorySearch = document.getElementById('expenseCategorySearch');
     if (expenseCategorySearch) expenseCategorySearch.value = `${category.name} (${category.code})`;
     const selectedExpenseCategoryCode = document.getElementById('selectedExpenseCategoryCode');
@@ -1462,26 +1213,24 @@ async function selectExpenseCategory(category) {
     if (selectedExpenseCategoryName) selectedExpenseCategoryName.value = category.name;
     const selectedExpenseCategoryFormType = document.getElementById('selectedExpenseCategoryFormType');
     if (selectedExpenseCategoryFormType) selectedExpenseCategoryFormType.value = category.formType;
-    const selectedExpenseCategoryId = document.getElementById('selectedExpenseCategoryId');
-    if (selectedExpenseCategoryId) selectedExpenseCategoryId.value = category.id; // حفظ ID التصنيف
     const expenseCategorySuggestions = document.getElementById('expenseCategorySuggestions');
     if (expenseCategorySuggestions) expenseCategorySuggestions.style.display = 'none';
 
-    await generateDynamicExpenseForm(category.formType, category.id);
+    generateDynamicExpenseForm(category.formType);
 }
 
-async function generateDynamicExpenseForm(formType, categoryId, expenseData = {}) {
+function generateDynamicExpenseForm(formType) {
     const dynamicFormDiv = document.getElementById('dynamicExpenseForm');
     if (!dynamicFormDiv) return;
 
     let formHtml = ``;
 
     // إضافة حقل رقم الفاتورة لجميع الأنواع التي تتطلبها، بما في ذلك "أجل"
-    if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات', 'سلف_موظف'].includes(formType)) {
+    if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات'].includes(formType)) {
         formHtml += `
             <div class="form-group">
                 <label for="expenseInvoiceNumber">رقم الفاتورة: <span style="color: red;">*</span></label>
-                <input type="text" id="expenseInvoiceNumber" required placeholder="أدخل رقم الفاتورة" value="${expenseData.invoiceNumber || ''}">
+                <input type="text" id="expenseInvoiceNumber" required placeholder="أدخل رقم الفاتورة">
             </div>
         `;
     }
@@ -1489,11 +1238,11 @@ async function generateDynamicExpenseForm(formType, categoryId, expenseData = {}
     formHtml += `
         <div class="form-group">
             <label for="expenseAmount">القيمة: <span style="color: red;">*</span></label>
-            <input type="number" id="expenseAmount" step="0.01" required placeholder="أدخل القيمة" value="${expenseData.amount || ''}">
+            <input type="number" id="expenseAmount" step="0.01" required placeholder="أدخل القيمة">
         </div>
         <div class="form-group">
             <label for="expenseNotes">الملاحظات (اختياري):</label>
-            <input type="text" id="expenseNotes" placeholder="أدخل ملاحظات" value="${expenseData.notes || ''}">
+            <input type="text" id="expenseNotes" placeholder="أدخل ملاحظات">
         </div>
     `;
 
@@ -1501,43 +1250,43 @@ async function generateDynamicExpenseForm(formType, categoryId, expenseData = {}
         formHtml += `
             <div class="form-group">
                 <label for="visaReferenceNumber">الرقم المرجعي للفيزا (آخر 4 أرقام): <span style="color: red;">*</span></label>
-                <input type="text" id="visaReferenceNumber" pattern="\\d{4}" maxlength="4" required placeholder="أدخل آخر 4 أرقام من الفيزا" value="${expenseData.referenceNumber || ''}">
+                <input type="text" id="visaReferenceNumber" pattern="\\d{4}" maxlength="4" required placeholder="أدخل آخر 4 أرقام من الفيزا">
             </div>
         `;
     } else if (formType === 'شحن_تاب') {
         formHtml += `
             <div class="form-group">
                 <label for="tabName">اسم التاب (اختياري):</label>
-                <input type="text" id="tabName" placeholder="أدخل اسم التاب" value="${expenseData.tabName || ''}">
+                <input type="text" id="tabName" placeholder="أدخل اسم التاب">
             </div>
             <div class="form-group">
                 <label for="tabPhone">رقم تليفون التاب:</label>
-                <input type="tel" id="tabPhone" required placeholder="أدخل رقم تليفون التاب" value="${expenseData.tabPhone || ''}">
+                <input type="tel" id="tabPhone" required placeholder="أدخل رقم تليفون التاب">
             </div>
         `;
     } else if (formType === 'شحن_كهربا') {
         formHtml += `
             <div class="form-group">
                 <label for="electricityLocation">مكان الشحن:</label>
-                <input type="text" id="electricityLocation" required placeholder="أدخل مكان الشحن" value="${expenseData.location || ''}">
+                <input type="text" id="electricityLocation" required placeholder="أدخل مكان الشحن">
             </div>
         `;
     } else if (['بنزين', 'سلف', 'عجوزات'].includes(formType)) {
         formHtml += `
             <div class="form-group">
                 <label for="personName">اسم الشخص:</label>
-                <input type="text" id="personName" required placeholder="أدخل اسم الشخص" value="${expenseData.personName || ''}">
+                <input type="text" id="personName" required placeholder="أدخل اسم الشخص">
             </div>
         `;
     } else if (formType === 'دفعة_شركة') {
         formHtml += `
             <div class="form-group">
                 <label for="companyName">اسم الشركة:</label>
-                <input type="text" id="companyName" required placeholder="أدخل اسم الشركة" value="${expenseData.companyName || ''}">
+                <input type="text" id="companyName" required placeholder="أدخل اسم الشركة">
             </div>
             <div class="form-group">
                 <label for="companyCode">كود الشركة:</label>
-                <input type="text" id="companyCode" placeholder="أدخل كود الشركة" value="${expenseData.companyCode || ''}">
+                <input type="text" id="companyCode" placeholder="أدخل كود الشركة">
             </div>
         `;
     } else if (formType === 'اجل') {
@@ -1545,61 +1294,16 @@ async function generateDynamicExpenseForm(formType, categoryId, expenseData = {}
             <div class="form-group">
                 <label for="customerSearch">البحث عن العميل: <span style="color: red;">*</span></label>
                 <div class="input-group">
-                    <input type="text" id="customerSearch" placeholder="ابحث بالاسم أو الرقم" onkeyup="searchCustomersForExpense(this.value)" autocomplete="off" value="${expenseData.customer ? (customers.find(c => c.id === expenseData.customer)?.name + ' (' + customers.find(c => c.id === expenseData.customer)?.phone + ')') : ''}">
+                    <input type="text" id="customerSearch" placeholder="ابحث بالاسم أو الرقم" onkeyup="searchCustomersForExpense(this.value)" autocomplete="off">
                     <div id="customerSuggestions" class="suggestions"></div>
                 </div>
-                <input type="hidden" id="selectedCustomerId" value="${expenseData.customer || ''}">
-                <input type="hidden" id="selectedCustomerName" value="${expenseData.customer ? customers.find(c => c.id === expenseData.customer)?.name : ''}">
+                <input type="hidden" id="selectedCustomerId">
+                <input type="hidden" id="selectedCustomerName">
             </div>
             <button type="button" class="add-btn" onclick="showAddCustomerModalFromExpense()" style="margin-top: 10px;">
                 <i class="fas fa-plus"></i> إضافة عميل جديد
             </button>
         `;
-    } else if (formType === 'سلف_موظف') { // حقول جديدة لسلف الموظفين
-        formHtml += `
-            <div class="form-group">
-                <label for="employeeSearch">البحث عن الموظف: <span style="color: red;">*</span></label>
-                <div class="input-group">
-                    <input type="text" id="employeeSearch" placeholder="ابحث بالاسم أو الرقم" onkeyup="searchEmployeesForExpense(this.value)" autocomplete="off" value="${expenseData.employee ? (employees.find(e => e.id === expenseData.employee)?.name + ' (' + employees.find(e => e.id === expenseData.employee)?.phone + ')') : ''}">
-                    <div id="employeeSuggestions" class="suggestions"></div>
-                </div>
-                <input type="hidden" id="selectedEmployeeId" value="${expenseData.employee || ''}">
-                <input type="hidden" id="selectedEmployeeName" value="${expenseData.employee ? employees.find(e => e.id === expenseData.employee)?.name : ''}">
-            </div>
-            <button type="button" class="add-btn" onclick="showAddEmployeeModalFromExpense()" style="margin-top: 10px;">
-                <i class="fas fa-plus"></i> إضافة موظف جديد
-            </button>
-        `;
-    }
-
-    // إضافة الحقول المخصصة ديناميكيًا
-    const customFieldsForCategory = categoryCustomFields.filter(cf => cf.categoryId === categoryId);
-    if (customFieldsForCategory.length > 0) {
-        formHtml += `<div class="section-header" style="margin-top: 20px;"><h4>حقول إضافية</h4></div>`;
-        customFieldsForCategory.forEach(cf => {
-            const fieldId = `customField_${cf.fieldName.replace(/\s/g, '_')}`;
-            const requiredAttr = cf.isRequired ? 'required' : '';
-            const fieldValue = expenseData.customFields ? expenseData.customFields[cf.fieldName] || '' : '';
-
-            if (cf.fieldType === 'select') {
-                formHtml += `
-                    <div class="form-group">
-                        <label for="${fieldId}">${cf.fieldName}: ${cf.isRequired ? '<span style="color: red;">*</span>' : ''}</label>
-                        <select id="${fieldId}" ${requiredAttr}>
-                            <option value="">اختر...</option>
-                            ${cf.options.map(option => `<option value="${option}" ${fieldValue === option ? 'selected' : ''}>${option}</option>`).join('')}
-                        </select>
-                    </div>
-                `;
-            } else {
-                formHtml += `
-                    <div class="form-group">
-                        <label for="${fieldId}">${cf.fieldName}: ${cf.isRequired ? '<span style="color: red;">*</span>' : ''}</label>
-                        <input type="${cf.fieldType}" id="${fieldId}" ${requiredAttr} placeholder="أدخل ${cf.fieldName}" value="${fieldValue}">
-                    </div>
-                `;
-            }
-        });
     }
 
     dynamicFormDiv.innerHTML = formHtml;
@@ -1656,58 +1360,6 @@ function showAddCustomerModalFromExpense() {
     }, 300);
 }
 
-// وظائف جديدة للبحث واختيار الموظفين في فورم المصروفات
-function searchEmployeesForExpense(searchTerm) {
-    const suggestionsDiv = document.getElementById('employeeSuggestions');
-    if (!suggestionsDiv) return;
-
-    suggestionsDiv.innerHTML = '';
-
-    if (searchTerm.length < 2) {
-        suggestionsDiv.style.display = 'none';
-        return;
-    }
-
-    const filtered = employees.filter(emp =>
-        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.phone.includes(searchTerm)
-    );
-
-    if (filtered.length === 0) {
-        suggestionsDiv.innerHTML = '<div class="suggestion-item">لا توجد نتائج</div>';
-        suggestionsDiv.style.display = 'block';
-        return;
-    }
-
-    filtered.forEach(emp => {
-        const item = document.createElement('div');
-        item.className = 'suggestion-item';
-        item.textContent = `${emp.name} (${emp.phone}) - سلف: ${emp.totalAdvance.toFixed(2)}`;
-        item.onclick = () => selectEmployeeForExpense(emp);
-        suggestionsDiv.appendChild(item);
-    });
-
-    suggestionsDiv.style.display = 'block';
-}
-
-function selectEmployeeForExpense(employee) {
-    const employeeSearch = document.getElementById('employeeSearch');
-    if (employeeSearch) employeeSearch.value = `${employee.name} (${employee.phone})`;
-    const selectedEmployeeId = document.getElementById('selectedEmployeeId');
-    if (selectedEmployeeId) selectedEmployeeId.value = employee.id;
-    const selectedEmployeeName = document.getElementById('selectedEmployeeName');
-    if (selectedEmployeeName) selectedEmployeeName.value = employee.name;
-    const employeeSuggestions = document.getElementById('employeeSuggestions');
-    if (employeeSuggestions) employeeSuggestions.style.display = 'none';
-}
-
-function showAddEmployeeModalFromExpense() {
-    closeModal('addExpenseModal');
-    setTimeout(() => {
-        showAddEmployeeModal(true);
-    }, 300);
-}
-
 async function addExpense() {
     if (expenseSubmissionInProgress) {
         console.log('Expense submission already in progress, skipping...');
@@ -1720,7 +1372,6 @@ async function addExpense() {
         const now = new Date();
         const currentDateTimeISO = now.toISOString(); // استخدام ISO 8601 لتجنب مشاكل التوقيت
 
-        const categoryId = document.getElementById('selectedExpenseCategoryId')?.value; // ID التصنيف
         const categoryCode = document.getElementById('selectedExpenseCategoryCode')?.value;
         const categoryName = document.getElementById('selectedExpenseCategoryName')?.value;
         const formType = document.getElementById('selectedExpenseCategoryFormType')?.value;
@@ -1731,13 +1382,13 @@ async function addExpense() {
         const visaReferenceNumber = document.getElementById('visaReferenceNumber')?.value.trim() || '';
 
 
-        if (!categoryId || !categoryCode || isNaN(amount) || amount <= 0) {
+        if (!categoryCode || isNaN(amount) || amount <= 0) {
             showMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة وموجبة.', 'warning');
             return;
         }
 
         // التحقق من رقم الفاتورة إذا كان مطلوبًا
-        if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات', 'سلف_موظف'].includes(formType)) {
+        if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات'].includes(formType)) {
             if (!invoiceNumber) {
                 showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
                 return;
@@ -1810,56 +1461,6 @@ async function addExpense() {
                 return;
             }
         }
-
-        // Handle employee advance for "سلف_موظف" type
-        if (formType === 'سلف_موظف') {
-            const employeeId = document.getElementById('selectedEmployeeId')?.value;
-            if (!employeeId) {
-                showMessage('يرجى اختيار الموظف.', 'warning');
-                return;
-            }
-
-            const employeeIndex = employees.findIndex(e => e.id === employeeId);
-            if (employeeIndex !== -1) {
-                const currentEmployee = employees[employeeIndex];
-                const newTotalAdvance = currentEmployee.totalAdvance + amount;
-
-                const rowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, employeeId);
-                if (rowIndex !== -1) {
-                    const updateResult = await updateSheet(SHEETS.EMPLOYEES, `D${rowIndex}`, [[newTotalAdvance.toFixed(2)]]);
-                    if (!updateResult.success) {
-                        showMessage('فشل تحديث إجمالي السلف للموظف.', 'error');
-                        return;
-                    }
-                    await updateSheet(SHEETS.EMPLOYEES, `F${rowIndex}`, [[currentDateTimeISO.split('T')[0]]]);
-                } else {
-                    showMessage('لم يتم العثور على الموظف لتحديث السلف.', 'error');
-                    return;
-                }
-
-                currentEmployee.totalAdvance = newTotalAdvance;
-                employees[employeeIndex] = currentEmployee;
-
-                const historyId = 'EAH_' + now.getTime();
-                const newHistoryEntry = [
-                    historyId,
-                    employeeId,
-                    currentDateTimeISO.split('T')[0],
-                    'سلفة',
-                    amount.toFixed(2),
-                    notes,
-                    currentUser.username
-                ];
-                const historyResult = await appendToSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY, newHistoryEntry);
-                if (!historyResult.success) {
-                    showMessage('فشل تسجيل حركة السلفة.', 'error');
-                    return;
-                }
-            } else {
-                showMessage('الموظف المختار غير موجود.', 'error');
-                return;
-            }
-        }
         
         const expenseId = 'EXP_' + now.getTime();
 
@@ -1881,21 +1482,8 @@ async function addExpense() {
             document.getElementById('personName')?.value.trim() || '',
             document.getElementById('companyName')?.value.trim() || '',
             document.getElementById('companyCode')?.value.trim() || '',
-            document.getElementById('selectedCustomerId')?.value || '',
-            document.getElementById('selectedEmployeeId')?.value || '' // حقل الموظف
+            document.getElementById('selectedCustomerId')?.value || ''
         ];
-
-        // إضافة قيم الحقول المخصصة إلى expenseData
-        const customFieldsForCategory = categoryCustomFields.filter(cf => cf.categoryId === categoryId);
-        for (const cf of customFieldsForCategory) {
-            const fieldId = `customField_${cf.fieldName.replace(/\s/g, '_')}`;
-            const fieldValue = document.getElementById(fieldId)?.value || '';
-            if (cf.isRequired && !fieldValue) {
-                showMessage(`يرجى ملء الحقل المطلوب: ${cf.fieldName}.`, 'warning');
-                return;
-            }
-            expenseData.push(fieldValue);
-        }
 
         const result = await appendToSheet(SHEETS.EXPENSES, expenseData);
 
@@ -1905,10 +1493,6 @@ async function addExpense() {
             if (formType === 'اجل') {
                 await loadCustomers(); // تحديث قائمة العملاء بعد إضافة أجل
                 displayCustomers('customersTableBodyCashier');
-            }
-            if (formType === 'سلف_موظف') {
-                await loadEmployees(); // تحديث قائمة الموظفين بعد إضافة سلفة
-                displayEmployees('employeesTableBodyAccountant');
             }
 
             // إذا كان الفورم مثبتًا، قم بمسح الحقول ذات الصلة فقط
@@ -1933,16 +1517,6 @@ async function addExpense() {
                     document.getElementById('customerSearch').value = '';
                     document.getElementById('selectedCustomerId').value = '';
                     document.getElementById('selectedCustomerName').value = '';
-                } else if (formType === 'سلف_موظف') {
-                    document.getElementById('employeeSearch').value = '';
-                    document.getElementById('selectedEmployeeId').value = '';
-                    document.getElementById('selectedEmployeeName').value = '';
-                }
-                // مسح الحقول المخصصة
-                for (const cf of customFieldsForCategory) {
-                    const fieldId = `customField_${cf.fieldName.replace(/\s/g, '_')}`;
-                    const fieldElement = document.getElementById(fieldId);
-                    if (fieldElement) fieldElement.value = '';
                 }
             } else {
                 closeModal('addExpenseModal');
@@ -1970,7 +1544,6 @@ async function updateExpense() {
         const now = new Date();
         const currentDateTimeISO = now.toISOString();
 
-        const categoryId = document.getElementById('selectedExpenseCategoryId')?.value;
         const categoryCode = document.getElementById('selectedExpenseCategoryCode')?.value;
         const categoryName = document.getElementById('selectedExpenseCategoryName')?.value;
         const formType = document.getElementById('selectedExpenseCategoryFormType')?.value;
@@ -1981,12 +1554,12 @@ async function updateExpense() {
         const visaReferenceNumber = document.getElementById('visaReferenceNumber')?.value.trim() || '';
 
 
-        if (!categoryId || !categoryCode || isNaN(amount) || amount <= 0) {
+        if (!categoryCode || isNaN(amount) || amount <= 0) {
             showMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة وموجبة.', 'warning');
             return;
         }
 
-        if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات', 'سلف_موظف'].includes(formType)) {
+        if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات'].includes(formType)) {
             if (!invoiceNumber) {
                 showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
                 return;
@@ -2069,61 +1642,13 @@ async function updateExpense() {
             }
         }
 
-        // معالجة تعديل سلف الموظفين
-        if (formType === 'سلف_موظف') {
-            const employeeId = document.getElementById('selectedEmployeeId')?.value;
-            if (!employeeId) {
-                showMessage('يرجى اختيار الموظف.', 'warning');
-                return;
-            }
-
-            const oldEmployeeId = oldExpense.employee;
-            const oldAmount = oldExpense.amount;
-
-            if (oldEmployeeId !== employeeId || oldAmount !== amount) {
-                if (oldEmployeeId) {
-                    const oldEmployee = employees.find(e => e.id === oldEmployeeId);
-                    if (oldEmployee) {
-                        const oldEmployeeRowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, oldEmployeeId);
-                        if (oldEmployeeRowIndex !== -1) {
-                            const newOldEmployeeAdvance = oldEmployee.totalAdvance - oldAmount;
-                            await updateSheet(SHEETS.EMPLOYEES, `D${oldEmployeeRowIndex}`, [[newOldEmployeeAdvance.toFixed(2)]]);
-                            oldEmployee.totalAdvance = newOldEmployeeAdvance;
-                        }
-                    }
-                }
-
-                const newEmployee = employees.find(e => e.id === employeeId);
-                if (newEmployee) {
-                    const newEmployeeRowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, employeeId);
-                    if (newEmployeeRowIndex !== -1) {
-                        const newNewEmployeeAdvance = newEmployee.totalAdvance + amount;
-                        await updateSheet(SHEETS.EMPLOYEES, `D${newEmployeeRowIndex}`, [[newNewEmployeeAdvance.toFixed(2)]]);
-                        newEmployee.totalAdvance = newNewEmployeeAdvance;
-                    }
-                }
-
-                const historyId = 'EAH_' + now.getTime();
-                const newHistoryEntry = [
-                    historyId,
-                    employeeId,
-                    currentDateTimeISO.split('T')[0],
-                    'تعديل سلفة',
-                    amount.toFixed(2),
-                    `تعديل مصروف ${currentEditExpenseId} بواسطة ${currentUser.username}`,
-                    currentUser.username
-                ];
-                await appendToSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY, newHistoryEntry);
-            }
-        }
-
         const rowIndex = await findRowIndex(SHEETS.EXPENSES, 0, currentEditExpenseId);
         if (rowIndex === -1) {
             showMessage('لم يتم العثور على المصروف لتحديثه.', 'error');
             return;
         }
 
-        let updatedExpenseData = [
+        const updatedExpenseData = [
             currentEditExpenseId,
             categoryName,
             categoryCode,
@@ -2141,23 +1666,10 @@ async function updateExpense() {
             document.getElementById('personName')?.value.trim() || '',
             document.getElementById('companyName')?.value.trim() || '',
             document.getElementById('companyCode')?.value.trim() || '',
-            document.getElementById('selectedCustomerId')?.value || '',
-            document.getElementById('selectedEmployeeId')?.value || '' // حقل الموظف
+            document.getElementById('selectedCustomerId')?.value || ''
         ];
 
-        // إضافة قيم الحقول المخصصة المحدثة
-        const customFieldsForCategory = categoryCustomFields.filter(cf => cf.categoryId === categoryId);
-        for (const cf of customFieldsForCategory) {
-            const fieldId = `customField_${cf.fieldName.replace(/\s/g, '_')}`;
-            const fieldValue = document.getElementById(fieldId)?.value || '';
-            if (cf.isRequired && !fieldValue) {
-                showMessage(`يرجى ملء الحقل المطلوب: ${cf.fieldName}.`, 'warning');
-                return;
-            }
-            updatedExpenseData.push(fieldValue);
-        }
-
-        const result = await updateSheet(SHEETS.EXPENSES, `A${rowIndex}:${String.fromCharCode(65 + updatedExpenseData.length - 1)}${rowIndex}`, [updatedExpenseData]);
+        const result = await updateSheet(SHEETS.EXPENSES, `A${rowIndex}:R${rowIndex}`, [updatedExpenseData]);
 
         if (result.success) {
             showMessage('تم تعديل المصروف بنجاح.', 'success');
@@ -2166,10 +1678,6 @@ async function updateExpense() {
             if (formType === 'اجل') {
                 await loadCustomers(); // تحديث قائمة العملاء بعد تعديل أجل
                 displayCustomers('customersTableBodyCashier');
-            }
-            if (formType === 'سلف_موظف') {
-                await loadEmployees(); // تحديث قائمة الموظفين بعد تعديل سلفة
-                displayEmployees('employeesTableBodyAccountant');
             }
         } else {
             showMessage('فشل تعديل المصروف.', 'error');
@@ -2232,31 +1740,6 @@ async function deleteExpense(expenseId, expenseCategory, expenseAmount, expenseI
             }
         }
 
-        // إذا كان المصروف من نوع "سلف_موظف"، يجب تعديل رصيد الموظف
-        if (formType === 'سلف_موظف' && expense.employee) {
-            const employee = employees.find(e => e.id === expense.employee);
-            if (employee) {
-                const employeeRowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, expense.employee);
-                if (employeeRowIndex !== -1) {
-                    const newTotalAdvance = employee.totalAdvance - expense.amount;
-                    await updateSheet(SHEETS.EMPLOYEES, `D${employeeRowIndex}`, [[newTotalAdvance.toFixed(2)]]);
-                    employee.totalAdvance = newTotalAdvance;
-                }
-                const now = new Date();
-                const historyId = 'EAH_' + now.getTime();
-                const newHistoryEntry = [
-                    historyId,
-                    expense.employee,
-                    now.toISOString().split('T')[0],
-                    'حذف سلفة',
-                    (-expense.amount).toFixed(2),
-                    `حذف مصروف ${expenseId} بواسطة ${currentUser.username}`,
-                    currentUser.username
-                ];
-                await appendToSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY, newHistoryEntry);
-            }
-        }
-
         const result = await deleteSheetRow(SHEETS.EXPENSES, rowIndex);
 
         if (result.success) {
@@ -2265,10 +1748,6 @@ async function deleteExpense(expenseId, expenseCategory, expenseAmount, expenseI
             if (formType === 'اجل') {
                 await loadCustomers(); // تحديث قائمة العملاء بعد حذف أجل
                 displayCustomers('customersTableBodyCashier');
-            }
-            if (formType === 'سلف_موظف') {
-                await loadEmployees(); // تحديث قائمة الموظفين بعد حذف سلفة
-                displayEmployees('employeesTableBodyAccountant');
             }
         } else {
             showMessage('فشل حذف المصروف.', 'error');
@@ -2575,7 +2054,7 @@ async function addCustomer() {
 
     const existingCustomer = customers.find(cust => cust.phone === phone);
     if (existingCustomer) {
-        showMessage('رقم التليفون موجود بالفعل لعميل آخر. يرجى استخدام رقم فريد.', 'warning');
+        showMessage('رقم التليفون موجود بالفعل لعميل آخر.', 'warning');
         return;
     }
 
@@ -2710,334 +2189,6 @@ async function deleteCustomer(customerId, customerName) {
     } catch (error) {
         console.error('Error deleting customer:', error);
         showMessage('حدث خطأ أثناء حذف العميل.', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// --- Employees Management (New Section) ---
-function displayEmployees(tableBodyId) {
-    const tableBody = document.getElementById(tableBodyId);
-    if (!tableBody) return;
-
-    tableBody.innerHTML = '';
-    if (employees.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5">لا توجد موظفين مسجلين.</td></tr>';
-        return;
-    }
-
-    employees.sort((a, b) => new Date(b.creationDate) - new Date(a.creationDate));
-
-    employees.forEach(emp => {
-        const row = tableBody.insertRow();
-        row.insertCell().textContent = emp.name;
-        row.insertCell().textContent = emp.phone;
-        row.insertCell().textContent = emp.totalAdvance.toFixed(2);
-        row.insertCell().textContent = new Date(emp.creationDate).toLocaleDateString('ar-EG');
-        const actionsCell = row.insertCell();
-
-        actionsCell.innerHTML = `
-            <button class="edit-btn" onclick="showEditEmployeeModal('${emp.id}')"><i class="fas fa-edit"></i> تعديل</button>
-            <button class="delete-btn" onclick="deleteEmployee('${emp.id}', '${emp.name}')"><i class="fas fa-trash"></i> حذف</button>
-            <button class="view-btn" onclick="viewEmployeeDetails('${emp.id}', '${emp.name}')"><i class="fas fa-eye"></i> تفاصيل</button>
-        `;
-    });
-}
-
-async function viewEmployeeDetails(employeeId, employeeName) {
-    showLoading(true);
-    try {
-        currentSelectedEmployeeId = employeeId;
-        const employeeDetailsName = document.getElementById('employeeDetailsName');
-        if (employeeDetailsName) employeeDetailsName.textContent = employeeName;
-        const employeeDetailsAccountant = document.getElementById('employeeDetailsAccountant');
-        if (employeeDetailsAccountant) employeeDetailsAccountant.style.display = 'block';
-        const employeePaymentAmount = document.getElementById('employeePaymentAmount');
-        if (employeePaymentAmount) employeePaymentAmount.value = '';
-
-        const history = await loadEmployeeAdvanceHistory(employeeId);
-        const tableBody = document.getElementById('employeeAdvanceHistoryBody');
-        if (!tableBody) return;
-
-        tableBody.innerHTML = '';
-        if (history.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="5">لا توجد حركات سلف/سداد لهذا الموظف.</td></tr>';
-            return;
-        }
-
-        history.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        history.forEach(item => {
-            const row = tableBody.insertRow();
-            row.insertCell().textContent = item.date;
-            row.insertCell().textContent = item.type;
-            row.insertCell().textContent = item.amount.toFixed(2);
-            row.insertCell().textContent = item.notes || '--';
-            row.insertCell().textContent = item.recordedBy;
-        });
-    } catch (error) {
-        console.error('Error viewing employee details:', error);
-        showMessage('حدث خطأ أثناء عرض تفاصيل الموظف.', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-async function processEmployeePayment() {
-    if (!currentSelectedEmployeeId) {
-        showMessage('يرجى اختيار موظف أولاً.', 'warning');
-        return;
-    }
-
-    const paymentAmountInput = document.getElementById('employeePaymentAmount');
-    const paymentAmount = paymentAmountInput ? parseFloat(paymentAmountInput.value) : NaN;
-    if (isNaN(paymentAmount) || paymentAmount <= 0) {
-        showMessage('يرجى إدخال مبلغ سداد صحيح وموجب.', 'warning');
-        return;
-    }
-
-    showLoading(true);
-    try {
-        const employeeIndex = employees.findIndex(e => e.id === currentSelectedEmployeeId);
-        if (employeeIndex === -1) {
-            showMessage('الموظف غير موجود.', 'error');
-            return;
-        }
-
-        const currentEmployee = employees[employeeIndex];
-        if (currentEmployee.totalAdvance < paymentAmount) {
-            showMessage('مبلغ السداد أكبر من إجمالي السلف المستحقة.', 'warning');
-            return;
-        }
-
-        const newTotalAdvance = currentEmployee.totalAdvance - paymentAmount;
-        const now = new Date();
-        const date = now.toISOString().split('T')[0];
-
-        const rowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, currentSelectedEmployeeId);
-        if (rowIndex !== -1) {
-            const updateResult = await updateSheet(SHEETS.EMPLOYEES, `D${rowIndex}`, [[newTotalAdvance.toFixed(2)]]);
-            if (!updateResult.success) {
-                showMessage('فشل تحديث إجمالي السلف للموظف.', 'error');
-                return;
-            }
-            await updateSheet(SHEETS.EMPLOYEES, `F${rowIndex}`, [[date]]);
-        } else {
-            showMessage('لم يتم العثور على الموظف لتحديث السلف.', 'error');
-            return;
-        }
-
-        const historyId = 'EAH_' + now.getTime();
-        const newHistoryEntry = [
-            historyId,
-            currentSelectedEmployeeId,
-            date,
-            'سداد سلفة',
-            paymentAmount.toFixed(2),
-            `سداد من المحاسب ${currentUserName}`,
-            currentUser.username
-        ];
-        const historyResult = await appendToSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY, newHistoryEntry);
-        if (!historyResult.success) {
-            showMessage('فشل تسجيل حركة السداد.', 'error');
-            return;
-        }
-
-        currentEmployee.totalAdvance = newTotalAdvance;
-        employees[employeeIndex] = currentEmployee;
-
-        showMessage('تم سداد السلفة بنجاح.', 'success');
-        if (paymentAmountInput) paymentAmountInput.value = '';
-        await viewEmployeeDetails(currentSelectedEmployeeId, currentEmployee.name); // تحديث عرض التفاصيل
-        displayEmployees('employeesTableBodyAccountant'); // تحديث جدول الموظفين
-        updateAccountantDashboard(); // تحديث لوحة التحكم
-    } catch (error) {
-        console.error('Error processing employee payment:', error);
-        showMessage('حدث خطأ أثناء معالجة السداد.', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-function showAddEmployeeModal(fromExpense = false) {
-    const form = document.getElementById('addEmployeeForm');
-    if (form) {
-        form.reset();
-        document.getElementById('addEmployeeModalTitle').textContent = 'إضافة موظف جديد';
-        document.getElementById('addEmployeeModalSaveBtn').onclick = addEmployee;
-        currentEditEmployeeId = null; // مسح أي ID لموظف سابق
-    }
-
-    const modal = document.getElementById('addEmployeeModal');
-    if (modal) {
-        modal.classList.add('active');
-        modal.dataset.fromExpense = fromExpense;
-    }
-}
-
-async function showEditEmployeeModal(employeeId) {
-    const employee = employees.find(emp => emp.id === employeeId);
-    if (!employee) {
-        showMessage('الموظف غير موجود.', 'error');
-        return;
-    }
-
-    document.getElementById('employeeName').value = employee.name;
-    document.getElementById('employeePhone').value = employee.phone;
-
-    document.getElementById('addEmployeeModalTitle').textContent = 'تعديل موظف';
-    document.getElementById('addEmployeeModalSaveBtn').onclick = updateEmployee;
-    currentEditEmployeeId = employeeId;
-
-    const modal = document.getElementById('addEmployeeModal');
-    if (modal) {
-        modal.classList.add('active');
-    }
-}
-
-async function addEmployee() {
-    const name = document.getElementById('employeeName')?.value.trim();
-    const phone = document.getElementById('employeePhone')?.value.trim();
-
-    if (!name || !phone) {
-        showMessage('يرجى ملء جميع حقول الموظف.', 'warning');
-        return;
-    }
-
-    const existingEmployee = employees.find(emp => emp.phone === phone);
-    if (existingEmployee) {
-        showMessage('رقم التليفون موجود بالفعل لموظف آخر. يرجى استخدام رقم فريد.', 'warning');
-        return;
-    }
-
-    showLoading(true);
-    try {
-        const employeeId = 'EMP_' + new Date().getTime();
-        const newEmployeeData = [
-            employeeId,
-            name,
-            phone,
-            '0.00', // Total Advance starts at 0
-            new Date().toISOString().split('T')[0],
-            new Date().toISOString().split('T')[0]
-        ];
-
-        const result = await appendToSheet(SHEETS.EMPLOYEES, newEmployeeData);
-
-        if (result.success) {
-            showMessage('تم إضافة الموظف بنجاح.', 'success');
-            closeModal('addEmployeeModal');
-            await loadEmployees();
-            displayEmployees('employeesTableBodyAccountant');
-            updateAccountantDashboard();
-
-            const modal = document.getElementById('addEmployeeModal');
-            if (modal && modal.dataset.fromExpense === 'true') {
-                showAddExpenseModal();
-                const newEmployeeObj = { id: employeeId, name: name, phone: phone, totalAdvance: 0 };
-                selectEmployeeForExpense(newEmployeeObj);
-            }
-        } else {
-            showMessage('فشل إضافة الموظف.', 'error');
-        }
-    } catch (error) {
-        console.error('Error adding employee:', error);
-        showMessage('حدث خطأ أثناء إضافة الموظف.', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-async function updateEmployee() {
-    if (!currentEditEmployeeId) {
-        showMessage('لا يوجد موظف محدد للتعديل.', 'error');
-        return;
-    }
-
-    const name = document.getElementById('employeeName')?.value.trim();
-    const phone = document.getElementById('employeePhone')?.value.trim();
-
-    if (!name || !phone) {
-        showMessage('يرجى ملء جميع حقول الموظف.', 'warning');
-        return;
-    }
-
-    const existingEmployee = employees.find(emp => emp.phone === phone && emp.id !== currentEditEmployeeId);
-    if (existingEmployee) {
-        showMessage('رقم التليفون موجود بالفعل لموظف آخر. يرجى استخدام رقم فريد.', 'warning');
-        return;
-    }
-
-    showLoading(true);
-    try {
-        const rowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, currentEditEmployeeId);
-        if (rowIndex === -1) {
-            showMessage('لم يتم العثور على الموظف لتحديثه.', 'error');
-            return;
-        }
-
-        const oldEmployee = employees.find(emp => emp.id === currentEditEmployeeId);
-        const updatedEmployeeData = [
-            currentEditEmployeeId,
-            name,
-            phone,
-            oldEmployee.totalAdvance.toFixed(2), // الحفاظ على إجمالي السلف
-            oldEmployee.creationDate, // الحفاظ على تاريخ الإنشاء
-            new Date().toISOString().split('T')[0] // تحديث تاريخ آخر تعديل
-        ];
-
-        const result = await updateSheet(SHEETS.EMPLOYEES, `A${rowIndex}:F${rowIndex}`, [updatedEmployeeData]);
-
-        if (result.success) {
-            showMessage('تم تعديل الموظف بنجاح.', 'success');
-            closeModal('addEmployeeModal');
-            await loadEmployees();
-            displayEmployees('employeesTableBodyAccountant');
-            updateAccountantDashboard();
-        } else {
-            showMessage('فشل تعديل الموظف.', 'error');
-        }
-    } catch (error) {
-        console.error('Error updating employee:', error);
-        showMessage('حدث خطأ أثناء تعديل الموظف.', 'error');
-    } finally {
-        showLoading(false);
-    }
-}
-
-async function deleteEmployee(employeeId, employeeName) {
-    if (!confirm(`هل أنت متأكد من حذف الموظف "${employeeName}"؟ هذا الإجراء لا يمكن التراجع عنه.`)) {
-        return;
-    }
-
-    showLoading(true);
-    try {
-        const rowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, employeeId);
-        if (rowIndex === -1) {
-            showMessage('لم يتم العثور على الموظف لحذفه.', 'error');
-            return;
-        }
-
-        // التحقق مما إذا كان الموظف لديه سلف مستحقة
-        const employee = employees.find(e => e.id === employeeId);
-        if (employee && employee.totalAdvance > 0) {
-            showMessage('لا يمكن حذف الموظف لديه سلف مستحقة. يرجى تسوية السلف أولاً.', 'error');
-            return;
-        }
-
-        const result = await deleteSheetRow(SHEETS.EMPLOYEES, rowIndex);
-
-        if (result.success) {
-            showMessage('تم حذف الموظف بنجاح.', 'success');
-            await loadEmployees();
-            displayEmployees('employeesTableBodyAccountant');
-            updateAccountantDashboard();
-        } else {
-            showMessage('فشل حذف الموظف.', 'error');
-        }
-    } catch (error) {
-        console.error('Error deleting employee:', error);
-        showMessage('حدث خطأ أثناء حذف الموظف.', 'error');
     } finally {
         showLoading(false);
     }
@@ -3282,8 +2433,8 @@ async function loadCashierPreviousClosures() {
 // --- Accountant Page Functions ---
 async function showAccountantPage() {
     document.getElementById('loginPage').classList.remove('active');
-    document.getElementById('accountantPage').classList.remove('active');
-    document.getElementById('cashierPage').classList.add('active');
+    document.getElementById('cashierPage').classList.remove('active');
+    document.getElementById('accountantPage').classList.add('active');
     const accountantNameDisplay = document.getElementById('accountantNameDisplay');
     if (accountantNameDisplay) accountantNameDisplay.textContent = currentUserName;
     const currentDateAccountant = document.getElementById('currentDateAccountant');
@@ -3414,17 +2565,6 @@ async function updateAccountantDashboard() {
         document.getElementById('customersWithCreditAccountant').textContent = customersWithCredit;
         document.getElementById('totalCreditAmountAccountant').textContent = totalCredit.toFixed(2);
         document.getElementById('customersWithZeroCreditAccountant').textContent = zeroCreditCustomers;
-
-        // Employees stats (New)
-        const totalEmployees = employees.length;
-        const employeesWithAdvance = employees.filter(e => e.totalAdvance > 0).length;
-        const totalAdvance = employees.reduce((sum, e) => sum + e.totalAdvance, 0);
-        const zeroAdvanceEmployees = employees.filter(e => e.totalAdvance === 0).length;
-
-        document.getElementById('totalEmployeesAccountant').textContent = totalEmployees;
-        document.getElementById('employeesWithAdvanceAccountant').textContent = employeesWithAdvance;
-        document.getElementById('totalAdvanceAmountAccountant').textContent = totalAdvance.toFixed(2);
-        document.getElementById('employeesWithZeroAdvanceAccountant').textContent = zeroAdvanceEmployees;
 
         // Update cashier overview table
         await updateAccountantCashierOverview(filters);
@@ -3974,9 +3114,7 @@ async function showEditUserModal(userId) {
     currentEditUserId = userId;
 
     const modal = document.getElementById('addUserModal');
-    if (modal) {
-        modal.classList.add('active');
-    }
+    if (modal) modal.classList.add('active');
 }
 
 async function addUser() {
@@ -5192,7 +4330,7 @@ async function viewExpenseDetails(cashierUsername, dateFrom, timeFrom, dateTo, t
             filteredExpenses = expenses.filter(exp => {
                 const category = categories.find(c => c.name === exp.category || c.code === exp.categoryCode);
                 // استبعاد أنواع الفورم التي لها تبويبات خاصة بها
-                return category && !['فيزا', 'إنستا', 'اونلاين', 'مرتجع', 'اجل', 'سلف_موظف'].includes(category.formType);
+                return category && !['فيزا', 'إنستا', 'اونلاين', 'مرتجع', 'اجل'].includes(category.formType);
             });
         } else {
             filteredExpenses = expenses; // المصروفات التي تم تحميلها بالفعل مفلترة حسب formType
