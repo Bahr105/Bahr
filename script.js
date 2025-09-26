@@ -444,24 +444,25 @@ async function loadCategories() {
         const data = await readSheet(SHEETS.CATEGORIES);
         if (data.length > 1) {
             categories = data.slice(1).map(row => ({
-                id: row[0] || '', // إضافة ID للتصنيف
-                code: row[1] || '',        // كود في B (row[1])
-                name: row[2] || '',        // اسم في C (row[2])
-                formType: row[3] || 'عادي', // نوع في D (row[3])
+                id: row[0] || '', // العمود A - يجب أن يكون فريداً
+                code: row[1] || '',        // العمود B
+                name: row[2] || '',        // العمود C
+                formType: row[3] || 'عادي', // العمود D
                 creationDate: row[4] || '',
                 createdBy: row[5] || ''
             }));
+            
+            // إذا كانت الـ IDs أرقاماً فقط، نقوم بتحويلها إلى تنسيق فريد
+            categories.forEach(cat => {
+                if (cat.id && !isNaN(cat.id) && cat.id.length < 10) {
+                    cat.id = 'CAT_' + cat.id;
+                }
+            });
         } else {
             categories = [];
         }
         
-        // التحقق من وجود تصنيف المرتجعات
-        const returnsCategory = categories.find(cat => cat.formType === 'مرتجع');
-        if (!returnsCategory) {
-            console.warn('تحذير: لم يتم العثور على تصنيف المرتجعات في البيانات');
-        } else {
-            console.log('تم العثور على تصنيف المرتجعات:', returnsCategory);
-        }
+        console.log('Categories loaded:', categories);
     } catch (error) {
         console.error('Error loading categories:', error);
         categories = [];
@@ -1424,14 +1425,14 @@ function searchExpenseCategories(searchTerm) {
 
     suggestionsDiv.innerHTML = '';
 
-    if (searchTerm.length < 2) {
+    if (searchTerm.length < 1) { // تغيير من 2 إلى 1 للبحث من الحرف الأول
         suggestionsDiv.style.display = 'none';
         return;
     }
 
     const filtered = categories.filter(cat =>
-        cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cat.code.toLowerCase().includes(searchTerm.toLowerCase())
+        cat.name && cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cat.code && cat.code.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (filtered.length === 0) {
@@ -1444,7 +1445,7 @@ function searchExpenseCategories(searchTerm) {
         // تحقق من أن التصنيف يحتوي على جميع البيانات المطلوبة
         if (!cat.id || !cat.code || !cat.name || !cat.formType) {
             console.warn('تصنيف ناقص البيانات:', cat);
-            return; // تخطي التصنيفات الناقصة
+            return;
         }
         
         const item = document.createElement('div');
@@ -1458,6 +1459,8 @@ function searchExpenseCategories(searchTerm) {
 }
 
 function selectExpenseCategory(category) {
+    console.log('Selecting category:', category);
+    
     const expenseCategorySearch = document.getElementById('expenseCategorySearch');
     if (expenseCategorySearch) expenseCategorySearch.value = `${category.name} (${category.code})`;
     
@@ -1472,7 +1475,12 @@ function selectExpenseCategory(category) {
     
     const selectedExpenseCategoryId = document.getElementById('selectedExpenseCategoryId');
     if (selectedExpenseCategoryId) {
-        selectedExpenseCategoryId.value = category.id;
+        // تأكد من أن الـ ID فريد ومُعدّل إذا لزم الأمر
+        let categoryId = category.id;
+        if (categoryId && !isNaN(categoryId) && categoryId.length < 10) {
+            categoryId = 'CAT_' + categoryId;
+        }
+        selectedExpenseCategoryId.value = categoryId;
         console.log('تم تعيين ID التصنيف:', selectedExpenseCategoryId.value);
     } else {
         console.error('عنصر selectedExpenseCategoryId غير موجود في DOM');
@@ -1481,19 +1489,14 @@ function selectExpenseCategory(category) {
     const expenseCategorySuggestions = document.getElementById('expenseCategorySuggestions');
     if (expenseCategorySuggestions) expenseCategorySuggestions.style.display = 'none';
 
-    console.log('تم اختيار التصنيف:', {
-        id: category.id,
+    console.log('تم اختيار التصنيف بنجاح:', {
+        id: selectedExpenseCategoryId?.value,
         code: category.code,
         name: category.name,
         formType: category.formType
     });
 
-    // إذا كان نوع الفورم هو "سلف_موظف"، تأكد من تحميل بيانات الموظفين
-    if (category.formType === 'سلف_موظف') {
-        ensureEmployeesLoaded();
-    }
-
-    generateDynamicExpenseForm(category.formType, category.id);
+    generateDynamicExpenseForm(category.formType, selectedExpenseCategoryId?.value);
 }
 
 
@@ -1759,37 +1762,34 @@ async function addExpense() {
     showLoading(true);
 
     try {
-        const now = new Date();
-        const currentDateTimeISO = now.toISOString();
+        // التحقق المفصل من التصنيف باستخدام القيم الفعلية من DOM
+        const categoryIdElement = document.getElementById('selectedExpenseCategoryId');
+        const categoryCodeElement = document.getElementById('selectedExpenseCategoryCode');
+        const categoryNameElement = document.getElementById('selectedExpenseCategoryName');
+        const formTypeElement = document.getElementById('selectedExpenseCategoryFormType');
+        
+        const categoryId = categoryIdElement?.value;
+        const categoryCode = categoryCodeElement?.value;
+        const categoryName = categoryNameElement?.value;
+        const formType = formTypeElement?.value;
 
-        // تحقق مفصل من التصنيف
-        const categoryId = document.getElementById('selectedExpenseCategoryId')?.value;
-        const categoryCode = document.getElementById('selectedExpenseCategoryCode')?.value;
-        const categoryName = document.getElementById('selectedExpenseCategoryName')?.value;
-        const formType = document.getElementById('selectedExpenseCategoryFormType')?.value;
-
-        console.log('قيم التصنيف عند الإضافة:', {
+        console.log('قيم التصنيف من DOM:', {
             categoryId,
             categoryCode,
             categoryName,
-            formType
+            formType,
+            elementsExist: !!categoryIdElement && !!categoryCodeElement && !!categoryNameElement && !!formTypeElement
         });
 
         if (!categoryId || !categoryCode || !categoryName || !formType) {
             showMessage('يرجى اختيار تصنيف للمصروف.', 'warning');
             
-            // تحقق إضافي من وجود العناصر في DOM
-            const elements = [
-                'selectedExpenseCategoryId',
-                'selectedExpenseCategoryCode', 
-                'selectedExpenseCategoryName',
-                'selectedExpenseCategoryFormType'
-            ];
-            
-            elements.forEach(id => {
-                const element = document.getElementById(id);
-                console.log(`عنصر ${id}:`, element ? 'موجود' : 'غير موجود', element ? element.value : 'N/A');
-            });
+            // فحص إضافي
+            console.log('فحص العناصر في DOM:');
+            console.log('selectedExpenseCategoryId:', categoryIdElement?.value, categoryIdElement);
+            console.log('selectedExpenseCategoryCode:', categoryCodeElement?.value, categoryCodeElement);
+            console.log('selectedExpenseCategoryName:', categoryNameElement?.value, categoryNameElement);
+            console.log('selectedExpenseCategoryFormType:', formTypeElement?.value, formTypeElement);
             
             return;
         
