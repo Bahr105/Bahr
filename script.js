@@ -820,13 +820,20 @@ async function showTab(tabId) {
         } else if (tabId === 'employeesTabCashier') { // علامة تبويب الموظفين للكاشير
             await loadEmployees();
             displayEmployees('employeesTableBodyCashier');
-        } else if (tabId === 'employeesTabAccountant') { // علامة تبويب الموظفين للمحاسب
-            await loadEmployees();
-            displayEmployees('employeesTableBodyAccountant');
-            const employeeDetailsAccountant = document.getElementById('employeeDetailsAccountant');
-            if (employeeDetailsAccountant) {
-                employeeDetailsAccountant.style.display = 'none';
-            }
+        } else if (tabId === 'employeesTabAccountant') {
+      try {
+          await loadEmployees();
+          displayEmployees('employeesTableBodyAccountant');
+          const employeeDetailsAccountant = document.getElementById('employeeDetailsAccountant');
+          if (employeeDetailsAccountant) {
+              employeeDetailsAccountant.style.display = 'none';
+          }
+          // إضافة event listener هنا إذا لزم الأمر (لكن الأفضل في DOMContentLoaded)
+      } catch (error) {
+          console.error('خطأ في تحميل تبويب الموظفين:', error);
+          showMessage('حدث خطأ في تحميل قسم الموظفين. تحقق من البيانات.', 'error');
+      }
+
         } else if (tabId === 'dashboardTabAccountant') {
             await loadUsers(); // لضمان تحديث قائمة الكاشيرز في الفلتر
             await loadCategories(); // لضمان تحديث أنواع المصروفات
@@ -5347,7 +5354,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             closeModal(modalId);
         });
     });
+// إضافة event listener لزر إضافة موظف (بدلاً من onclick)
+const addEmployeeBtn = document.getElementById('addEmployeeBtnAccountant');
+if (addEmployeeBtn) {
+    addEmployeeBtn.addEventListener('click', () => {
+        try {
+            showAddEmployeeModal();  // استدعاء الدالة الآن آمن
+        } catch (error) {
+            console.error('خطأ في فتح نافذة إضافة موظف:', error);
+            showMessage('حدث خطأ في فتح النافذة. يرجى إعادة المحاولة.', 'error');
+        }
+    });
+}
 
+// إذا كان هناك زر للكاشير (اختياري)
+const addEmployeeBtnCashier = document.getElementById('addEmployeeBtnCashier');  // إذا أضفته في HTML
+if (addEmployeeBtnCashier) {
+    addEmployeeBtnCashier.addEventListener('click', () => {
+        try {
+            showAddEmployeeModal();
+        } catch (error) {
+            console.error('خطأ في فتح نافذة إضافة موظف:', error);
+            showMessage('حدث خطأ في فتح النافذة. يرجى إعادة المحاولة.', 'error');
+        }
+    });
+}
     console.log('DOM loaded and initialized successfully.');
 });
 
