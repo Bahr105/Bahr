@@ -1310,7 +1310,7 @@ function showAddExpenseModal() {
     if (selectedExpenseCategoryName) selectedExpenseCategoryName.value = '';
     const selectedExpenseCategoryFormType = document.getElementById('selectedExpenseCategoryFormType');
     if (selectedExpenseCategoryFormType) selectedExpenseCategoryFormType.value = '';
-    const selectedExpenseCategoryId = document.getElementById('selectedExpenseCategoryId'); // حقل جديد لـ CategoryId
+    const selectedExpenseCategoryId = document.getElementById('selectedExpenseCategoryId');
     if (selectedExpenseCategoryId) selectedExpenseCategoryId.value = '';
 
     const dynamicExpenseForm = document.getElementById('dynamicExpenseForm');
@@ -1330,15 +1330,18 @@ function showAddExpenseModal() {
         pinButton.className = 'pin-btn';
         pinButton.innerHTML = '<i class="fas fa-thumbtack"></i> تثبيت الفورم';
         pinButton.onclick = togglePinExpenseForm;
-        modalActions.prepend(pinButton); // أضف الزر قبل أزرار الحفظ والإلغاء
+        modalActions.prepend(pinButton);
     }
-    // إعادة تعيين حالة زر التثبيت عند فتح المودال
     pinButton.classList.remove('active');
     pinButton.dataset.pinned = 'false';
 
-
     const modal = document.getElementById('addExpenseModal');
     if (modal) modal.classList.add('active');
+
+    // تحميل بيانات الموظفين عند فتح النموذج
+    loadEmployees().then(() => {
+        console.log('تم تحميل بيانات الموظفين للبحث');
+    });
 }
 
 async function showEditExpenseModal(expenseId) {
@@ -1663,8 +1666,23 @@ function searchEmployeesForExpense(searchTerm) {
 
     suggestionsDiv.innerHTML = '';
 
-    if (searchTerm.length < 2) {
+    if (searchTerm.length < 1) { // تغيير من 2 إلى 1 لبدء البحث من الحرف الأول
         suggestionsDiv.style.display = 'none';
+        return;
+    }
+
+    // التأكد من أن employees ليست فارغة
+    if (!employees || employees.length === 0) {
+        suggestionsDiv.innerHTML = '<div class="suggestion-item">جارٍ تحميل بيانات الموظفين...</div>';
+        suggestionsDiv.style.display = 'block';
+        
+        // محاولة إعادة تحميل البيانات إذا كانت فارغة
+        loadEmployees().then(() => {
+            if (employees.length > 0) {
+                // إعادة البحث بعد تحميل البيانات
+                searchEmployeesForExpense(searchTerm);
+            }
+        });
         return;
     }
 
@@ -2917,7 +2935,7 @@ async function addEmployee() {
             employeeId,
             name,
             phone,
-            '0.00', // Total Advance starts at 0
+            '0.00',
             new Date().toISOString().split('T')[0],
             new Date().toISOString().split('T')[0]
         ];
@@ -2927,6 +2945,8 @@ async function addEmployee() {
         if (result.success) {
             showMessage('تم إضافة الموظف بنجاح.', 'success');
             closeModal('addEmployeeModal');
+            
+            // تحديث قائمة الموظفين
             await loadEmployees();
             displayEmployees('employeesTableBodyAccountant');
             updateAccountantDashboard();
@@ -2935,7 +2955,18 @@ async function addEmployee() {
             if (modal && modal.dataset.fromExpense === 'true') {
                 showAddExpenseModal();
                 const newEmployeeObj = { id: employeeId, name: name, phone: phone, totalAdvance: 0 };
-                selectEmployeeForExpense(newEmployeeObj);
+                
+                // إعطاء وقت قصير لتحميل النموذج قبل تحديد الموظف
+                setTimeout(() => {
+                    selectEmployeeForExpense(newEmployeeObj);
+                    
+                    // تحديث قائمة الاقتراحات
+                    const employeeSearchInput = document.getElementById('employeeSearch');
+                    if (employeeSearchInput) {
+                        employeeSearchInput.value = `${name} (${phone})`;
+                        searchEmployeesForExpense(name); // عرض الاقتراحات
+                    }
+                }, 100);
             }
         } else {
             showMessage('فشل إضافة الموظف.', 'error');
@@ -2946,6 +2977,43 @@ async function addEmployee() {
     } finally {
         showLoading(false);
     }
+}
+
+
+// دالة مساعدة للتأكد من تحميل بيانات الموظفين
+function ensureEmployeesLoaded() {
+    return new Promise((resolve) => {
+        if (employees && employees.length > 0) {
+            resolve();
+        } else {
+            loadEmployees().then(() => {
+                resolve();
+            });
+        }
+    });
+}
+
+// تحسين دالة selectExpenseCategory لتحميل بيانات الموظفين عند اختيار نوع "سلف_موظف"
+async function selectExpenseCategory(category) {
+    const expenseCategorySearch = document.getElementById('expenseCategorySearch');
+    if (expenseCategorySearch) expenseCategorySearch.value = `${category.name} (${category.code})`;
+    const selectedExpenseCategoryCode = document.getElementById('selectedExpenseCategoryCode');
+    if (selectedExpenseCategoryCode) selectedExpenseCategoryCode.value = category.code;
+    const selectedExpenseCategoryName = document.getElementById('selectedExpenseCategoryName');
+    if (selectedExpenseCategoryName) selectedExpenseCategoryName.value = category.name;
+    const selectedExpenseCategoryFormType = document.getElementById('selectedExpenseCategoryFormType');
+    if (selectedExpenseCategoryFormType) selectedExpenseCategoryFormType.value = category.formType;
+    const selectedExpenseCategoryId = document.getElementById('selectedExpenseCategoryId');
+    if (selectedExpenseCategoryId) selectedExpenseCategoryId.value = category.id;
+    const expenseCategorySuggestions = document.getElementById('expenseCategorySuggestions');
+    if (expenseCategorySuggestions) expenseCategorySuggestions.style.display = 'none';
+
+    // إذا كان نوع الفورم هو "سلف_موظف"، تأكد من تحميل بيانات الموظفين
+    if (category.formType === 'سلف_موظف') {
+        await ensureEmployeesLoaded();
+    }
+
+    await generateDynamicExpenseForm(category.formType, category.id);
 }
 
 async function updateEmployee() {
