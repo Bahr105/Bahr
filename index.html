@@ -4,15 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام إدارة الكاشير</title>
-    
-    <!-- Google Fonts - Tajawal -->
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
-    
-    <!-- Font Awesome for Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
-    <!-- Custom Stylesheet -->
     <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- عنصر الرسائل - يجب أن يكون في الأعلى -->
@@ -228,7 +222,7 @@
                         </div>
                     </div>
                     
-                    <button type="button" class="calculate-btn" onclick="calculateCashierShift()">
+                    <button class="calculate-btn" onclick="calculateCashierShift()">
                         <i class="fas fa-calculator"></i>
                         حساب الشيفت
                     </button>
@@ -278,7 +272,7 @@
                             <input type="number" id="drawerCashCashier" placeholder="أدخل المبلغ النقدي في الدرج" step="0.01">
                         </div>
                         
-                        <button type="button" class="close-shift-btn" onclick="finalizeCashierShiftCloseout()">
+                        <button class="close-shift-btn" onclick="finalizeCashierShiftCloseout()">
                             <i class="fas fa-check"></i>
                             تقفيل الشيفت
                         </button>
@@ -321,7 +315,7 @@
                     <span class="current-date" id="currentDateAccountant">--</span>
                 </div>
             </div>
-            <button type="button" class="logout-btn" onclick="logout()">
+            <button class="logout-btn" onclick="logout()">
                 <i class="fas fa-sign-out-alt"></i>
                 خروج
             </button>
@@ -329,27 +323,27 @@
     </header>
 
     <nav class="nav-tabs">
-        <button type="button" class="nav-tab active" onclick="showTab('dashboardTabAccountant')">
+        <button class="nav-tab active" onclick="showTab('dashboardTabAccountant')">
             <i class="fas fa-tachometer-alt"></i>
             الرئيسية
         </button>
-        <button type="button" class="nav-tab" onclick="showTab('usersTabAccountant')">
+        <button class="nav-tab" onclick="showTab('usersTabAccountant')">
             <i class="fas fa-users-cog"></i>
             المستخدمين
         </button>
-        <button type="button" class="nav-tab" onclick="showTab('reportsTabAccountant')">
+        <button class="nav-tab" onclick="showTab('reportsTabAccountant')">
             <i class="fas fa-chart-bar"></i>
             التقارير
         </button>
-        <button type="button" class="nav-tab" onclick="showTab('categoriesTabAccountant')">
+        <button class="nav-tab" onclick="showTab('categoriesTabAccountant')">
             <i class="fas fa-tags"></i>
             التصنيفات
         </button>
-        <button type="button" class="nav-tab" onclick="showTab('customersTabAccountant')">
+        <button class="nav-tab" onclick="showTab('customersTabAccountant')">
             <i class="fas fa-users"></i>
             العملاء
         </button>
-        <button type="button" class="nav-tab" onclick="showTab('shiftCloseTabAccountant')">
+        <button class="nav-tab" onclick="showTab('shiftCloseTabAccountant')">
             <i class="fas fa-calculator"></i>
             تقفيل الشيفت
         </button>
@@ -425,17 +419,17 @@
                             <div class="stat-period">عليهم أجل: <span id="customersWithCreditAccountant">0</span> | إجمالي الأجل: <span id="totalCreditAmountAccountant">0</span> | حسابهم 0: <span id="customersWithZeroCreditAccountant">0</span></div>
                         </div>
                     </div>
-                    <!-- في قسم إحصائيات المصروفات في لوحة تحكم المحاسب -->
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-undo-alt"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3>إجمالي المرتجعات</h3>
-                            <div class="stat-value" id="totalReturnsAccountant">0.00</div>
-                            <div class="stat-period">عدد الفواتير: <span id="countReturnsAccountant">0</span></div>
-                        </div>
-                    </div>
+                </div>
+            </div>
+            <!-- في قسم إحصائيات المصروفات في لوحة تحكم المحاسب -->
+            <div class="stat-card">
+                <div class="stat-icon" style="background-color: #ff6b6b;">
+                    <i class="fas fa-undo-alt"></i>
+                </div>
+                <div class="stat-content">
+                    <h3>إجمالي المرتجعات</h3>
+                    <div class="stat-value" id="totalReturnsAccountant">0.00</div>
+                    <div class="stat-period">عدد الفواتير: <span id="countReturnsAccountant">0</span></div>
                 </div>
             </div>
             <div class="dashboard-filters">
@@ -460,7 +454,7 @@
                     <label for="searchInputAccountant">البحث عن فاتورة:</label>
                     <input type="text" id="searchInputAccountant" placeholder="رقم فاتورة" onchange="searchInvoiceAccountant()">
                 </div>
-                <button type="button" class="search-btn" onclick="searchInvoiceAccountant()">
+                <button class="search-btn" onclick="searchInvoiceAccountant()">
                     <i class="fas fa-search"></i>
                     بحث
                 </button>
@@ -500,7 +494,7 @@
         <div id="usersTabAccountant" class="tab-content">
             <div class="section-header">
                 <h2><i class="fas fa-users-cog"></i> إدارة المستخدمين</h2>
-                <button type="button" class="add-btn" onclick="showAddUserModal()">
+                <button class="add-btn" onclick="showAddUserModal()">
                     <i class="fas fa-plus"></i>
                     إضافة مستخدم
                 </button>
@@ -557,19 +551,19 @@
                     </select>
                 </div>
                 
-                <button type="button" class="generate-report-btn" onclick="generateAccountantReport()">
+                <button class="generate-report-btn" onclick="generateAccountantReport()">
                     <i class="fas fa-chart-line"></i>
                     إنشاء التقرير
                 </button>
             </div>
             
             <div class="report-actions">
-                <button type="button" class="print-btn" onclick="printReport()">
+                <button class="print-btn" onclick="printReport()">
                     <i class="fas fa-print"></i>
                     طباعة
                 </button>
                 
-                <button type="button" class="whatsapp-btn" onclick="showWhatsAppModal()">
+                <button class="whatsapp-btn" onclick="showWhatsAppModal()">
                     <i class="fab fa-whatsapp"></i>
                     إرسال واتساب
                 </button>
@@ -584,7 +578,7 @@
         <div id="categoriesTabAccountant" class="tab-content">
             <div class="section-header">
                 <h2><i class="fas fa-tags"></i> إدارة التصنيفات</h2>
-                <button type="button" class="add-btn" onclick="showAddCategoryModal()">
+                <button class="add-btn" onclick="showAddCategoryModal()">
                     <i class="fas fa-plus"></i>
                     إضافة تصنيف
                 </button>
@@ -599,7 +593,7 @@
         <div id="customersTabAccountant" class="tab-content">
             <div class="section-header">
                 <h2><i class="fas fa-users"></i> إدارة العملاء</h2>
-                <button type="button" class="add-btn" onclick="showAddCustomerModal()">
+                <button class="add-btn" onclick="showAddCustomerModal()">
                     <i class="fas fa-plus"></i>
                     إضافة عميل
                 </button>
@@ -629,7 +623,7 @@
                         <label for="customerPaymentAmount">مبلغ السداد:</label>
                         <input type="number" id="customerPaymentAmount" step="0.01" placeholder="أدخل مبلغ السداد">
                     </div>
-                    <button type="button" class="save-btn" onclick="processCustomerPayment()">
+                    <button class="save-btn" onclick="processCustomerPayment()">
                         <i class="fas fa-money-bill-wave"></i>
                         سداد الأجل
                     </button>
@@ -688,7 +682,7 @@
                     </div>
                 </div>
                 
-                <button type="button" class="search-btn" onclick="searchCashierClosuresAccountant()">
+                <button class="search-btn" onclick="searchCashierClosuresAccountant()">
                     <i class="fas fa-search"></i>
                     بحث
                 </button>
@@ -720,7 +714,7 @@
                             <input type="number" id="newmindTotalAccountant" placeholder="أدخل إجمالي نظام نيو مايند" step="0.01" onkeyup="calculateDifferenceAccountant()">
                         </div>
                         
-                        <button type="button" class="calculate-difference-btn" onclick="calculateDifferenceAccountant()">
+                        <button class="calculate-difference-btn" onclick="calculateDifferenceAccountant()">
                             <i class="fas fa-calculator"></i>
                             حساب الفرق
                         </button>
@@ -730,7 +724,7 @@
                         <!-- سيتم عرض نتيجة المقارنة هنا -->
                     </div>
                     
-                    <button type="button" class="close-cashier-btn" onclick="closeCashierByAccountant()" style="display: none;">
+                    <button class="close-cashier-btn" onclick="closeCashierByAccountant()" style="display: none;">
                         <i class="fas fa-check"></i>
                         تقفيل الكاشير
                     </button>
@@ -769,7 +763,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fas fa-plus"></i> إضافة تصنيف جديد</h3>
-                <button type="button" class="close-btn" onclick="closeModal('addCategoryModal')">&times;</button>
+                <button class="close-btn" onclick="closeModal('addCategoryModal')">&times;</button>
             </div>
             <form id="addCategoryForm" onsubmit="event.preventDefault(); addCategory();">
                 <div class="form-group">
@@ -820,7 +814,7 @@
         <div class="modal-content large">
             <div class="modal-header">
                 <h3><i class="fas fa-plus"></i> إضافة مصروف جديد</h3>
-                <button type="button" class="close-btn" onclick="closeModal('addExpenseModal')">&times;</button>
+                <button class="close-btn" onclick="closeModal('addExpenseModal')">&times;</button>
             </div>
             <form id="addExpenseForm" onsubmit="event.preventDefault(); addExpense();">
                 <div class="form-group">
@@ -858,7 +852,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fas fa-plus"></i> إضافة عميل جديد</h3>
-                <button type="button" class="close-btn" onclick="closeModal('addCustomerModal')">&times;</button>
+                <button class="close-btn" onclick="closeModal('addCustomerModal')">&times;</button>
             </div>
             <form id="addCustomerForm" onsubmit="event.preventDefault(); addCustomer();">
                 <div class="form-group">
@@ -890,7 +884,7 @@
         <div class="modal-content">
             <div class-header">
                 <h3><i class="fas fa-plus"></i> إضافة مستخدم جديد</h3>
-                <button type="button" class="close-btn" onclick="closeModal('addUserModal')">&times;</button>
+                <button class="close-btn" onclick="closeModal('addUserModal')">&times;</button>
             </div>
             <form id="addUserForm" onsubmit="event.preventDefault(); addUser();">
                 <div class="form-group">
@@ -936,43 +930,12 @@
         </div>
     </div>
 
-    <!-- نافذة تغيير كلمة المرور -->
-    <div id="changePasswordModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3><i class="fas fa-key"></i> تغيير كلمة المرور</h3>
-                <button type="button" class="close-btn" onclick="closeModal('changePasswordModal')">&times;</button>
-            </div>
-            <form id="changePasswordForm" onsubmit="event.preventDefault();">
-                <p>تغيير كلمة المرور للمستخدم: <strong><span id="changePasswordModalUserName"></span></strong></p>
-                <div class="form-group">
-                    <label for="newPassword">كلمة المرور الجديدة:</label>
-                    <input type="password" id="newPassword" required placeholder="أدخل كلمة المرور الجديدة">
-                </div>
-                <div class="form-group">
-                    <label for="confirmNewPassword">تأكيد كلمة المرور الجديدة:</label>
-                    <input type="password" id="confirmNewPassword" required placeholder="أعد إدخال كلمة المرور الجديدة">
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="save-btn" id="changePasswordModalSaveBtn">
-                        <i class="fas fa-save"></i>
-                        حفظ
-                    </button>
-                    <button type="button" class="cancel-btn" onclick="closeModal('changePasswordModal')">
-                        <i class="fas fa-times"></i>
-                        إلغاء
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- نافذة إرسال واتساب -->
     <div id="whatsappModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fab fa-whatsapp"></i> إرسال التقرير عبر واتساب</h3>
-                <button type="button" class="close-btn" onclick="closeModal('whatsappModal')">&times;</button>
+                <button class="close-btn" onclick="closeModal('whatsappModal')">&times;</button>
             </div>
             <form id="whatsappForm" onsubmit="event.preventDefault(); sendReportViaWhatsApp();">
                 <div class="form-group">
@@ -999,7 +962,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fas fa-info-circle"></i> تفاصيل التقفيلة</h3>
-                <button type="button" class="close-btn" onclick="closeModal('genericDetailsModal')">&times;</button>
+                <button class="close-btn" onclick="closeModal('genericDetailsModal')">&times;</button>
             </div>
             <div class="modal-body" id="genericDetailsModalContent">
                 <!-- سيتم ملء المحتوى هنا ديناميكياً -->
@@ -1018,7 +981,7 @@
         <div class="modal-content large">
             <div class="modal-header">
                 <h3><i class="fas fa-check-double"></i> تقفيل المحاسب للشيفت</h3>
-                <button type="button" class="close-btn" onclick="closeModal('accountantClosureDetailsModal')">&times;</button>
+                <button class="close-btn" onclick="closeModal('accountantClosureDetailsModal')">&times;</button>
             </div>
             <div class="modal-body">
                 <h4>بيانات الشيفت:</h4>
@@ -1037,7 +1000,7 @@
                     <label for="accountantClosureModalDeductReturns" style="display: inline-block; margin-right: 10px;">إضافة المرتجعات إلى الإجمالي</label>
                 </div>
                 <p><strong>إجمالي الكلي للكاشير:</strong> <span id="accountantClosureModalGrandTotal">0.00</span></p>
-                <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد إضافة المرتجع: <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></strong></p>
+                <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد إضافة المرتجع:</strong> <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></p>
                 <hr>
 
                 <div class="form-group">
