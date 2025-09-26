@@ -3283,7 +3283,7 @@ async function loadCashierPreviousClosures() {
 async function showAccountantPage() {
     document.getElementById('loginPage').classList.remove('active');
     document.getElementById('accountantPage').classList.remove('active');
-    document.getElementById('cashierPage').classList.add('active');
+    document.getElementById('accountantPage').classList.add('active');
     const accountantNameDisplay = document.getElementById('accountantNameDisplay');
     if (accountantNameDisplay) accountantNameDisplay.textContent = currentUserName;
     const currentDateAccountant = document.getElementById('currentDateAccountant');
