@@ -588,7 +588,11 @@ async function loadCustomerCreditHistory(customerId) {
     }
 }
 
-async function loadEmployees() {
+async function loadEmployees(forceReload = false) {
+    if (!forceReload && employees.length > 0) {
+        return; // لا داعي لإعادة التحميل إذا البيانات موجودة
+    }
+    
     try {
         const data = await readSheet(SHEETS.EMPLOYEES);
         if (data.length > 1) {
@@ -600,8 +604,10 @@ async function loadEmployees() {
                 creationDate: row[4] || '',
                 lastUpdate: row[5] || ''
             }));
+            console.log('تم تحميل', employees.length, 'موظف');
         } else {
             employees = [];
+            console.log('لا توجد بيانات موظفين');
         }
     } catch (error) {
         console.error('Error loading employees:', error);
@@ -1461,7 +1467,9 @@ function showAddExpenseModal() {
     // تحميل بيانات الموظفين عند فتح النموذج
     loadEmployees().then(() => {
         console.log('تم تحميل بيانات الموظفين للبحث');
+        
     });
+    
 }
 
 async function showEditExpenseModal(expenseId) {
@@ -1817,29 +1825,33 @@ function searchEmployeesForExpense(searchTerm) {
 
     suggestionsDiv.innerHTML = '';
 
-    if (searchTerm.length < 1) { // تغيير من 2 إلى 1 لبدء البحث من الحرف الأول
+    if (searchTerm.length < 1) {
         suggestionsDiv.style.display = 'none';
         return;
     }
 
-    // التأكد من أن employees ليست فارغة
+    // التأكد من تحميل بيانات الموظفين
     if (!employees || employees.length === 0) {
         suggestionsDiv.innerHTML = '<div class="suggestion-item">جارٍ تحميل بيانات الموظفين...</div>';
         suggestionsDiv.style.display = 'block';
         
-        // محاولة إعادة تحميل البيانات إذا كانت فارغة
+        // إعادة تحميل البيانات وعند اكتمالها إعادة البحث
         loadEmployees().then(() => {
             if (employees.length > 0) {
-                // إعادة البحث بعد تحميل البيانات
-                searchEmployeesForExpense(searchTerm);
+                searchEmployeesForExpense(searchTerm); // إعادة البحث بعد التحميل
+            } else {
+                suggestionsDiv.innerHTML = '<div class="suggestion-item">لا توجد بيانات موظفين</div>';
             }
+        }).catch(error => {
+            console.error('Error loading employees:', error);
+            suggestionsDiv.innerHTML = '<div class="suggestion-item">خطأ في تحميل البيانات</div>';
         });
         return;
     }
 
     const filtered = employees.filter(emp =>
-        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.phone.includes(searchTerm)
+        emp.name && emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.phone && emp.phone.includes(searchTerm)
     );
 
     if (filtered.length === 0) {
@@ -1871,7 +1883,19 @@ function selectEmployeeForExpense(employee) {
 }
 
 function showAddEmployeeModalFromExpense() {
+    // حفظ حالة نموذج المصروفات الحالي
+    const currentFormData = {
+        categoryId: document.getElementById('selectedExpenseCategoryId')?.value,
+        categoryName: document.getElementById('selectedExpenseCategoryName')?.value,
+        amount: document.getElementById('expenseAmount')?.value,
+        invoiceNumber: document.getElementById('expenseInvoiceNumber')?.value
+    };
+    
+    // حفظ البيانات مؤقتاً
+    sessionStorage.setItem('pendingExpenseData', JSON.stringify(currentFormData));
+    
     closeModal('addExpenseModal');
+    
     setTimeout(() => {
         showAddEmployeeModal(true);
     }, 300);
@@ -3137,32 +3161,51 @@ async function addEmployee() {
             showMessage('تم إضافة الموظف بنجاح.', 'success');
             closeModal('addEmployeeModal');
             
-            // تحديث قائمة الموظفين
-            await loadEmployees();
-            displayEmployees('employeesTableBodyAccountant');
-            // تحديث عرض الموظفين في الكاشير إذا كان مفتوحًا
-            if (document.getElementById('employeesTabCashier').classList.contains('active')) {
-                displayEmployees('employeesTableBodyCashier');
-            }
-            updateAccountantDashboard();
-
+            // تحديث قائمة الموظفين فوراً
+            await loadEmployees(true); // إعادة تحميل قسري
+            
+            // إذا كان الإضافة من نموذج المصروفات، العودة إليه
             const modal = document.getElementById('addEmployeeModal');
             if (modal && modal.dataset.fromExpense === 'true') {
-                showAddExpenseModal();
-                const newEmployeeObj = { id: employeeId, name: name, phone: phone, totalAdvance: 0 };
+                // استعادة بيانات المصروفات المؤقتة
+                const pendingData = sessionStorage.getItem('pendingExpenseData');
                 
-                // إعطاء وقت قصير لتحميل النموذج قبل تحديد الموظف
                 setTimeout(() => {
-                    selectEmployeeForExpense(newEmployeeObj);
+                    showAddExpenseModal();
                     
-                    // تحديث قائمة الاقتراحات
-                    const employeeSearchInput = document.getElementById('employeeSearch');
-                    if (employeeSearchInput) {
-                        employeeSearchInput.value = `${name} (${phone})`;
-                        searchEmployeesForExpense(name); // عرض الاقتراحات
-                    }
-                }, 100);
+                    // إعطاء وقت لتحميل النموذج ثم تعيين الموظف المضاف
+                    setTimeout(() => {
+                        const newEmployeeObj = { 
+                            id: employeeId, 
+                            name: name, 
+                            phone: phone, 
+                            totalAdvance: 0 
+                        };
+                        
+                        selectEmployeeForExpense(newEmployeeObj);
+                        
+                        // استعادة البيانات الأخرى إذا كانت موجودة
+                        if (pendingData) {
+                            const data = JSON.parse(pendingData);
+                            if (data.amount) {
+                                document.getElementById('expenseAmount').value = data.amount;
+                            }
+                            if (data.invoiceNumber) {
+                                document.getElementById('expenseInvoiceNumber').value = data.invoiceNumber;
+                            }
+                            sessionStorage.removeItem('pendingExpenseData');
+                        }
+                    }, 500);
+                }, 300);
+            } else {
+                // إذا لم يكن من مصروفات، تحديث العرض العادي
+                displayEmployees('employeesTableBodyAccountant');
+                if (document.getElementById('employeesTabCashier').classList.contains('active')) {
+                    displayEmployees('employeesTableBodyCashier');
+                }
             }
+            
+            updateAccountantDashboard();
         } else {
             showMessage('فشل إضافة الموظف.', 'error');
         }
