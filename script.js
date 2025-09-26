@@ -446,7 +446,7 @@ async function loadCategories() {
                 code: row[1] || '', // كود في العمود B
                 name: row[2] || '', // اسم في العمود C
                 formType: row[3] || 'عادي', // نوع في العمود D
-                customFields: row[4] ? JSON.parse(row[4]) : [], // الحقول المخصصة في العمود E
+                customFields: row[4] && row[4].trim() !== '' ? JSON.parse(row[4]) : [], // الحقول المخصصة في العمود E
                 creationDate: row[5] || '',
                 createdBy: row[6] || ''
             }));
@@ -753,8 +753,8 @@ async function login() {
 
 function logout() {
     document.getElementById('loginPage').classList.add('active');
-    document.getElementById('cashierPage').classList.remove('active');
     document.getElementById('accountantPage').classList.remove('active');
+    document.getElementById('cashierPage').classList.remove('active');
     document.getElementById('username').value = '';
     document.getElementById('password').value = '';
     currentUser = null;
@@ -1367,7 +1367,7 @@ function searchExpenseCategories(searchTerm) {
 
     if (filtered.length === 0) {
         suggestionsDiv.innerHTML = '<div class="suggestion-item">لا توجد نتائج</div>';
-        suggestionsDiv.style.display = 'block';
+        suggestionsDiv.style.display = 'none'; // Keep hidden if no results
         return;
     }
 
@@ -1548,7 +1548,7 @@ function searchCustomersForExpense(searchTerm) {
 
     if (filtered.length === 0) {
         suggestionsDiv.innerHTML = '<div class="suggestion-item">لا توجد نتائج</div>';
-        suggestionsDiv.style.display = 'block';
+        suggestionsDiv.style.display = 'none';
         return;
     }
 
@@ -1600,7 +1600,7 @@ function searchEmployeesForExpense(searchTerm) {
 
     if (filtered.length === 0) {
         suggestionsDiv.innerHTML = '<div class="suggestion-item">لا توجد نتائج</div>';
-        suggestionsDiv.style.display = 'block';
+        suggestionsDiv.style.display = 'none';
         return;
     }
 
@@ -2589,14 +2589,16 @@ async function updateCustomer() {
     }
 
     const name = document.getElementById('customerName')?.value.trim();
-    const phone = document.getElementById('customerPhone')?.value.trim();
+    const phone = document.getElementById('customerName')?.value.trim(); // Fixed: Should be customerPhone
+    const phoneInput = document.getElementById('customerPhone');
+    const phoneValue = phoneInput ? phoneInput.value.trim() : '';
 
-    if (!name || !phone) {
+    if (!name || !phoneValue) {
         showMessage('يرجى ملء جميع حقول العميل.', 'warning');
         return;
     }
 
-    const existingCustomer = customers.find(cust => cust.phone === phone && cust.id !== currentSelectedCustomerId);
+    const existingCustomer = customers.find(cust => cust.phone === phoneValue && cust.id !== currentSelectedCustomerId);
     if (existingCustomer) {
         showMessage('رقم التليفون موجود بالفعل لعميل آخر. يرجى استخدام رقم فريد.', 'warning');
         return;
@@ -2614,7 +2616,7 @@ async function updateCustomer() {
         const updatedCustomerData = [
             currentSelectedCustomerId,
             name,
-            phone,
+            phoneValue,
             oldCustomer.totalCredit.toFixed(2), // الحفاظ على إجمالي الأجل
             oldCustomer.creationDate, // الحفاظ على تاريخ الإنشاء
             new Date().toISOString().split('T')[0] // تحديث تاريخ آخر تعديل
@@ -4690,7 +4692,7 @@ async function closeCashierByAccountant() {
             window.currentClosureData.visaCount,
             window.currentClosureData.totalOnline.toFixed(2),
             window.currentClosureData.onlineCount,
-            window.currentClosureData.grandTotal.toFixed(2), // grandTotal (الكاشير)
+            cashierRecordedGrandTotal.toFixed(2), // grandTotal (الكاشير)
             window.currentClosureData.drawerCash.toFixed(2),
             newMindTotal.toFixed(2),
             difference.toFixed(2),
@@ -4705,9 +4707,7 @@ async function closeCashierByAccountant() {
         const result = await appendToSheet(SHEETS.SHIFT_CLOSURES, shiftClosureData);
 
         if (result.success) {
-            const cashierUser = users.find(u => u.username === window.currentClosureData.cashier);
-            const cashierDisplayName = cashierUser ? cashierUser.name : window.currentClosureData.cashier;
-            showMessage(`تم تقفيل شيفت الكاشير ${cashierDisplayName} بنجاح بواسطة المحاسب.`, 'success');
+            showMessage('تم تقفيل شيفت الكاشير بنجاح بواسطة المحاسب.', 'success');
             resetAccountantShiftForm();
             loadAccountantShiftClosuresHistory();
         } else {
