@@ -31,7 +31,7 @@ function handleAuthFailure() {
 // --- Google Sheets API Configuration ---
 const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU';
 const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com';
-const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDVWhfDvUtvQ7u7IC9Q';
+const SPREADSHEET_ID = '16WsTQuebZDGErC8NwPRYf7qsHDWWhfDvUtvQ7u7IC9Q'; // تأكد من تحديث هذا الـ ID إذا كان مختلفًا
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
 const SHEETS = {
@@ -848,6 +848,9 @@ async function showTab(tabId) {
         } else if (tabId === 'customersTabCashier') {
             await loadCustomers(); // إعادة تحميل العملاء لضمان التحديث
             displayCustomers('customersTableBodyCashier');
+        } else if (tabId === 'employeesTabCashier') { // تبويب الموظفين الجديد للكاشير
+            await loadEmployees(); // تحميل بيانات الموظفين
+            displayEmployees('employeesTableBodyCashier'); // عرض الموظفين في جدول الكاشير
         } else if (tabId === 'customersTabAccountant') {
             await loadCustomers(); // إعادة تحميل العملاء لضمان التحديث
             displayCustomers('customersTableBodyAccountant');
@@ -1025,7 +1028,7 @@ async function showEditCategoryModal(categoryId) {
 // دالة لإضافة حقل مخصص إلى محرر التصنيف
 function addCustomFieldToEditor(fieldName = '', fieldType = 'text', isRequired = false, options = []) {
     const container = document.getElementById('customFieldsContainer');
-    const fieldId = `customField_${Date.now()}`;
+    const fieldId = `customFieldEditor_${Date.now()}`; // Unique ID for editor elements
 
     const fieldDiv = document.createElement('div');
     fieldDiv.className = 'custom-field-editor-item';
@@ -1108,10 +1111,20 @@ async function addCategory() {
             const customFieldsToSave = [];
             const customFieldItems = document.querySelectorAll('.custom-field-editor-item');
             for (const item of customFieldItems) {
-                const fieldName = item.querySelector('input[type="text"]').value.trim();
-                const fieldType = item.querySelector('select').value;
-                const isRequired = item.querySelector('input[type="checkbox"]').checked;
-                const options = fieldType === 'select' ? item.querySelector('.options-group input[type="text"]').value.split(',').map(opt => opt.trim()).filter(opt => opt) : [];
+                const fieldNameInput = item.querySelector('input[type="text"]');
+                const fieldTypeSelect = item.querySelector('select');
+                const isRequiredCheckbox = item.querySelector('input[type="checkbox"]');
+                const optionsInput = item.querySelector('.options-group input[type="text"]');
+
+                if (!fieldNameInput || !fieldTypeSelect || !isRequiredCheckbox) {
+                    console.warn('Missing elements in custom field editor item:', item);
+                    continue;
+                }
+
+                const fieldName = fieldNameInput.value.trim();
+                const fieldType = fieldTypeSelect.value;
+                const isRequired = isRequiredCheckbox.checked;
+                const options = fieldType === 'select' && optionsInput ? optionsInput.value.split(',').map(opt => opt.trim()).filter(opt => opt) : [];
 
                 if (fieldName) {
                     customFieldsToSave.push([
@@ -1208,10 +1221,20 @@ async function updateCategory() {
             const customFieldsToSave = [];
             const customFieldItems = document.querySelectorAll('.custom-field-editor-item');
             for (const item of customFieldItems) {
-                const fieldName = item.querySelector('input[type="text"]').value.trim();
-                const fieldType = item.querySelector('select').value;
-                const isRequired = item.querySelector('input[type="checkbox"]').checked;
-                const options = fieldType === 'select' ? item.querySelector('.options-group input[type="text"]').value.split(',').map(opt => opt.trim()).filter(opt => opt) : [];
+                const fieldNameInput = item.querySelector('input[type="text"]');
+                const fieldTypeSelect = item.querySelector('select');
+                const isRequiredCheckbox = item.querySelector('input[type="checkbox"]');
+                const optionsInput = item.querySelector('.options-group input[type="text"]');
+
+                if (!fieldNameInput || !fieldTypeSelect || !isRequiredCheckbox) {
+                    console.warn('Missing elements in custom field editor item during update:', item);
+                    continue;
+                }
+
+                const fieldName = fieldNameInput.value.trim();
+                const fieldType = fieldTypeSelect.value;
+                const isRequired = isRequiredCheckbox.checked;
+                const options = fieldType === 'select' && optionsInput ? optionsInput.value.split(',').map(opt => opt.trim()).filter(opt => opt) : [];
 
                 if (fieldName) {
                     customFieldsToSave.push([
@@ -2816,11 +2839,16 @@ function displayEmployees(tableBodyId) {
         row.insertCell().textContent = new Date(emp.creationDate).toLocaleDateString('ar-EG');
         const actionsCell = row.insertCell();
 
-        actionsCell.innerHTML = `
-            <button class="edit-btn" onclick="showEditEmployeeModal('${emp.id}')"><i class="fas fa-edit"></i> تعديل</button>
-            <button class="delete-btn" onclick="deleteEmployee('${emp.id}', '${emp.name}')"><i class="fas fa-trash"></i> حذف</button>
-            <button class="view-btn" onclick="viewEmployeeDetails('${emp.id}', '${emp.name}')"><i class="fas fa-eye"></i> تفاصيل</button>
-        `;
+        // الأزرار تظهر فقط للمحاسب
+        if (currentUserRole === 'محاسب') {
+            actionsCell.innerHTML = `
+                <button class="edit-btn" onclick="showEditEmployeeModal('${emp.id}')"><i class="fas fa-edit"></i> تعديل</button>
+                <button class="delete-btn" onclick="deleteEmployee('${emp.id}', '${emp.name}')"><i class="fas fa-trash"></i> حذف</button>
+                <button class="view-btn" onclick="viewEmployeeDetails('${emp.id}', '${emp.name}')"><i class="fas fa-eye"></i> تفاصيل</button>
+            `;
+        } else {
+            actionsCell.textContent = '--'; // لا توجد إجراءات للكاشير
+        }
     });
 }
 
@@ -3011,6 +3039,10 @@ async function addEmployee() {
             // تحديث قائمة الموظفين
             await loadEmployees();
             displayEmployees('employeesTableBodyAccountant');
+            // تحديث عرض الموظفين في الكاشير إذا كان مفتوحًا
+            if (document.getElementById('employeesTabCashier').classList.contains('active')) {
+                displayEmployees('employeesTableBodyCashier');
+            }
             updateAccountantDashboard();
 
             const modal = document.getElementById('addEmployeeModal');
@@ -3100,6 +3132,10 @@ async function updateEmployee() {
             closeModal('addEmployeeModal');
             await loadEmployees();
             displayEmployees('employeesTableBodyAccountant');
+            // تحديث عرض الموظفين في الكاشير إذا كان مفتوحًا
+            if (document.getElementById('employeesTabCashier').classList.contains('active')) {
+                displayEmployees('employeesTableBodyCashier');
+            }
             updateAccountantDashboard();
         } else {
             showMessage('فشل تعديل الموظف.', 'error');
@@ -3138,6 +3174,10 @@ async function deleteEmployee(employeeId, employeeName) {
             showMessage('تم حذف الموظف بنجاح.', 'success');
             await loadEmployees();
             displayEmployees('employeesTableBodyAccountant');
+            // تحديث عرض الموظفين في الكاشير إذا كان مفتوحًا
+            if (document.getElementById('employeesTabCashier').classList.contains('active')) {
+                displayEmployees('employeesTableBodyCashier');
+            }
             updateAccountantDashboard();
         } else {
             showMessage('فشل حذف الموظف.', 'error');
@@ -3958,7 +3998,6 @@ function printReport() {
                     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
                     th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
                     th { background-color: #f2f2f2; }
-                    .stats-summary p, .report-footer p { margin: 5px 0; }
                     .edit-btn, .delete-btn { display: none; /* Hide buttons in print */ }
                 </style>
             </head>
@@ -4694,9 +4733,9 @@ async function searchCashierClosuresAccountant() {
             normalCount: normalCount,
             totalVisa: totalVisa,
             visaCount: visaCount,
-            totalInsta: instaInsta,
+            totalInsta: totalInsta, // تم تصحيح الخطأ هنا
             instaCount: instaCount,
-            totalOnline: onlineCount,
+            totalOnline: totalOnline, // تم تصحيح الخطأ هنا
             onlineCount: onlineCount,
             totalReturns: totalReturns,
             returnsCount: returnsCount,
@@ -4838,9 +4877,7 @@ async function closeCashierByAccountant() {
         const result = await appendToSheet(SHEETS.SHIFT_CLOSURES, shiftClosureData);
 
         if (result.success) {
-            const cashierUser = users.find(u => u.username === window.currentClosureData.cashier);
-            const cashierDisplayName = cashierUser ? cashierUser.name : window.currentClosureData.cashier;
-            showMessage(`تم تقفيل شيفت الكاشير ${cashierDisplayName} بنجاح بواسطة المحاسب.`, 'success');
+            showMessage(`تم تقفيل شيفت الكاشير ${users.find(u => u.username === window.currentClosureData.cashier)?.name || window.currentClosureData.cashier} بنجاح بواسطة المحاسب.`, 'success');
             resetAccountantShiftForm();
             loadAccountantShiftClosuresHistory();
         } else {
