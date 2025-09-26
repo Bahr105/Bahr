@@ -1123,9 +1123,10 @@ async function addCategory() {
             }
 
             if (customFieldsToSave.length > 0) {
-                const customFieldsResult = await appendToSheet(SHEETS.CATEGORY_CUSTOM_FIELDS, customFieldsToSave);
-                if (!customFieldsResult.success) {
-                    showMessage('تم إضافة التصنيف بنجاح، ولكن فشل حفظ بعض الحقول المخصصة.', 'warning');
+                // يجب أن تكون appendToSheet قادرة على التعامل مع مصفوفة من الصفوف
+                // أو يجب أن نكرر استدعاءها لكل صف
+                for (const cfData of customFieldsToSave) {
+                    await appendToSheet(SHEETS.CATEGORY_CUSTOM_FIELDS, cfData);
                 }
             }
 
@@ -1191,23 +1192,16 @@ async function updateCategory() {
 
         if (result.success) {
             // تحديث الحقول المخصصة: حذف القديم وإضافة الجديد
-            const customFieldsToDelete = categoryCustomFields.filter(cf => cf.categoryId === currentEditCategoryId);
-            for (const cf of customFieldsToDelete) {
-                const cfRowIndex = await findRowIndex(SHEETS.CATEGORY_CUSTOM_FIELDS, 0, cf.categoryId); // البحث بـ CategoryId
-                if (cfRowIndex !== -1) {
-                    // يجب أن نكون أكثر دقة هنا، لأن CategoryId قد يتكرر
-                    // الأفضل هو قراءة كل الصفوف ثم فلترتها وحذفها
-                    const allCustomFieldsData = await readSheet(SHEETS.CATEGORY_CUSTOM_FIELDS);
-                    const rowsToDelete = allCustomFieldsData.map((row, idx) => ({ row, idx }))
-                                                            .filter(item => item.row[0] === currentEditCategoryId);
-                    // حذف الصفوف من الأسفل للأعلى لتجنب مشاكل الفهرسة
-                    for (let i = rowsToDelete.length - 1; i >= 0; i--) {
-                        await deleteSheetRow(SHEETS.CATEGORY_CUSTOM_FIELDS, rowsToDelete[i].idx + 1);
-                    }
-                    break; // تم حذف جميع الحقول المخصصة لهذا التصنيف
-                }
+            // أولاً، نحذف جميع الحقول المخصصة المرتبطة بهذا التصنيف
+            const allCustomFieldsData = await readSheet(SHEETS.CATEGORY_CUSTOM_FIELDS);
+            const rowsToDelete = allCustomFieldsData.map((row, idx) => ({ row, idx }))
+                                                    .filter(item => item.row[0] === currentEditCategoryId);
+            // حذف الصفوف من الأسفل للأعلى لتجنب مشاكل الفهرسة
+            for (let i = rowsToDelete.length - 1; i >= 0; i--) {
+                await deleteSheetRow(SHEETS.CATEGORY_CUSTOM_FIELDS, rowsToDelete[i].idx + 1);
             }
 
+            // ثم نضيف الحقول المخصصة الجديدة
             const customFieldsToSave = [];
             const customFieldItems = document.querySelectorAll('.custom-field-editor-item');
             for (const item of customFieldItems) {
@@ -1228,9 +1222,8 @@ async function updateCategory() {
             }
 
             if (customFieldsToSave.length > 0) {
-                const customFieldsResult = await appendToSheet(SHEETS.CATEGORY_CUSTOM_FIELDS, customFieldsToSave);
-                if (!customFieldsResult.success) {
-                    showMessage('تم تعديل التصنيف بنجاح، ولكن فشل تحديث بعض الحقول المخصصة.', 'warning');
+                for (const cfData of customFieldsToSave) {
+                    await appendToSheet(SHEETS.CATEGORY_CUSTOM_FIELDS, cfData);
                 }
             }
 
@@ -1424,21 +1417,6 @@ async function showEditExpenseModal(expenseId) {
 
 
 function searchExpenseCategories(searchTerm) {
-
-
-     filtered.forEach(cat => {
-        // تحقق من أن التصنيف يحتوي على جميع البيانات المطلوبة
-        if (!cat.id || !cat.code || !cat.name || !cat.formType) {
-            console.warn('تصنيف ناقص البيانات:', cat);
-            return; // تخطي التصنيفات الناقصة
-        }
-        
-        const item = document.createElement('div');
-        item.className = 'suggestion-item';
-        item.textContent = `${cat.name} (${cat.code}) - ${cat.formType}`;
-        item.onclick = () => selectExpenseCategory(cat);
-        suggestionsDiv.appendChild(item);
-    });
     const suggestionsDiv = document.getElementById('expenseCategorySuggestions');
     if (!suggestionsDiv) return;
 
@@ -1461,6 +1439,12 @@ function searchExpenseCategories(searchTerm) {
     }
 
     filtered.forEach(cat => {
+        // تحقق من أن التصنيف يحتوي على جميع البيانات المطلوبة
+        if (!cat.id || !cat.code || !cat.name || !cat.formType) {
+            console.warn('تصنيف ناقص البيانات:', cat);
+            return; // تخطي التصنيفات الناقصة
+        }
+        
         const item = document.createElement('div');
         item.className = 'suggestion-item';
         item.textContent = `${cat.name} (${cat.code}) - ${cat.formType}`;
@@ -1471,7 +1455,7 @@ function searchExpenseCategories(searchTerm) {
     suggestionsDiv.style.display = 'block';
 }
 
-function selectExpenseCategory(category) {
+async function selectExpenseCategory(category) {
     const expenseCategorySearch = document.getElementById('expenseCategorySearch');
     if (expenseCategorySearch) expenseCategorySearch.value = `${category.name} (${category.code})`;
     
@@ -1485,7 +1469,7 @@ function selectExpenseCategory(category) {
     if (selectedExpenseCategoryFormType) selectedExpenseCategoryFormType.value = category.formType;
     
     const selectedExpenseCategoryId = document.getElementById('selectedExpenseCategoryId');
-    if (selectedExpenseCategoryId) selectedExpenseCategoryId.value = category.id;
+    if (selectedExpenseCategoryId) selectedExpenseCategoryId.value = category.id; // تأكد من تعيين ID التصنيف
     
     const expenseCategorySuggestions = document.getElementById('expenseCategorySuggestions');
     if (expenseCategorySuggestions) expenseCategorySuggestions.style.display = 'none';
@@ -1498,7 +1482,12 @@ function selectExpenseCategory(category) {
         formType: category.formType
     });
 
-    generateDynamicExpenseForm(category.formType, category.id);
+    // إذا كان نوع الفورم هو "سلف_موظف"، تأكد من تحميل بيانات الموظفين
+    if (category.formType === 'سلف_موظف') {
+        await ensureEmployeesLoaded();
+    }
+
+    await generateDynamicExpenseForm(category.formType, category.id);
 }
 
 
@@ -1778,8 +1767,12 @@ async function addExpense() {
         const visaReferenceNumber = document.getElementById('visaReferenceNumber')?.value.trim() || '';
 
 
-        if (!categoryId || !categoryCode || isNaN(amount) || amount <= 0) {
-            showMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة وموجبة.', 'warning');
+        if (!categoryId) {
+            showMessage('يرجى اختيار تصنيف للمصروف.', 'warning');
+            return;
+        }
+        if (isNaN(amount) || amount <= 0) {
+            showMessage('يرجى إدخال قيمة صحيحة وموجبة للمصروف.', 'warning');
             return;
         }
 
@@ -2028,8 +2021,12 @@ async function updateExpense() {
         const visaReferenceNumber = document.getElementById('visaReferenceNumber')?.value.trim() || '';
 
 
-        if (!categoryId || !categoryCode || isNaN(amount) || amount <= 0) {
-            showMessage('يرجى اختيار تصنيف وإدخال قيمة صحيحة وموجبة.', 'warning');
+        if (!categoryId) {
+            showMessage('يرجى اختيار تصنيف للمصروف.', 'warning');
+            return;
+        }
+        if (isNaN(amount) || amount <= 0) {
+            showMessage('يرجى إدخال قيمة صحيحة وموجبة للمصروف.', 'warning');
             return;
         }
 
@@ -3020,29 +3017,6 @@ function ensureEmployeesLoaded() {
             });
         }
     });
-}
-
-// تحسين دالة selectExpenseCategory لتحميل بيانات الموظفين عند اختيار نوع "سلف_موظف"
-async function selectExpenseCategory(category) {
-    const expenseCategorySearch = document.getElementById('expenseCategorySearch');
-    if (expenseCategorySearch) expenseCategorySearch.value = `${category.name} (${category.code})`;
-    const selectedExpenseCategoryCode = document.getElementById('selectedExpenseCategoryCode');
-    if (selectedExpenseCategoryCode) selectedExpenseCategoryCode.value = category.code;
-    const selectedExpenseCategoryName = document.getElementById('selectedExpenseCategoryName');
-    if (selectedExpenseCategoryName) selectedExpenseCategoryName.value = category.name;
-    const selectedExpenseCategoryFormType = document.getElementById('selectedExpenseCategoryFormType');
-    if (selectedExpenseCategoryFormType) selectedExpenseCategoryFormType.value = category.formType;
-    const selectedExpenseCategoryId = document.getElementById('selectedExpenseCategoryId');
-    if (selectedExpenseCategoryId) selectedExpenseCategoryId.value = category.id;
-    const expenseCategorySuggestions = document.getElementById('expenseCategorySuggestions');
-    if (expenseCategorySuggestions) expenseCategorySuggestions.style.display = 'none';
-
-    // إذا كان نوع الفورم هو "سلف_موظف"، تأكد من تحميل بيانات الموظفين
-    if (category.formType === 'سلف_موظف') {
-        await ensureEmployeesLoaded();
-    }
-
-    await generateDynamicExpenseForm(category.formType, category.id);
 }
 
 async function updateEmployee() {
@@ -4567,20 +4541,20 @@ async function searchCashierClosuresAccountant() {
         let onlineExpenses = [];
         let returnExpenses = [];
 
-        expenses.forEach(expense => {
-            const category = categories.find(cat => cat.name === expense.category || cat.code === expense.categoryCode);
+        expenses.forEach(exp => {
+            const category = categories.find(cat => cat.name === exp.category || cat.code === exp.categoryCode);
             const formType = category ? category.formType : 'عادي';
 
             if (formType === 'فيزا') {
-                visaExpenses.push(expense);
+                visaExpenses.push(exp);
             } else if (formType === 'إنستا') {
-                instaExpenses.push(expense);
+                instaExpenses.push(exp);
             } else if (formType === 'اونلاين') {
-                onlineExpenses.push(expense);
+                onlineExpenses.push(exp);
             } else if (formType === 'مرتجع') {
-                returnExpenses.push(expense);
+                returnExpenses.push(exp);
             } else {
-                normalExpenses.push(expense);
+                normalExpenses.push(exp);
             }
         });
 
