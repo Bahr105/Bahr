@@ -1172,7 +1172,8 @@ async function updateCategory() {
 
     showLoading(true);
     try {
-        const rowIndex = await findRowIndex(SHEETS.CATEGORIES, 0, currentEditCategoryId); // البحث بالـ ID
+        // البحث عن الصف باستخدام ID التصنيف (العمود 0)
+        const rowIndex = await findRowIndex(SHEETS.CATEGORIES, 0, currentEditCategoryId); 
         if (rowIndex === -1) {
             showMessage('لم يتم العثور على التصنيف لتحديثه.', 'error');
             return;
@@ -1253,6 +1254,7 @@ async function deleteCategory(categoryId, categoryName) {
 
     showLoading(true);
     try {
+        // البحث عن الصف باستخدام ID التصنيف (العمود 0)
         const rowIndex = await findRowIndex(SHEETS.CATEGORIES, 0, categoryId);
         if (rowIndex === -1) {
             showMessage('لم يتم العثور على التصنيف لحذفه.', 'error');
@@ -2222,7 +2224,6 @@ async function updateExpense() {
         console.error('Error updating expense:', error);
         showMessage('حدث خطأ أثناء تعديل المصروف.', 'error');
     } finally {
-        expenseSubmissionInProgress = false;
         showLoading(false);
     }
 }
@@ -3234,7 +3235,7 @@ async function finalizeCashierShiftCloseout() {
         const grandTotalTransactions = totalExpenses + totalInsta + totalVisa + totalOnline;
         const grandTotalWithDrawerCash = grandTotalTransactions + drawerCash; // هذا هو الإجمالي الذي سجله الكاشير
 
-        // الإجمالي بعد خصم المرتجعات (للحفظ في الشيت، هذا هو ما سيقارنه المحاسب مع نيو مايند)
+        // الإجمالي بعد خصم المرتجعات (للحفظ في الشيت، هذا هو الإجمالي الذي قارنه المحاسب مع نيو مايند)
         const grandTotalAfterReturns = grandTotalWithDrawerCash - totalReturns;
 
         const shiftClosureData = [
@@ -4760,7 +4761,7 @@ async function closeCashierByAccountant() {
 
     if (addReturns) {
         cashierTotalForComparison = cashierTotalForComparison + window.currentClosureData.totalReturns;
-        grandTotalAfterReturnsValue = cashierTotalForComparison;
+        grandTotalAfterReturnsValue = grandTotalForComparison;
     } else {
         grandTotalAfterReturnsValue = cashierTotalForComparison; // إذا لم يتم إضافة المرتجعات، يكون هو نفسه grandTotal
     }
