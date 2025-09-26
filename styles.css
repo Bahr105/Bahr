@@ -409,14 +409,74 @@ textarea:focus {
 /* Main Content */
 .main-content {
     padding: 2.5rem;
+    /* Remove background and shadow from main-content */
+    background-color: transparent;
+    box-shadow: none;
 }
 
-.tab-content {
+/* New general card section style */
+.card-section {
     background-color: var(--card-bg);
     padding: 2.5rem;
     border-radius: var(--border-radius-lg);
     box-shadow: var(--shadow-medium);
+    margin-bottom: 2.5rem; /* Add margin between sections */
 }
+
+/* Apply card-section to relevant elements */
+.tab-content {
+    /* Remove previous card styles from tab-content */
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.tab-content > div:not(.section-header):not(.dashboard-filters):not(.cashiers-overview):not(.shift-close-form):not(.accountant-shift-form):not(.closure-results):not(.closures-history) {
+    /* Apply card-section to direct children of tab-content that are not headers or filters */
+    /* This targets the actual content blocks within each tab */
+    margin-bottom: 2.5rem; /* Ensure spacing between internal blocks */
+}
+
+/* Ensure specific elements that were already cards retain their styling or use the new class */
+.dashboard-stats,
+.cashiers-overview,
+.report-content,
+.shift-summary,
+.closure-results,
+.closures-history,
+.expenses-filters,
+.dashboard-filters,
+.reports-filters,
+.accountant-shift-form,
+#customerDetailsAccountant .form-row {
+    /* Ensure these elements also have card-like styling if they are not direct tab-content children */
+    /* Or, if they are direct children, they will get the card-section style */
+    /* For now, let's ensure they have margin-bottom if they are not already getting it */
+    margin-bottom: 2.5rem;
+}
+
+/* Adjust specific elements that are already card-like to use the new class or ensure consistent styling */
+.shift-close-form,
+.accountant-shift-form {
+    padding: 1.8rem; /* Keep specific padding if needed */
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-light);
+    margin-bottom: 2.5rem;
+}
+
+.report-actions {
+    display: flex;
+    gap: 1.2rem;
+    margin-top: 0; /* Adjust margin as card-section will handle it */
+    margin-bottom: 2.5rem; /* Ensure spacing */
+    padding: 1.5rem;
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-light);
+}
+
 
 .section-header {
     display: flex;
@@ -880,6 +940,7 @@ td button:hover {
     font-size: 2.2rem;
     font-weight: 700;
     color: var(--text-color);
+    margin-bottom: 0.6rem;
 }
 
 .stat-period {
@@ -1168,12 +1229,6 @@ td button:hover {
     box-shadow: var(--shadow-light);
 }
 
-#customerDetailsAccountant .form-group {
-    flex: 1;
-    min-width: 250px;
-    margin-bottom: 0;
-}
-
 /* Switch Toggle */
 .switch {
     position: relative;
@@ -1265,9 +1320,9 @@ input:checked + .slider:before {
     .main-content {
         padding: 1.5rem;
     }
-    .tab-content {
+    /* .tab-content {
         padding: 2rem;
-    }
+    } */
     .dashboard-stats .stats-grid {
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     }
@@ -1296,9 +1351,9 @@ input:checked + .slider:before {
     .main-content {
         padding: 1rem;
     }
-    .tab-content {
+    /* .tab-content {
         padding: 1.8rem;
-    }
+    } */
     .section-header {
         flex-direction: column;
         align-items: flex-start;
@@ -1383,9 +1438,9 @@ input:checked + .slider:before {
     .main-content {
         padding: 0.8rem;
     }
-    .tab-content {
+    /* .tab-content {
         padding: 1.5rem;
-    }
+    } */
     .section-header h2 {
         font-size: 1.6rem;
     }
@@ -1448,9 +1503,9 @@ input:checked + .slider:before {
     .main-content {
         padding: 0.6rem;
     }
-    .tab-content {
+    /* .tab-content {
         padding: 1.2rem;
-    }
+    } */
     .section-header h2 {
         font-size: 1.4rem;
     }
