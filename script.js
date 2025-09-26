@@ -1753,15 +1753,17 @@ function showAddEmployeeModalFromExpense() {
     }, 300);
 }
 
-async function addExpense() {
-    if (expenseSubmissionInProgress) {
-        console.log('Expense submission already in progress, skipping...');
-        return;
-    }
-    expenseSubmissionInProgress = true;
-    showLoading(true);
-
-    try {
+ async function addExpense() {
+        if (expenseSubmissionInProgress) {
+            console.log('Expense submission already in progress, skipping...');
+            return;
+        }
+        expenseSubmissionInProgress = true;
+        showLoading(true);
+        try {
+            // تعريف المتغير now هنا
+            const now = new Date();
+            const currentDateTimeISO = now.toISOString();
         // التحقق المفصل من التصنيف باستخدام القيم الفعلية من DOM
         const categoryIdElement = document.getElementById('selectedExpenseCategoryId');
         const categoryCodeElement = document.getElementById('selectedExpenseCategoryCode');
