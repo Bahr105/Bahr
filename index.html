@@ -353,6 +353,11 @@
             <i class="fas fa-calculator"></i>
             تقفيل الشيفت
         </button>
+        <!-- New Employees Tab -->
+        <button type="button" class="nav-tab" onclick="showTab('employeesTabAccountant')">
+            <i class="fas fa-user-tie"></i>
+            الموظفين
+        </button>
     </nav>
 
     <main class="main-content">
@@ -434,6 +439,17 @@
                             <h3>إجمالي المرتجعات</h3>
                             <div class="stat-value" id="totalReturnsAccountant">0.00</div>
                             <div class="stat-period">عدد الفواتير: <span id="countReturnsAccountant">0</span></div>
+                        </div>
+                    </div>
+                    <!-- New Employees Stats Card -->
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>الموظفين</h3>
+                            <div class="stat-value" id="totalEmployeesAccountant">0</div>
+                            <div class="stat-period">عليهم سلف: <span id="employeesWithAdvanceAccountant">0</span> | إجمالي السلف: <span id="totalAdvanceAmountAccountant">0</span> | سلفهم 0: <span id="employeesWithZeroAdvanceAccountant">0</span></div>
                         </div>
                     </div>
                 </div>
@@ -651,6 +667,62 @@
             </div>
         </div>
 
+        <!-- قسم الموظفين (للمحاسب) - New Tab -->
+        <div id="employeesTabAccountant" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-user-tie"></i> إدارة الموظفين</h2>
+                <button type="button" class="add-btn" onclick="showAddEmployeeModal()">
+                    <i class="fas fa-plus"></i>
+                    إضافة موظف
+                </button>
+            </div>
+            
+            <div class="employees-table">
+                <table id="employeesTableAccountant">
+                    <thead>
+                        <tr>
+                            <th>اسم الموظف</th>
+                            <th>رقم التليفون</th>
+                            <th>إجمالي السلف</th>
+                            <th>تاريخ الإنشاء</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeesTableBodyAccountant">
+                        <!-- سيتم ملء البيانات ديناميكياً -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- تفاصيل السلف والسداد للموظف -->
+            <div id="employeeDetailsAccountant" class="report-content" style="display: none;">
+                <h3>تفاصيل سلف الموظف: <span id="employeeDetailsName"></span></h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="employeePaymentAmount">مبلغ السداد:</label>
+                        <input type="number" id="employeePaymentAmount" step="0.01" placeholder="أدخل مبلغ السداد">
+                    </div>
+                    <button type="button" class="save-btn" onclick="processEmployeePayment()">
+                        <i class="fas fa-money-bill-wave"></i>
+                        سداد السلفة
+                    </button>
+                </div>
+                <table id="employeeAdvanceHistoryTable">
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>نوع الحركة</th>
+                            <th>المبلغ</th>
+                            <th>الملاحظات</th>
+                            <th>الكاشير/المحاسب</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeeAdvanceHistoryBody">
+                        <!-- سيتم ملء بيانات السلف والسداد ديناميكياً -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- قسم تقفيل الشيفت للمحاسب -->
         <div id="shiftCloseTabAccountant" class="tab-content">
             <div class="section-header">
@@ -800,6 +872,17 @@
                         <option value="مرتجع">مرتجع</option> <!-- إضافة نوع المرتجع -->
                     </select>
                 </div>
+
+                <!-- Custom Fields Section -->
+                <div class="section-header" style="margin-top: 20px;">
+                    <h4>الحقول المخصصة</h4>
+                    <button type="button" class="add-btn" onclick="addCustomFieldToEditor()">
+                        <i class="fas fa-plus"></i> إضافة حقل مخصص
+                    </button>
+                </div>
+                <div id="customFieldsContainer" class="custom-fields-container">
+                    <!-- Custom fields will be added here dynamically -->
+                </div>
                 
                 <div class="modal-actions">
                     <button type="submit" class="save-btn" id="addCategoryModalSaveBtn">
@@ -837,6 +920,11 @@
                 <div id="dynamicExpenseForm">
                     <!-- سيتم إنشاء الفورم ديناميكياً حسب نوع التصنيف -->
                     <!-- هنا سيتم إضافة حقل رقم الفاتورة لـ "اجل" -->
+                </div>
+
+                <div class="form-group checkbox-group" style="margin-top: 15px;">
+                    <input type="checkbox" id="pinExpenseFormToggle">
+                    <label for="pinExpenseFormToggle">تثبيت الفورم بعد الحفظ (لإدخال مصروفات متعددة من نفس النوع)</label>
                 </div>
                 
                 <div class="modal-actions">
@@ -885,10 +973,42 @@
         </div>
     </div>
 
+    <!-- نافذة إضافة موظف - New Modal -->
+    <div id="addEmployeeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="addEmployeeModalTitle"><i class="fas fa-plus"></i> إضافة موظف جديد</h3>
+                <button type="button" class="close-btn" onclick="closeModal('addEmployeeModal')">&times;</button>
+            </div>
+            <form id="addEmployeeForm" onsubmit="event.preventDefault(); addEmployee();">
+                <div class="form-group">
+                    <label for="employeeName">اسم الموظف:</label>
+                    <input type="text" id="employeeName" required placeholder="أدخل اسم الموظف">
+                </div>
+                
+                <div class="form-group">
+                    <label for="employeePhone">رقم التليفون:</label>
+                    <input type="tel" id="employeePhone" required placeholder="أدخل رقم التليفون">
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="submit" class="save-btn" id="addEmployeeModalSaveBtn">
+                        <i class="fas fa-save"></i>
+                        حفظ
+                    </button>
+                    <button type="button" class="cancel-btn" onclick="closeModal('addEmployeeModal')">
+                        <i class="fas fa-times"></i>
+                        إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- نافذة إضافة مستخدم -->
     <div id="addUserModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class-header">
                 <h3 id="addUserModalTitle"><i class="fas fa-plus"></i> إضافة مستخدم جديد</h3>
                 <button type="button" class="close-btn" onclick="closeModal('addUserModal')">&times;</button>
             </div>
@@ -1029,7 +1149,6 @@
                 <p><strong>إجمالي الفيزا:</strong> <span id="accountantClosureModalTotalVisa">0.00</span></p>
                 <p><strong>إجمالي الأونلاين:</strong> <span id="accountantClosureModalTotalOnline">0.00</span></p>
                 <p><strong>إجمالي المرتجعات:</strong> <span id="accountantClosureModalTotalReturns">0.00</span></p>
-                <p><strong>إجمالي الكاش في الدرج:</strong> <span id="accountantClosureModalDrawerCash">0.00</span></p> <!-- تم إضافة هذا السطر -->
                <div class="form-group">
                     <label class="switch">
                         <input type="checkbox" id="accountantClosureModalDeductReturns" onchange="updateAccountantClosureDifference()">
@@ -1037,6 +1156,7 @@
                     </label>
                     <label for="accountantClosureModalDeductReturns" style="display: inline-block; margin-right: 10px;">إضافة المرتجعات إلى الإجمالي</label>
                 </div>
+                <p><strong>إجمالي الكاش في الدرج:</strong> <span id="accountantClosureModalDrawerCash">0.00</span></p>
                 <p><strong>الإجمالي الكلي للكاشير:</strong> <span id="accountantClosureModalGrandTotal">0.00</span></p>
                 <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد إضافة المرتجع: <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></strong></p>
                 <hr>
@@ -1070,6 +1190,8 @@
         </div>
     </div>
 
+    <!-- تحميل ملفات إضافية -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <!-- تحميل الملفات -->
     <script src="script.js"></script>
 </body>
