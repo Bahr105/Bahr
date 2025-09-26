@@ -27,7 +27,16 @@ function handleAuthFailure() {
         gapi.client.setToken(null);
     }
 }
-
+ function normalizeFormType(formType) {
+         if (!formType) return 'عادي';
+         // إزالة مسافات وتحويل إلى صغير، واستبدال همزة ببديل
+         let normalized = formType.trim().toLowerCase()
+             .replace(/أ/g, 'ا')  // همزة تحت الألف → ألف عادية
+             .replace(/إ/g, 'ا')  // همزة فوق الألف → ألف
+             .replace(/آ/g, 'ا')  // آ → ا
+             .replace(/\s+/g, '');  // إزالة مسافات
+         return normalized;
+     }
 // --- Google Sheets API Configuration ---
 const API_KEY = 'AIzaSyAFKAWVM6Y7V3yxuD7c-9u0e11Ki1z-5VU';
 const CLIENT_ID = '514562869133-nuervm5carqqctkqudvqkcolup7s12ve.apps.googleusercontent.com';
