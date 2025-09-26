@@ -1729,9 +1729,7 @@ async function generateDynamicExpenseForm(formType, categoryId, expenseData = {}
                 <input type="hidden" id="selectedEmployeeId" value="${expenseData.employee || ''}">
                 <input type="hidden" id="selectedEmployeeName" value="${expenseData.employee ? employees.find(e => e.id === expenseData.employee)?.name : ''}">
             </div>
-            <button type="button" class="add-btn" onclick="showAddEmployeeModalFromExpense()" style="margin-top: 10px;">
-                <i class="fas fa-plus"></i> إضافة موظف جديد
-            </button>
+            
         `;
     }
 
