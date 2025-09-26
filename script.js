@@ -1457,7 +1457,7 @@ function searchExpenseCategories(searchTerm) {
     suggestionsDiv.style.display = 'block';
 }
 
-async function selectExpenseCategory(category) {
+function selectExpenseCategory(category) {
     const expenseCategorySearch = document.getElementById('expenseCategorySearch');
     if (expenseCategorySearch) expenseCategorySearch.value = `${category.name} (${category.code})`;
     
@@ -1471,12 +1471,16 @@ async function selectExpenseCategory(category) {
     if (selectedExpenseCategoryFormType) selectedExpenseCategoryFormType.value = category.formType;
     
     const selectedExpenseCategoryId = document.getElementById('selectedExpenseCategoryId');
-    if (selectedExpenseCategoryId) selectedExpenseCategoryId.value = category.id; // تأكد من تعيين ID التصنيف
+    if (selectedExpenseCategoryId) {
+        selectedExpenseCategoryId.value = category.id;
+        console.log('تم تعيين ID التصنيف:', selectedExpenseCategoryId.value);
+    } else {
+        console.error('عنصر selectedExpenseCategoryId غير موجود في DOM');
+    }
     
     const expenseCategorySuggestions = document.getElementById('expenseCategorySuggestions');
     if (expenseCategorySuggestions) expenseCategorySuggestions.style.display = 'none';
 
-    // إضافة console.log للتحقق من القيم
     console.log('تم اختيار التصنيف:', {
         id: category.id,
         code: category.code,
@@ -1486,10 +1490,10 @@ async function selectExpenseCategory(category) {
 
     // إذا كان نوع الفورم هو "سلف_موظف"، تأكد من تحميل بيانات الموظفين
     if (category.formType === 'سلف_موظف') {
-        await ensureEmployeesLoaded();
+        ensureEmployeesLoaded();
     }
 
-    await generateDynamicExpenseForm(category.formType, category.id);
+    generateDynamicExpenseForm(category.formType, category.id);
 }
 
 
@@ -1752,26 +1756,43 @@ async function addExpense() {
         return;
     }
     expenseSubmissionInProgress = true;
-    showLoading(true); // عرض شاشة التحميل عند بدء الإرسال
+    showLoading(true);
 
     try {
         const now = new Date();
-        const currentDateTimeISO = now.toISOString(); // استخدام ISO 8601 لتجنب مشاكل التوقيت
+        const currentDateTimeISO = now.toISOString();
 
-        const categoryId = document.getElementById('selectedExpenseCategoryId')?.value; // ID التصنيف
+        // تحقق مفصل من التصنيف
+        const categoryId = document.getElementById('selectedExpenseCategoryId')?.value;
         const categoryCode = document.getElementById('selectedExpenseCategoryCode')?.value;
         const categoryName = document.getElementById('selectedExpenseCategoryName')?.value;
         const formType = document.getElementById('selectedExpenseCategoryFormType')?.value;
-        const amountInput = document.getElementById('expenseAmount');
-        const amount = amountInput ? parseFloat(amountInput.value) : NaN;
-        const notes = document.getElementById('expenseNotes')?.value.trim() || '';
-        const invoiceNumber = document.getElementById('expenseInvoiceNumber')?.value.trim() || '';
-        const visaReferenceNumber = document.getElementById('visaReferenceNumber')?.value.trim() || '';
 
+        console.log('قيم التصنيف عند الإضافة:', {
+            categoryId,
+            categoryCode,
+            categoryName,
+            formType
+        });
 
-        if (!categoryId) {
+        if (!categoryId || !categoryCode || !categoryName || !formType) {
             showMessage('يرجى اختيار تصنيف للمصروف.', 'warning');
+            
+            // تحقق إضافي من وجود العناصر في DOM
+            const elements = [
+                'selectedExpenseCategoryId',
+                'selectedExpenseCategoryCode', 
+                'selectedExpenseCategoryName',
+                'selectedExpenseCategoryFormType'
+            ];
+            
+            elements.forEach(id => {
+                const element = document.getElementById(id);
+                console.log(`عنصر ${id}:`, element ? 'موجود' : 'غير موجود', element ? element.value : 'N/A');
+            });
+            
             return;
+        
         }
         if (isNaN(amount) || amount <= 0) {
             showMessage('يرجى إدخال قيمة صحيحة وموجبة للمصروف.', 'warning');
