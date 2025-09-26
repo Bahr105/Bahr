@@ -1530,8 +1530,8 @@ async function generateDynamicExpenseForm(formType, categoryId, expenseData = {}
     if (formType === 'فيزا') {
         formHtml += `
             <div class="form-group">
-                <label for="visaReferenceNumber">الرقم المرجعي للفيزا (آخر 4 أرقام): <span style="color: red;">*</span></label>
-                <input type="text" id="visaReferenceNumber" pattern="\\d{4}" maxlength="4" required placeholder="أدخل آخر 4 أرقام من الفيزا" value="${expenseData.referenceNumber || ''}">
+                <label for="visaReferenceNumber">الرقم المرجعي للفيزا : <span style="color: red;">*</span></label>
+                <input type="text" id="visaReferenceNumber" pattern="\\d{20}" maxlength="20" required placeholder="ادخل ارقام الفيزا المرجعية "  value="${expenseData.referenceNumber || ''}">
             </div>
         `;
     } else if (formType === 'شحن_تاب') {
