@@ -727,7 +727,6 @@ async function loadShiftClosures(filters = {}) {
             timeFrom: row[3] || '',
             dateTo: row[4] || '',
             timeTo: row[5] || '',
-            // معالجة القيمة الرقمية: إزالة الفواصل قبل التحويل
             totalExpenses: parseFloat((row[6] || '0').replace(/,/g, '')),
             expenseCount: parseInt(row[7] || 0),
             totalInsta: parseFloat((row[8] || '0').replace(/,/g, '')),
@@ -736,16 +735,16 @@ async function loadShiftClosures(filters = {}) {
             visaCount: parseInt(row[11] || 0),
             totalOnline: parseFloat((row[12] || '0').replace(/,/g, '')),
             onlineCount: parseInt(row[13] || 0),
-            grandTotal: parseFloat((row[14] || '0').replace(/,/g, '')), // هذا هو الإجمالي الذي سجله الكاشير (يشمل الكاش في الدرج ويستثني المرتجعات)
+            grandTotal: parseFloat((row[14] || '0').replace(/,/g, '')),
             drawerCash: parseFloat((row[15] || '0').replace(/,/g, '')),
             newMindTotal: parseFloat((row[16] || '0').replace(/,/g, '')),
-            difference: parseFloat((row[17] || '0').replace(/,/g, '')),
+            difference: parseFloat((row[17] || '0').replace(/,/g, '')),   // هنا المشكلة
             status: row[18] || '',
             closureDate: row[19] || '',
             closureTime: row[20] || '',
             accountant: row[21] || '',
-            totalReturns: parseFloat((row[22] || '0').replace(/,/g, '')), // إضافة حقل إجمالي المرتجعات
-            grandTotalAfterReturns: parseFloat((row[23] || '0').replace(/,/g, '')) // إضافة حقل الإجمالي بعد خصم المرتجعات (هذا هو الإجمالي الذي قارنه المحاسب مع نيو مايند)
+            totalReturns: parseFloat((row[22] || '0').replace(/,/g, '')),
+            grandTotalAfterReturns: parseFloat((row[23] || '0').replace(/,/g, ''))
         }));
 
         // Apply filters
