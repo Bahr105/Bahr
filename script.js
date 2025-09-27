@@ -2640,10 +2640,10 @@ function displayCustomers(tableBodyId) {
 
         if (tableBodyId === 'customersTableBodyAccountant') {
             actionsCell.innerHTML = `
-                <button class="edit-btn" onclick="showEditCustomerModal('${cust.id}')"><i class="fas fa-edit"></i> تعديل</button>
-                <button class="delete-btn" onclick="deleteCustomer('${cust.id}', '${cust.name}')"><i class="fas fa-trash"></i> حذف</button>
-                <button class="view-btn" onclick="viewCustomerDetails('${cust.id}', '${cust.name}')"><i class="fas fa-eye"></i> تفاصيل</button>
-            `;
+    <button class="edit-btn" onclick="showEditCustomerModal('${cust.id}')"><i class="fas fa-edit"></i> تعديل</button>
+    <button class="delete-btn" onclick="deleteCustomer('${cust.id}', '${cust.name}')"><i class="fas fa-trash"></i> حذف</button>
+    <button class="view-btn" onclick="viewCustomerDetailsModal('${cust.id}', '${cust.name}')"><i class="fas fa-eye"></i> تفاصيل</button>
+`;
         } else { // Cashier page
             actionsCell.innerHTML = `
                 <button class="edit-btn" onclick="showEditCustomerModal('${cust.id}')"><i class="fas fa-edit"></i> تعديل</button>
@@ -2653,37 +2653,59 @@ function displayCustomers(tableBodyId) {
     });
 }
 
-async function viewCustomerDetails(customerId, customerName) {
+// عرض تفاصيل العميل في نافذة منبثقة
+async function viewCustomerDetailsModal(customerId, customerName) {
     showLoading(true);
     try {
         currentSelectedCustomerId = customerId;
-        const customerDetailsName = document.getElementById('customerDetailsName');
-        if (customerDetailsName) customerDetailsName.textContent = customerName;
-        const customerDetailsAccountant = document.getElementById('customerDetailsAccountant');
-        if (customerDetailsAccountant) customerDetailsAccountant.style.display = 'block';
-        const customerPaymentAmount = document.getElementById('customerPaymentAmount');
-        if (customerPaymentAmount) customerPaymentAmount.value = '';
+        
+        // تعبئة بيانات العميل الأساسية
+        const customer = customers.find(c => c.id === customerId);
+        if (customer) {
+            document.getElementById('customerDetailsModalTitle').textContent = `تفاصيل العميل: ${customerName}`;
+            document.getElementById('customerDetailsName').textContent = customerName;
+            document.getElementById('customerDetailsPhone').textContent = customer.phone;
+            document.getElementById('customerDetailsCredit').textContent = customer.totalCredit.toFixed(2);
+            
+            // مسح حقل السداد
+            document.getElementById('customerPaymentAmountModal').value = '';
+        }
 
+        // تحميل وعرض السجل
         const history = await loadCustomerCreditHistory(customerId);
-        const tableBody = document.getElementById('customerCreditHistoryBody');
+        const tableBody = document.getElementById('customerCreditHistoryModalBody');
         if (!tableBody) return;
 
         tableBody.innerHTML = '';
         if (history.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="5">لا توجد حركات أجل/سداد لهذا العميل.</td></tr>';
-            return;
+            tableBody.innerHTML = '<tr><td colspan="6">لا توجد حركات أجل/سداد لهذا العميل.</td></tr>';
+        } else {
+            history.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            history.forEach(item => {
+                const row = tableBody.insertRow();
+                row.insertCell().textContent = item.date;
+                row.insertCell().textContent = item.type;
+                
+                const amountCell = row.insertCell();
+                amountCell.textContent = item.amount.toFixed(2);
+                if (item.type === 'سداد') {
+                    amountCell.style.color = 'green';
+                } else if (item.type === 'أجل') {
+                    amountCell.style.color = 'red';
+                }
+                
+                row.insertCell().textContent = item.invoiceNumber || '--';
+                row.insertCell().textContent = item.notes || '--';
+                row.insertCell().textContent = item.recordedBy;
+            });
         }
 
-        history.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        history.forEach(item => {
-            const row = tableBody.insertRow();
-            row.insertCell().textContent = item.date;
-            row.insertCell().textContent = item.type;
-            row.insertCell().textContent = item.amount.toFixed(2);
-            row.insertCell().textContent = item.invoiceNumber || item.notes || '--';
-            row.insertCell().textContent = item.recordedBy;
-        });
+        // عرض النافذة المنبثقة
+        const modal = document.getElementById('customerDetailsModal');
+        if (modal) {
+            modal.classList.add('active');
+        }
     } catch (error) {
         console.error('Error viewing customer details:', error);
         showMessage('حدث خطأ أثناء عرض تفاصيل العميل.', 'error');
@@ -2691,6 +2713,91 @@ async function viewCustomerDetails(customerId, customerName) {
         showLoading(false);
     }
 }
+
+// سداد الأجل من النافذة المنبثقة
+async function processCustomerPaymentModal() {
+    if (!currentSelectedCustomerId) {
+        showMessage('يرجى اختيار عميل أولاً.', 'warning');
+        return;
+    }
+
+    const paymentAmountInput = document.getElementById('customerPaymentAmountModal');
+    const paymentAmount = paymentAmountInput ? parseFloat(paymentAmountInput.value) : NaN;
+    
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        showMessage('يرجى إدخال مبلغ سداد صحيح وموجب.', 'warning');
+        return;
+    }
+
+    showLoading(true);
+    try {
+        const customerIndex = customers.findIndex(c => c.id === currentSelectedCustomerId);
+        if (customerIndex === -1) {
+            showMessage('العميل غير موجود.', 'error');
+            return;
+        }
+
+        const currentCustomer = customers[customerIndex];
+        if (currentCustomer.totalCredit < paymentAmount) {
+            showMessage('مبلغ السداد أكبر من إجمالي الأجل المستحق.', 'warning');
+            return;
+        }
+
+        const newTotalCredit = currentCustomer.totalCredit - paymentAmount;
+        const now = new Date();
+        const date = now.toISOString().split('T')[0];
+
+        const rowIndex = await findRowIndex(SHEETS.CUSTOMERS, 0, currentSelectedCustomerId);
+        if (rowIndex !== -1) {
+            const updateResult = await updateSheet(SHEETS.CUSTOMERS, `D${rowIndex}`, [[newTotalCredit.toFixed(2)]]);
+            if (!updateResult.success) {
+                showMessage('فشل تحديث إجمالي الأجل للعميل.', 'error');
+                return;
+            }
+            await updateSheet(SHEETS.CUSTOMERS, `F${rowIndex}`, [[date]]);
+        } else {
+            showMessage('لم يتم العثور على العميل لتحديث الأجل.', 'error');
+            return;
+        }
+
+        const historyId = 'CRH_' + now.getTime();
+        const newHistoryEntry = [
+            historyId,
+            currentSelectedCustomerId,
+            date,
+            'سداد',
+            paymentAmount.toFixed(2),
+            '',
+            `سداد من المحاسب ${currentUserName}`,
+            currentUser.username
+        ];
+        
+        const historyResult = await appendToSheet(SHEETS.CUSTOMER_CREDIT_HISTORY, newHistoryEntry);
+        if (!historyResult.success) {
+            showMessage('فشل تسجيل حركة السداد.', 'error');
+            return;
+        }
+
+        currentCustomer.totalCredit = newTotalCredit;
+        customers[customerIndex] = currentCustomer;
+
+        showMessage('تم سداد الأجل بنجاح.', 'success');
+        
+        // تحديث البيانات في النافذة المنبثقة
+        await viewCustomerDetailsModal(currentSelectedCustomerId, currentCustomer.name);
+        
+        // تحديث الجداول الأخرى
+        displayCustomers('customersTableBodyAccountant');
+        updateAccountantDashboard();
+
+    } catch (error) {
+        console.error('Error processing customer payment:', error);
+        showMessage('حدث خطأ أثناء معالجة السداد.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
 
 async function processCustomerPayment() {
     if (!currentSelectedCustomerId) {
@@ -2980,50 +3087,154 @@ function displayEmployees(tableBodyId) {
         // الأزرار تظهر فقط للمحاسب
         if (currentUserRole === 'محاسب') {
             actionsCell.innerHTML = `
-                <button class="edit-btn" onclick="showEditEmployeeModal('${emp.id}')"><i class="fas fa-edit"></i> تعديل</button>
-                <button class="delete-btn" onclick="deleteEmployee('${emp.id}', '${emp.name}')"><i class="fas fa-trash"></i> حذف</button>
-                <button class="view-btn" onclick="viewEmployeeDetails('${emp.id}', '${emp.name}')"><i class="fas fa-eye"></i> تفاصيل</button>
-            `;
+    <button class="edit-btn" onclick="showEditEmployeeModal('${emp.id}')"><i class="fas fa-edit"></i> تعديل</button>
+    <button class="delete-btn" onclick="deleteEmployee('${emp.id}', '${emp.name}')"><i class="fas fa-trash"></i> حذف</button>
+    <button class="view-btn" onclick="viewEmployeeDetailsModal('${emp.id}', '${emp.name}')"><i class="fas fa-eye"></i> تفاصيل</button>
+`;
         } else {
             actionsCell.textContent = '--'; // لا توجد إجراءات للكاشير
         }
     });
 }
 
-async function viewEmployeeDetails(employeeId, employeeName) {
+// عرض تفاصيل الموظف في نافذة منبثقة
+async function viewEmployeeDetailsModal(employeeId, employeeName) {
     showLoading(true);
     try {
         currentSelectedEmployeeId = employeeId;
-        const employeeDetailsName = document.getElementById('employeeDetailsName');
-        if (employeeDetailsName) employeeDetailsName.textContent = employeeName;
-        const employeeDetailsAccountant = document.getElementById('employeeDetailsAccountant');
-        if (employeeDetailsAccountant) employeeDetailsAccountant.style.display = 'block';
-        const employeePaymentAmount = document.getElementById('employeePaymentAmount');
-        if (employeePaymentAmount) employeePaymentAmount.value = '';
+        
+        // تعبئة بيانات الموظف الأساسية
+        const employee = employees.find(e => e.id === employeeId);
+        if (employee) {
+            document.getElementById('employeeDetailsModalTitle').textContent = `تفاصيل الموظف: ${employeeName}`;
+            document.getElementById('employeeDetailsName').textContent = employeeName;
+            document.getElementById('employeeDetailsPhone').textContent = employee.phone;
+            document.getElementById('employeeDetailsAdvance').textContent = employee.totalAdvance.toFixed(2);
+            
+            // مسح حقل السداد
+            document.getElementById('employeePaymentAmountModal').value = '';
+        }
 
+        // تحميل وعرض السجل
         const history = await loadEmployeeAdvanceHistory(employeeId);
-        const tableBody = document.getElementById('employeeAdvanceHistoryBody');
+        const tableBody = document.getElementById('employeeAdvanceHistoryModalBody');
         if (!tableBody) return;
 
         tableBody.innerHTML = '';
         if (history.length === 0) {
             tableBody.innerHTML = '<tr><td colspan="5">لا توجد حركات سلف/سداد لهذا الموظف.</td></tr>';
-            return;
+        } else {
+            history.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            history.forEach(item => {
+                const row = tableBody.insertRow();
+                row.insertCell().textContent = item.date;
+                row.insertCell().textContent = item.type;
+                
+                const amountCell = row.insertCell();
+                amountCell.textContent = item.amount.toFixed(2);
+                if (item.type === 'سداد سلفة') {
+                    amountCell.style.color = 'green';
+                } else if (item.type === 'سلفة') {
+                    amountCell.style.color = 'red';
+                }
+                
+                row.insertCell().textContent = item.notes || '--';
+                row.insertCell().textContent = item.recordedBy;
+            });
         }
 
-        history.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        history.forEach(item => {
-            const row = tableBody.insertRow();
-            row.insertCell().textContent = item.date;
-            row.insertCell().textContent = item.type;
-            row.insertCell().textContent = item.amount.toFixed(2);
-            row.insertCell().textContent = item.notes || '--';
-            row.insertCell().textContent = item.recordedBy;
-        });
+        // عرض النافذة المنبثقة
+        const modal = document.getElementById('employeeDetailsModal');
+        if (modal) {
+            modal.classList.add('active');
+        }
     } catch (error) {
         console.error('Error viewing employee details:', error);
         showMessage('حدث خطأ أثناء عرض تفاصيل الموظف.', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// سداد السلف من النافذة المنبثقة
+async function processEmployeePaymentModal() {
+    if (!currentSelectedEmployeeId) {
+        showMessage('يرجى اختيار موظف أولاً.', 'warning');
+        return;
+    }
+
+    const paymentAmountInput = document.getElementById('employeePaymentAmountModal');
+    const paymentAmount = paymentAmountInput ? parseFloat(paymentAmountInput.value) : NaN;
+    
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        showMessage('يرجى إدخال مبلغ سداد صحيح وموجب.', 'warning');
+        return;
+    }
+
+    showLoading(true);
+    try {
+        const employeeIndex = employees.findIndex(e => e.id === currentSelectedEmployeeId);
+        if (employeeIndex === -1) {
+            showMessage('الموظف غير موجود.', 'error');
+            return;
+        }
+
+        const currentEmployee = employees[employeeIndex];
+        if (currentEmployee.totalAdvance < paymentAmount) {
+            showMessage('مبلغ السداد أكبر من إجمالي السلف المستحقة.', 'warning');
+            return;
+        }
+
+        const newTotalAdvance = currentEmployee.totalAdvance - paymentAmount;
+        const now = new Date();
+        const date = now.toISOString().split('T')[0];
+
+        const rowIndex = await findRowIndex(SHEETS.EMPLOYEES, 0, currentSelectedEmployeeId);
+        if (rowIndex !== -1) {
+            const updateResult = await updateSheet(SHEETS.EMPLOYEES, `D${rowIndex}`, [[newTotalAdvance.toFixed(2)]]);
+            if (!updateResult.success) {
+                showMessage('فشل تحديث إجمالي السلف للموظف.', 'error');
+                return;
+            }
+            await updateSheet(SHEETS.EMPLOYEES, `F${rowIndex}`, [[date]]);
+        } else {
+            showMessage('لم يتم العثور على الموظف لتحديث السلف.', 'error');
+            return;
+        }
+
+        const historyId = 'EAH_' + now.getTime();
+        const newHistoryEntry = [
+            historyId,
+            currentSelectedEmployeeId,
+            date,
+            'سداد سلفة',
+            paymentAmount.toFixed(2),
+            `سداد من المحاسب ${currentUserName}`,
+            currentUser.username
+        ];
+        
+        const historyResult = await appendToSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY, newHistoryEntry);
+        if (!historyResult.success) {
+            showMessage('فشل تسجيل حركة السداد.', 'error');
+            return;
+        }
+
+        currentEmployee.totalAdvance = newTotalAdvance;
+        employees[employeeIndex] = currentEmployee;
+
+        showMessage('تم سداد السلفة بنجاح.', 'success');
+        
+        // تحديث البيانات في النافذة المنبثقة
+        await viewEmployeeDetailsModal(currentSelectedEmployeeId, currentEmployee.name);
+        
+        // تحديث الجداول الأخرى
+        displayEmployees('employeesTableBodyAccountant');
+        updateAccountantDashboard();
+
+    } catch (error) {
+        console.error('Error processing employee payment:', error);
+        showMessage('حدث خطأ أثناء معالجة السداد.', 'error');
     } finally {
         showLoading(false);
     }
