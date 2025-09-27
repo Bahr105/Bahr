@@ -5146,11 +5146,11 @@ async function loadAccountantShiftClosuresHistory() {
         
         // تحديد الإشارة بناءً على نوع الفرق
         let diffDisplay = '';
-        if (diffValue < 0) { // زيادة عند الكاشير (نيو مايند أقل من الإجمالي)
+        if (diffValue > 0) { // زيادة عند الكاشير (نيو مايند أقل من الإجمالي)
             diffDisplay = `+${Math.abs(diffValue).toFixed(2)}`; // إضافة إشارة +
             differenceCell.style.color = 'green';
             differenceCell.title = 'زيادة عند الكاشير';
-        } else if (diffValue > 0) { // عجز على الكاشير (نيو مايند أعلى من الإجمالي)
+        } else if (diffValue < 0) { // عجز على الكاشير (نيو مايند أعلى من الإجمالي)
             diffDisplay = `-${diffValue.toFixed(2)}`; // إضافة إشارة -
             differenceCell.style.color = 'red';
             differenceCell.title = 'عجز على الكاشير';
