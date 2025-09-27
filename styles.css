@@ -1421,8 +1421,11 @@ input:checked + .slider:before {
     body {
         background: white;
         color: black;
-        -webkit-print-color-adjust: exact;
-    }
+      .myClass {
+  -webkit-print-color-adjust: exact; /* للكروم / سفاري */
+  print-color-adjust: exact;         /* قياسية مدعومة في فايرفوكس وغيره */
+      }}
+
 
     .main-header, .nav-tabs, .section-header, .report-actions,
     #messageContainer, .modal, .loading-overlay, .login-page {
