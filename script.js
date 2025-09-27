@@ -720,38 +720,33 @@ async function loadShiftClosures(filters = {}) {
         const data = await readSheet(SHEETS.SHIFT_CLOSURES);
         if (data.length <= 1) return [];
 
-        let closures = data.slice(1).map(row => {
-    const grandTotal = parseFloat((row[14] || '0').replace(/,/g, ''));
-    const newMindTotal = parseFloat((row[16] || '0').replace(/,/g, ''));
-
-    return {
-        id: row[0] || '',
-        cashier: row[1] || '',
-        dateFrom: row[2] || '',
-        timeFrom: row[3] || '',
-        dateTo: row[4] || '',
-        timeTo: row[5] || '',
-        totalExpenses: parseFloat((row[6] || '0').replace(/,/g, '')),
-        expenseCount: parseInt(row[7] || 0),
-        totalInsta: parseFloat((row[8] || '0').replace(/,/g, '')),
-        instaCount: parseInt(row[9] || 0),
-        totalVisa: parseFloat((row[10] || '0').replace(/,/g, '')),
-        visaCount: parseInt(row[11] || 0),
-        totalOnline: parseFloat((row[12] || '0').replace(/,/g, '')),
-        onlineCount: parseInt(row[13] || 0),
-        grandTotal,
-        drawerCash: parseFloat((row[15] || '0').replace(/,/g, '')),
-        newMindTotal,
-        difference: grandTotal - newMindTotal,   // ✅ الفرق الصحيح
-        status: row[18] || '',
-        closureDate: row[19] || '',
-        closureTime: row[20] || '',
-        accountant: row[21] || '',
-        totalReturns: parseFloat((row[22] || '0').replace(/,/g, '')),
-        grandTotalAfterReturns: parseFloat((row[23] || '0').replace(/,/g, ''))
-    };
-});
-
+        let closures = data.slice(1).map(row => ({
+            id: row[0] || '',
+            cashier: row[1] || '',
+            dateFrom: row[2] || '',
+            timeFrom: row[3] || '',
+            dateTo: row[4] || '',
+            timeTo: row[5] || '',
+            // معالجة القيمة الرقمية: إزالة الفواصل قبل التحويل
+            totalExpenses: parseFloat((row[6] || '0').replace(/,/g, '')),
+            expenseCount: parseInt(row[7] || 0),
+            totalInsta: parseFloat((row[8] || '0').replace(/,/g, '')),
+            instaCount: parseInt(row[9] || 0),
+            totalVisa: parseFloat((row[10] || '0').replace(/,/g, '')),
+            visaCount: parseInt(row[11] || 0),
+            totalOnline: parseFloat((row[12] || '0').replace(/,/g, '')),
+            onlineCount: parseInt(row[13] || 0),
+            grandTotal: parseFloat((row[14] || '0').replace(/,/g, '')), // هذا هو الإجمالي الذي سجله الكاشير (يشمل الكاش في الدرج ويستثني المرتجعات)
+            drawerCash: parseFloat((row[15] || '0').replace(/,/g, '')),
+            newMindTotal: parseFloat((row[16] || '0').replace(/,/g, '')),
+            difference: parseFloat((row[17] || '0').replace(/,/g, '')),
+            status: row[18] || '',
+            closureDate: row[19] || '',
+            closureTime: row[20] || '',
+            accountant: row[21] || '',
+            totalReturns: parseFloat((row[22] || '0').replace(/,/g, '')), // إضافة حقل إجمالي المرتجعات
+            grandTotalAfterReturns: parseFloat((row[23] || '0').replace(/,/g, '')) // إضافة حقل الإجمالي بعد خصم المرتجعات (هذا هو الإجمالي الذي قارنه المحاسب مع نيو مايند)
+        }));
 
         // Apply filters
         if (filters.cashier) {
@@ -3548,27 +3543,18 @@ async function loadCashierPreviousClosures() {
             row.insertCell().textContent = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '--';
 
             const differenceCell = row.insertCell();
-const diffValue = closure.grandTotal - closure.newMindTotal;
-
-let diffDisplay = '';
-if (diffValue > 0) { // زيادة عند الكاشير
-    diffDisplay = `+${diffValue.toFixed(2)}`;
-    differenceCell.style.color = 'green';
-    differenceCell.title = 'زيادة عند الكاشير';
-} else if (diffValue < 0) { // عجز على الكاشير
-    diffDisplay = `${diffValue.toFixed(2)}`;
-    differenceCell.style.color = 'red';
-    differenceCell.title = 'عجز على الكاشير';
-} else {
-    diffDisplay = '0.00';
-    differenceCell.style.color = 'blue';
-    differenceCell.title = 'مطابق';
-}
-
-differenceCell.textContent = diffDisplay;
-
-
-
+            const diffValue = closure.difference;
+            differenceCell.textContent = diffValue.toFixed(2);
+            if (diffValue < 0) {
+                differenceCell.style.color = 'green';
+                differenceCell.title = 'زيادة عند الكاشير';
+            } else if (diffValue > 0) {
+                differenceCell.style.color = 'red';
+                differenceCell.title = 'عجز على الكاشير';
+            } else {
+                differenceCell.style.color = 'blue';
+                differenceCell.title = 'مطابق';
+            }
 
             const statusCell = row.insertCell();
             statusCell.innerHTML = `<span class="status ${closure.status === 'مغلق' || closure.status === 'مغلق بواسطة المحاسب' ? 'closed' : 'open'}">${closure.status}</span>`;
@@ -5127,6 +5113,76 @@ function calculateDifferenceAccountant() {
     }
 }
 
+async function loadAccountantShiftClosuresHistory() {
+    const closures = await loadShiftClosures({});
+    const tableBody = document.getElementById('closuresHistoryBodyAccountant');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '';
+
+    if (closures.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="9">لا توجد سجلات تقفيلات.</td></tr>';
+        return;
+    }
+
+    closures.sort((a, b) => new Date(`${b.closureDate}T${b.closureTime}`) - new Date(`${a.closureDate}T${a.closureTime}`));
+
+    for (const closure of closures) {
+        const row = tableBody.insertRow();
+
+        const cashierUser = users.find(u => u.username === closure.cashier);
+        const cashierDisplayName = cashierUser ? cashierUser.name : closure.cashier;
+
+        row.insertCell().textContent = cashierDisplayName;
+        row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom.substring(0,5)} - ${closure.dateTo} ${closure.timeTo.substring(0,5)}`;
+
+        // إجمالي الكاشير هو grandTotal الذي سجله الكاشير (يشمل الكاش في الدرج ويستثني المرتجعات)
+        row.insertCell().textContent = closure.grandTotal.toFixed(2);
+
+        row.insertCell().textContent = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '--';
+
+        const differenceCell = row.insertCell();
+        const diffValue = closure.difference;
+        
+        // تحديد الإشارة بناءً على نوع الفرق
+        let diffDisplay = '';
+        if (diffValue < 0) { // زيادة عند الكاشير (نيو مايند أقل من الإجمالي)
+            diffDisplay = `+${Math.abs(diffValue).toFixed(2)}`; // إضافة إشارة +
+            differenceCell.style.color = 'green';
+            differenceCell.title = 'زيادة عند الكاشير';
+        } else if (diffValue > 0) { // عجز على الكاشير (نيو مايند أعلى من الإجمالي)
+            diffDisplay = `-${diffValue.toFixed(2)}`; // إضافة إشارة -
+            differenceCell.style.color = 'red';
+            differenceCell.title = 'عجز على الكاشير';
+        } else { // مطابقة
+            diffDisplay = '0.00';
+            differenceCell.style.color = 'blue';
+            differenceCell.title = 'مطابق';
+        }
+        
+        differenceCell.textContent = diffDisplay;
+
+        const statusCell = row.insertCell();
+        statusCell.innerHTML = `<span class="status ${closure.status === 'مغلق' || closure.status === 'مغلق بواسطة المحاسب' ? 'closed' : 'open'}">${closure.status}</span>`;
+
+        row.insertCell().textContent = `${closure.closureDate} ${closure.closureTime.substring(0, 5)}`;
+
+        const actionsCell = row.insertCell();
+        actionsCell.innerHTML = `
+            <button class="view-btn" onclick="viewClosureDetails('${closure.id}')">
+                <i class="fas fa-eye"></i> عرض
+            </button>
+            <button class="edit-btn" onclick="promptForEditPassword('${closure.id}')">
+                <i class="fas fa-edit"></i> تعديل
+            </button>
+            ${closure.status !== 'مغلق بواسطة المحاسب' ? `
+            <button class="accountant-close-btn" onclick="showAccountantClosureModal('${closure.id}')">
+                <i class="fas fa-check-double"></i> تقفيل المحاسب
+            </button>` : ''}
+        `;
+    }
+}
+
 // --- New Modal for Accountant Closure Details ---
 // تعديل الدالة لجعل مفتاح المرتجعات مطفيًا افتراضيًا
 async function showAccountantClosureModal(closureId, isEdit = false) {
@@ -5472,7 +5528,7 @@ async function saveEditedAccountantClosure() {
             grandTotalAfterReturnsValue = cashierRecordedGrandTotal;
         }
 
-        const difference =   grandTotalForComparison - newMindTotal;
+        const difference =   grandTotalForComparison- newMindTotal;
         const now = new Date();
 
         const rowIndex = await findRowIndex(SHEETS.SHIFT_CLOSURES, 0, closure.id);
