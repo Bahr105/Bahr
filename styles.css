@@ -1563,3 +1563,74 @@ input:checked + .slider:before {
         font-size: 0.9rem;
     }
 }
+/* أنماط النوافذ المنبثقة للعملاء والموظفين */
+.customer-info, .employee-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    border-radius: 5px;
+    border-left: 4px solid #3498db;
+}
+
+.info-item label {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.amount {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.payment-section {
+    background: #e8f5e8;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #27ae60;
+}
+
+.history-section {
+    margin-top: 20px;
+}
+
+.history-section h4 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 5px;
+}
+
+/* تحسينات للجداول داخل النوافذ */
+.modal-body .table-container {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.modal-body table {
+    font-size: 0.9em;
+}
+
+.modal-body th {
+    background: #3498db;
+    color: white;
+    position: sticky;
+    top: 0;
+}
+
