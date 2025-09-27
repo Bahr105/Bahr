@@ -669,34 +669,61 @@
                 </table>
             </div>
             <!-- تفاصيل الأجل والسداد للعميل -->
-            <div id="customerDetailsAccountant" class="report-content" style="display: none;">
-                <h3>تفاصيل أجل العميل: <span id="customerDetailsName"></span></h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="customerPaymentAmount">مبلغ السداد:</label>
-                        <input type="number" id="customerPaymentAmount" step="0.01" placeholder="أدخل مبلغ السداد">
+            <!-- نافذة تفاصيل العميل -->
+<div id="customerDetailsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="customerDetailsModalTitle">تفاصيل العميل</h3>
+            <span class="close" onclick="closeModal('customerDetailsModal')">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="customer-info">
+                <h4 id="customerDetailsName"></h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>رقم الهاتف:</label>
+                        <span id="customerDetailsPhone"></span>
                     </div>
-                    <button type="button" class="save-btn" onclick="processCustomerPayment()">
-                        <i class="fas fa-money-bill-wave"></i>
-                        سداد الأجل
-                    </button>
+                    <div class="info-item">
+                        <label>إجمالي الأجل:</label>
+                        <span id="customerDetailsCredit" class="amount"></span>
+                    </div>
                 </div>
-                <table id="customerCreditHistoryTable">
-                    <thead>
-                        <tr>
-                            <th>التاريخ</th>
-                            <th>نوع الحركة</th>
-                            <th>المبلغ</th>
-                            <th>رقم الفاتورة/ملاحظات</th>
-                            <th>الكاشير/المحاسب</th>
-                        </tr>
-                    </thead>
-                    <tbody id="customerCreditHistoryBody">
-                        <!-- سيتم ملء بيانات الأجل والسداد ديناميكياً -->
-                    </tbody>
-                </table>
+            </div>
+            
+            <div class="payment-section">
+                <h4>سداد الأجل</h4>
+                <div class="form-group">
+                    <label for="customerPaymentAmountModal">مبلغ السداد:</label>
+                    <input type="number" id="customerPaymentAmountModal" step="0.01" min="0.01" placeholder="أدخل مبلغ السداد">
+                </div>
+                <button class="submit-btn" onclick="processCustomerPaymentModal()">
+                    <i class="fas fa-check"></i> تأكيد السداد
+                </button>
+            </div>
+            
+            <div class="history-section">
+                <h4>سجل الأجل والسداد</h4>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>نوع الحركة</th>
+                                <th>المبلغ</th>
+                                <th>رقم الفاتورة</th>
+                                <th>ملاحظات</th>
+                                <th>مسجل بواسطة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customerCreditHistoryModalBody">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
+    </div>
+</div>
 
         <!-- قسم الموظفين (للمحاسب) - New Tab -->
         <div id="employeesTabAccountant" class="tab-content">
@@ -725,34 +752,60 @@
                 </table>
             </div>
             <!-- تفاصيل السلف والسداد للموظف -->
-            <div id="employeeDetailsAccountant" class="report-content" style="display: none;">
-                <h3>تفاصيل سلف الموظف: <span id="employeeDetailsName"></span></h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="employeePaymentAmount">مبلغ السداد:</label>
-                        <input type="number" id="employeePaymentAmount" step="0.01" placeholder="أدخل مبلغ السداد">
+            <!-- نافذة تفاصيل الموظف -->
+<div id="employeeDetailsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="employeeDetailsModalTitle">تفاصيل الموظف</h3>
+            <span class="close" onclick="closeModal('employeeDetailsModal')">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="employee-info">
+                <h4 id="employeeDetailsName"></h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>رقم الهاتف:</label>
+                        <span id="employeeDetailsPhone"></span>
                     </div>
-                    <button type="button" class="save-btn" onclick="processEmployeePayment()">
-                        <i class="fas fa-money-bill-wave"></i>
-                        سداد السلفة
-                    </button>
+                    <div class="info-item">
+                        <label>إجمالي السلف:</label>
+                        <span id="employeeDetailsAdvance" class="amount"></span>
+                    </div>
                 </div>
-                <table id="employeeAdvanceHistoryTable">
-                    <thead>
-                        <tr>
-                            <th>التاريخ</th>
-                            <th>نوع الحركة</th>
-                            <th>المبلغ</th>
-                            <th>الملاحظات</th>
-                            <th>الكاشير/المحاسب</th>
-                        </tr>
-                    </thead>
-                    <tbody id="employeeAdvanceHistoryBody">
-                        <!-- سيتم ملء بيانات السلف والسداد ديناميكياً -->
-                    </tbody>
-                </table>
+            </div>
+            
+            <div class="payment-section">
+                <h4>سداد السلف</h4>
+                <div class="form-group">
+                    <label for="employeePaymentAmountModal">مبلغ السداد:</label>
+                    <input type="number" id="employeePaymentAmountModal" step="0.01" min="0.01" placeholder="أدخل مبلغ السداد">
+                </div>
+                <button class="submit-btn" onclick="processEmployeePaymentModal()">
+                    <i class="fas fa-check"></i> تأكيد السداد
+                </button>
+            </div>
+            
+            <div class="history-section">
+                <h4>سجل السلف والسداد</h4>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>نوع الحركة</th>
+                                <th>المبلغ</th>
+                                <th>ملاحظات</th>
+                                <th>مسجل بواسطة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeeAdvanceHistoryModalBody">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
+    </div>
+</div>
 
         <!-- قسم تقفيل الشيفت للمحاسب -->
         <div id="shiftCloseTabAccountant" class="tab-content">
