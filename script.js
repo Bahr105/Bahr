@@ -3548,14 +3548,15 @@ async function loadCashierPreviousClosures() {
             row.insertCell().textContent = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '--';
 
             const differenceCell = row.insertCell();
-            const diffValue = closure.difference;
-            differenceCell.textContent = diffValue.toFixed(2);
-           if (diffValue > 0) { // زيادة عند الكاشير
+const diffValue = closure.grandTotal - closure.newMindTotal;
+
+let diffDisplay = '';
+if (diffValue > 0) { // زيادة عند الكاشير
     diffDisplay = `+${diffValue.toFixed(2)}`;
     differenceCell.style.color = 'green';
     differenceCell.title = 'زيادة عند الكاشير';
 } else if (diffValue < 0) { // عجز على الكاشير
-    diffDisplay = `${diffValue.toFixed(2)}`; // هيظهر بالسالب
+    diffDisplay = `${diffValue.toFixed(2)}`;
     differenceCell.style.color = 'red';
     differenceCell.title = 'عجز على الكاشير';
 } else {
@@ -3563,6 +3564,9 @@ async function loadCashierPreviousClosures() {
     differenceCell.style.color = 'blue';
     differenceCell.title = 'مطابق';
 }
+
+differenceCell.textContent = diffDisplay;
+
 
 
 
@@ -5152,7 +5156,7 @@ async function loadAccountantShiftClosuresHistory() {
         row.insertCell().textContent = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '--';
 
        const differenceCell = row.insertCell();
-const diffValue = closure.difference;
+const diffValue = closure.grandTotal - closure.newMindTotal;
 
 // تحديد الإشارة بناءً على نوع الفرق
 let diffDisplay = '';
