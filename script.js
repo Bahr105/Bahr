@@ -5435,7 +5435,7 @@ async function viewClosureDetails(closureId) {
             <p><strong>إجمالي الأونلاين:</strong> ${closure.totalOnline.toFixed(2)} (${closure.onlineCount} فاتورة) <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'اونلاين'); return false;"><i class="fas fa-eye"></i></a></p>
             <p><strong>إجمالي المرتجعات:</strong> ${closure.totalReturns.toFixed(2)} <a href="#" onclick="viewExpenseDetails('${closure.cashier}', '${closure.dateFrom}', '${closure.timeFrom}', '${closure.dateTo}', '${closure.timeTo}', 'مرتجع'); return false;"><i class="fas fa-eye"></i></a></p>
             <p><strong>إجمالي الكاش في الدرج:</strong> ${closure.drawerCash.toFixed(2)}</p>
-            <p><strong>الإجمالي الكلي للكاشير (قبل خصم المرتجعات):</strong> ${closure.grandTotal.toFixed(2)}</p>
+            <p><strong>الإجمالي الكلي للكاشير (بعد خصم المرتجعات):</strong> ${closure.grandTotal.toFixed(2)}</p>
             ${closure.totalReturns > 0 && closure.grandTotalAfterReturns !== closure.grandTotal ? `<p><strong>الإجمالي الكلي الذي قارنه المحاسب (بعد إضافة المرتجع):</strong> ${closure.grandTotalAfterReturns.toFixed(2)}</p>` : ''}
             <p><strong>إجمالي نيو مايند:</strong> ${closure.newMindTotal.toFixed(2)}</p>
             <p><strong>الفرق:</strong> ${closure.difference.toFixed(2)}</p>
