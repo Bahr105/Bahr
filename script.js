@@ -1639,8 +1639,10 @@ async function generateDynamicExpenseForm(formType, categoryId, expenseData = {}
 
     let formHtml = ``;
 
-    // إضافة حقل رقم الفاتورة لجميع الأنواع التي تتطلبها، بما في ذلك "أجل"
-    if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات', 'سلف_موظف'].includes(formType)) {
+    // إضافة حقل رقم الفاتورة لجميع الأنواع التي تتطلبها، باستثناء الأنواع المحددة
+    const excludedFormTypes = ['دفعة_شركة', 'بنزين', 'شحن_تاب', 'شحن_كهربا', 'سلف', 'اونلاين', 'عيش', 'انابيب'];
+    
+    if (!excludedFormTypes.includes(formType)) {
         formHtml += `
             <div class="form-group">
                 <label for="expenseInvoiceNumber">رقم الفاتورة: <span style="color: red;">*</span></label>
@@ -1960,22 +1962,26 @@ function showAddEmployeeModalFromExpense() {
         
 
         // التحقق من رقم الفاتورة إذا كان مطلوبًا
-        if (['عادي', 'فيزا', 'اونلاين', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'شحن_تاب', 'شحن_كهربا', 'بنزين', 'سلف', 'دفعة_شركة', 'عجوزات', 'سلف_موظف'].includes(formType)) {
-            if (!invoiceNumber) {
-                showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
-                return;
-            }
+       // التحقق من رقم الفاتورة إذا كان مطلوبًا (مع استثناء الأنواع المحددة)
+const excludedFormTypes = ['دفعة_شركة', 'بنزين', 'شحن_تاب', 'شحن_كهربا', 'سلف', 'اونلاين', 'عيش', 'انابيب'];
+const formTypesRequiringInvoice = ['عادي', 'فيزا', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'عجوزات', 'سلف_موظف'];
 
-            const allExistingExpenses = await readSheet(SHEETS.EXPENSES);
-            const isInvoiceNumberDuplicate = allExistingExpenses.slice(1).some(row =>
-                row[3] && row[3].trim() === invoiceNumber
-            );
+if (formTypesRequiringInvoice.includes(formType)) {
+    if (!invoiceNumber) {
+        showMessage('يرجى إدخال رقم الفاتورة.', 'warning');
+        return;
+    }
 
-            if (isInvoiceNumberDuplicate) {
-                showMessage('رقم الفاتورة هذا موجود بالفعل. يرجى إدخال رقم فاتورة فريد.', 'error');
-                return;
-            }
-        }
+    const allExistingExpenses = await readSheet(SHEETS.EXPENSES);
+    const isInvoiceNumberDuplicate = allExistingExpenses.slice(1).some(row =>
+        row[3] && row[3].trim() === invoiceNumber
+    );
+
+    if (isInvoiceNumberDuplicate) {
+        showMessage('رقم الفاتورة هذا موجود بالفعل. يرجى إدخال رقم فاتورة فريد.', 'error');
+        return;
+    }
+}
 
         // التحقق من الرقم المرجعي للفيزا إذا كان نوع الفورم "فيزا"
         if (formType === 'فيزا' && !visaReferenceNumber) {
