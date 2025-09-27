@@ -5144,36 +5144,41 @@ async function loadAccountantShiftClosuresHistory() {
         const differenceCell = row.insertCell();
         const diffValue = closure.difference;
         
-        // تحديد التنسيق بناءً على قيمة الفرق
-        if (diffValue > 0) {
-            // زيادة عند الكاشير (إجمالي الكاشير أكبر من نيو مايند)
-            differenceCell.textContent = `+${diffValue.toFixed(2)}`;
+        // تحديد الإشارة بناءً على نوع الفرق
+        let diffDisplay = '';
+        if (diffValue < 0) { // زيادة عند الكاشير (نيو مايند أقل من الإجمالي)
+            diffDisplay = `+${Math.abs(diffValue).toFixed(2)}`; // إضافة إشارة +
             differenceCell.style.color = 'green';
-            differenceCell.style.fontWeight = 'bold';
             differenceCell.title = 'زيادة عند الكاشير';
-        } else if (diffValue < 0) {
-            // عجز على الكاشير (نيو مايند أكبر من إجمالي الكاشير)
-            differenceCell.textContent = `${diffValue.toFixed(2)}`; // سيكون سالباً تلقائياً
+        } else if (diffValue > 0) { // عجز على الكاشير (نيو مايند أعلى من الإجمالي)
+            diffDisplay = `-${diffValue.toFixed(2)}`; // إضافة إشارة -
             differenceCell.style.color = 'red';
-            differenceCell.style.fontWeight = 'bold';
             differenceCell.title = 'عجز على الكاشير';
-        } else {
-            // مطابق
-            differenceCell.textContent = diffValue.toFixed(2);
+        } else { // مطابقة
+            diffDisplay = '0.00';
             differenceCell.style.color = 'blue';
             differenceCell.title = 'مطابق';
         }
+        
+        differenceCell.textContent = diffDisplay;
 
         const statusCell = row.insertCell();
         statusCell.innerHTML = `<span class="status ${closure.status === 'مغلق' || closure.status === 'مغلق بواسطة المحاسب' ? 'closed' : 'open'}">${closure.status}</span>`;
 
-        row.insertCell().textContent = `${closure.closureDate} ${closure.closureTime.substring(0,5)}`;
+        row.insertCell().textContent = `${closure.closureDate} ${closure.closureTime.substring(0, 5)}`;
 
         const actionsCell = row.insertCell();
         actionsCell.innerHTML = `
             <button class="view-btn" onclick="viewClosureDetails('${closure.id}')">
                 <i class="fas fa-eye"></i> عرض
             </button>
+            <button class="edit-btn" onclick="promptForEditPassword('${closure.id}')">
+                <i class="fas fa-edit"></i> تعديل
+            </button>
+            ${closure.status !== 'مغلق بواسطة المحاسب' ? `
+            <button class="accountant-close-btn" onclick="showAccountantClosureModal('${closure.id}')">
+                <i class="fas fa-check-double"></i> تقفيل المحاسب
+            </button>` : ''}
         `;
     }
 }
