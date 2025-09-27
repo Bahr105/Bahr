@@ -2663,52 +2663,61 @@ async function viewCustomerDetailsModal(customerId, customerName) {
     try {
         currentSelectedCustomerId = customerId;
         
-        // تعبئة بيانات العميل الأساسية
+        // تعبئة بيانات العميل الأساسية (مع التحقق من وجود العناصر)
         const customer = customers.find(c => c.id === customerId);
         if (customer) {
-            document.getElementById('customerDetailsModalTitle').textContent = `تفاصيل العميل: ${customerName}`;
-            document.getElementById('customerDetailsName').textContent = customerName;
-            document.getElementById('customerDetailsPhone').textContent = customer.phone;
-            document.getElementById('customerDetailsCredit').textContent = customer.totalCredit.toFixed(2);
+            const titleElement = document.getElementById('customerDetailsModalTitle');
+            const nameElement = document.getElementById('customerDetailsName');
+            const phoneElement = document.getElementById('customerDetailsPhone');
+            const creditElement = document.getElementById('customerDetailsCredit');
+            
+            if (titleElement) titleElement.textContent = `تفاصيل العميل: ${customerName}`;
+            if (nameElement) nameElement.textContent = customerName;
+            if (phoneElement) phoneElement.textContent = customer.phone || '--';
+            if (creditElement) creditElement.textContent = customer.totalCredit.toFixed(2);
             
             // مسح حقل السداد
-            document.getElementById('customerPaymentAmountModal').value = '';
+            const paymentInput = document.getElementById('customerPaymentAmountModal');
+            if (paymentInput) paymentInput.value = '';
         }
 
-        // تحميل وعرض السجل
+        // تحميل وعرض السجل (مع التحقق)
         const history = await loadCustomerCreditHistory(customerId);
         const tableBody = document.getElementById('customerCreditHistoryModalBody');
-        if (!tableBody) return;
-
-        tableBody.innerHTML = '';
-        if (history.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="6">لا توجد حركات أجل/سداد لهذا العميل.</td></tr>';
-        } else {
-            history.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            history.forEach(item => {
-                const row = tableBody.insertRow();
-                row.insertCell().textContent = item.date;
-                row.insertCell().textContent = item.type;
+        if (tableBody) {
+            tableBody.innerHTML = '';
+            if (history.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6">لا توجد حركات أجل/سداد لهذا العميل.</td></tr>';
+            } else {
+                history.sort((a, b) => new Date(b.date) - new Date(a.date));
                 
-                const amountCell = row.insertCell();
-                amountCell.textContent = item.amount.toFixed(2);
-                if (item.type === 'سداد') {
-                    amountCell.style.color = 'green';
-                } else if (item.type === 'أجل') {
-                    amountCell.style.color = 'red';
-                }
-                
-                row.insertCell().textContent = item.invoiceNumber || '--';
-                row.insertCell().textContent = item.notes || '--';
-                row.insertCell().textContent = item.recordedBy;
-            });
+                history.forEach(item => {
+                    const row = tableBody.insertRow();
+                    row.insertCell().textContent = item.date;
+                    row.insertCell().textContent = item.type;
+                    
+                    const amountCell = row.insertCell();
+                    amountCell.textContent = item.amount.toFixed(2);
+                    if (item.type === 'سداد') {
+                        amountCell.style.color = 'green';
+                    } else if (item.type === 'أجل') {
+                        amountCell.style.color = 'red';
+                    }
+                    
+                    row.insertCell().textContent = item.invoiceNumber || '--';
+                    row.insertCell().textContent = item.notes || '--';
+                    row.insertCell().textContent = item.recordedBy;
+                });
+            }
         }
 
-        // عرض النافذة المنبثقة
+        // عرض النافذة المنبثقة (مع fallback إذا لم يوجد المودال)
         const modal = document.getElementById('customerDetailsModal');
         if (modal) {
             modal.classList.add('active');
+        } else {
+            // Fallback: عرض في alert إذا لم يوجد المودال
+            alert(`تفاصيل العميل: ${customerName}\nرقم الهاتف: ${customer ? customer.phone : '--'}\nإجمالي الأجل: ${customer ? customer.totalCredit.toFixed(2) : '--'}\n\nالسجل: ${history.length} حركة`);
         }
     } catch (error) {
         console.error('Error viewing customer details:', error);
@@ -2717,6 +2726,7 @@ async function viewCustomerDetailsModal(customerId, customerName) {
         showLoading(false);
     }
 }
+
 
 // سداد الأجل من النافذة المنبثقة
 async function processCustomerPaymentModal() {
@@ -3126,51 +3136,60 @@ async function viewEmployeeDetailsModal(employeeId, employeeName) {
     try {
         currentSelectedEmployeeId = employeeId;
         
-        // تعبئة بيانات الموظف الأساسية
+        // تعبئة بيانات الموظف الأساسية (مع التحقق من وجود العناصر)
         const employee = employees.find(e => e.id === employeeId);
         if (employee) {
-            document.getElementById('employeeDetailsModalTitle').textContent = `تفاصيل الموظف: ${employeeName}`;
-            document.getElementById('employeeDetailsName').textContent = employeeName;
-            document.getElementById('employeeDetailsPhone').textContent = employee.phone;
-            document.getElementById('employeeDetailsAdvance').textContent = employee.totalAdvance.toFixed(2);
+            const titleElement = document.getElementById('employeeDetailsModalTitle');
+            const nameElement = document.getElementById('employeeDetailsName');
+            const phoneElement = document.getElementById('employeeDetailsPhone');
+            const advanceElement = document.getElementById('employeeDetailsAdvance');
+            
+            if (titleElement) titleElement.textContent = `تفاصيل الموظف: ${employeeName}`;
+            if (nameElement) nameElement.textContent = employeeName;
+            if (phoneElement) phoneElement.textContent = employee.phone || '--';
+            if (advanceElement) advanceElement.textContent = employee.totalAdvance.toFixed(2);
             
             // مسح حقل السداد
-            document.getElementById('employeePaymentAmountModal').value = '';
+            const paymentInput = document.getElementById('employeePaymentAmountModal');
+            if (paymentInput) paymentInput.value = '';
         }
 
-        // تحميل وعرض السجل
+        // تحميل وعرض السجل (مع التحقق)
         const history = await loadEmployeeAdvanceHistory(employeeId);
         const tableBody = document.getElementById('employeeAdvanceHistoryModalBody');
-        if (!tableBody) return;
-
-        tableBody.innerHTML = '';
-        if (history.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="5">لا توجد حركات سلف/سداد لهذا الموظف.</td></tr>';
-        } else {
-            history.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            history.forEach(item => {
-                const row = tableBody.insertRow();
-                row.insertCell().textContent = item.date;
-                row.insertCell().textContent = item.type;
+        if (tableBody) {
+            tableBody.innerHTML = '';
+            if (history.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5">لا توجد حركات سلف/سداد لهذا الموظف.</td></tr>';
+            } else {
+                history.sort((a, b) => new Date(b.date) - new Date(a.date));
                 
-                const amountCell = row.insertCell();
-                amountCell.textContent = item.amount.toFixed(2);
-                if (item.type === 'سداد سلفة') {
-                    amountCell.style.color = 'green';
-                } else if (item.type === 'سلفة') {
-                    amountCell.style.color = 'red';
-                }
-                
-                row.insertCell().textContent = item.notes || '--';
-                row.insertCell().textContent = item.recordedBy;
-            });
+                history.forEach(item => {
+                    const row = tableBody.insertRow();
+                    row.insertCell().textContent = item.date;
+                    row.insertCell().textContent = item.type;
+                    
+                    const amountCell = row.insertCell();
+                    amountCell.textContent = item.amount.toFixed(2);
+                    if (item.type === 'سداد سلفة') {
+                        amountCell.style.color = 'green';
+                    } else if (item.type === 'سلفة') {
+                        amountCell.style.color = 'red';
+                    }
+                    
+                    row.insertCell().textContent = item.notes || '--';
+                    row.insertCell().textContent = item.recordedBy;
+                });
+            }
         }
 
-        // عرض النافذة المنبثقة
+        // عرض النافذة المنبثقة (مع fallback إذا لم يوجد المودال)
         const modal = document.getElementById('employeeDetailsModal');
         if (modal) {
             modal.classList.add('active');
+        } else {
+            // Fallback: عرض في alert إذا لم يوجد المودال
+            alert(`تفاصيل الموظف: ${employeeName}\nرقم الهاتف: ${employee ? employee.phone : '--'}\nإجمالي السلف: ${employee ? employee.totalAdvance.toFixed(2) : '--'}\n\nالسجل: ${history.length} حركة`);
         }
     } catch (error) {
         console.error('Error viewing employee details:', error);
@@ -3179,6 +3198,7 @@ async function viewEmployeeDetailsModal(employeeId, employeeName) {
         showLoading(false);
     }
 }
+
 
 // سداد السلف من النافذة المنبثقة
 async function processEmployeePaymentModal() {
