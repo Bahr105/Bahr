@@ -25,7 +25,7 @@ body {
     display: block;
 }
 
-/* Messages */
+/* --- Messages --- */
 #messageContainer {
     position: fixed;
     top: 20px;
@@ -85,7 +85,7 @@ body {
     border-right: 4px solid #17a2b8;
 }
 
-/* Login Page */
+/* --- Login Page --- */
 .login-container {
     min-height: 100vh;
     display: flex;
@@ -134,6 +134,7 @@ body {
     padding: 40px 30px;
 }
 
+/* --- General Form Elements --- */
 .form-group {
     margin-bottom: 25px;
 }
@@ -159,18 +160,28 @@ body {
 }
 
 .input-group input,
-.input-group select {
+.input-group select,
+.filter-group input,
+.filter-group select,
+.form-group input,
+.form-group select,
+.form-group textarea {
     width: 100%;
-    padding: 15px 45px 15px 15px;
+    padding: 15px 45px 15px 15px; /* Adjusted padding for input-group */
     border: 2px solid #e1e5e9;
-    border-radius: 10px;
+    border-radius: 10px; /* Consistent border-radius */
     font-size: 1rem;
     transition: all 0.3s ease;
     background: #f8f9fa;
 }
 
 .input-group input:focus,
-.input-group select:focus {
+.input-group select:focus,
+.filter-group input:focus,
+.filter-group select:focus,
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
     outline: none;
     border-color: #4CAF50;
     background: white;
@@ -219,7 +230,7 @@ body {
     border-radius: 0 0 20px 20px;
 }
 
-/* Main Header */
+/* --- Main Header --- */
 .main-header {
     background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
     color: white;
@@ -268,7 +279,7 @@ body {
     border-color: rgba(255, 255, 255, 0.5);
 }
 
-/* Navigation Tabs */
+/* --- Navigation Tabs --- */
 .nav-tabs {
     background: white;
     padding: 0 30px;
@@ -309,7 +320,7 @@ body {
     background: rgba(76, 175, 80, 0.05);
 }
 
-/* Main Content */
+/* --- Main Content --- */
 .main-content {
     background: #f8f9fa;
     min-height: calc(100vh - 140px);
@@ -332,7 +343,7 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Section Header */
+/* --- Section Header --- */
 .section-header {
     display: flex;
     justify-content: space-between;
@@ -352,10 +363,9 @@ body {
     font-size: 1.4rem;
 }
 
-/* Buttons - General Styling */
-.add-btn, .save-btn, .calculate-btn, .generate-report-btn, .search-btn, .close-shift-btn, .close-cashier-btn,
-.cancel-btn, .print-btn, .view-btn, .whatsapp-btn, .send-btn, .clear-filters-btn, .calculate-difference-btn,
-.edit-btn, .delete-btn, .block-btn, .accountant-close-btn, .small-btn { /* Added .small-btn */
+/* --- Buttons - General Styling --- */
+/* Base style for all buttons */
+button {
     border: none;
     padding: 12px 20px;
     border-radius: 8px;
@@ -368,9 +378,18 @@ body {
     justify-content: center;
     gap: 8px;
     white-space: nowrap;
+    /* Default button appearance if not overridden */
+    background-color: #e0e0e0;
+    color: #333;
 }
 
-/* Primary Action Buttons */
+button:hover {
+    background-color: #d0d0d0;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Specific button classes */
 .add-btn, .save-btn, .calculate-btn, .generate-report-btn, .search-btn, .close-shift-btn, .close-cashier-btn {
     background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
     color: white;
@@ -380,8 +399,7 @@ body {
     box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
 }
 
-/* Secondary Action Buttons */
-.cancel-btn, .block-btn { /* Combined .block-btn here */
+.cancel-btn, .block-btn {
     background: #6c757d;
     color: white;
 }
@@ -389,7 +407,6 @@ body {
     background: #5a6268;
 }
 
-/* Info/View Buttons */
 .print-btn, .view-btn {
     background: #17a2b8;
     color: white;
@@ -399,7 +416,6 @@ body {
     transform: translateY(-2px);
 }
 
-/* WhatsApp Buttons */
 .whatsapp-btn, .send-btn {
     background: #25d366;
     color: white;
@@ -409,7 +425,6 @@ body {
     transform: translateY(-2px);
 }
 
-/* Danger/Clear Buttons */
 .clear-filters-btn, .delete-btn {
     background: #dc3545;
     color: white;
@@ -421,7 +436,6 @@ body {
     background: #c82333;
 }
 
-/* Warning/Calculate Difference Button */
 .calculate-difference-btn, .edit-btn {
     background: #ffc107;
     color: #212529;
@@ -432,11 +446,11 @@ body {
 }
 
 /* Specific Table Action Buttons */
-.edit-btn, .delete-btn, .block-btn, .accountant-close-btn, .small-btn { /* Added .small-btn */
+.edit-btn, .delete-btn, .block-btn, .accountant-close-btn, .small-btn {
     padding: 8px 12px;
     border-radius: 5px;
     font-size: 0.8rem;
-    gap: 5px; /* Added gap for small buttons */
+    gap: 5px;
 }
 
 .accountant-close-btn {
@@ -447,7 +461,7 @@ body {
     background: #0056b3;
 }
 
-/* Categories Grid */
+/* --- Categories Grid --- */
 .categories-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -502,8 +516,8 @@ body {
     justify-content: flex-start;
 }
 
-/* Filters */
-.expenses-filters, .dashboard-filters, .reports-filters, .newmind-input { /* Combined .newmind-input */
+/* --- Filters --- */
+.expenses-filters, .dashboard-filters, .reports-filters, .newmind-input {
     background: white;
     padding: 20px;
     border-radius: 10px;
@@ -529,54 +543,7 @@ body {
     font-size: 0.9rem;
 }
 
-.filter-group input, .filter-group select {
-    padding: 10px 12px;
-    border: 2px solid #e1e5e9;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-    background: white;
-    width: 100%;
-}
-
-.filter-group input:focus, .filter-group select:focus {
-    outline: none;
-    border-color: #4CAF50;
-    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
-}
-
-/* Form Styles - General */
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-    color: #495057;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    padding: 12px 15px;
-    border: 2px solid #e1e5e9;
-    border-radius: 8px;
-    font-size: 16px;
-    transition: all 0.3s ease;
-    background: white;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-    outline: none;
-    border-color: #4CAF50;
-    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
-}
-
+/* --- Form Styles - General --- */
 .form-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -584,8 +551,8 @@ body {
     margin-bottom: 20px;
 }
 
-/* Tables */
-.expenses-table, .customers-table, .users-table, .cashiers-table, .closures-table {
+/* --- Tables --- */
+.expenses-table, .customers-table, .users-table, .cashiers-table, .closures-table, .employees-table { /* Added .employees-table */
     background: white;
     border-radius: 10px;
     overflow-x: auto;
@@ -621,7 +588,7 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     margin-left: 5px;
 }
 
-/* Status badges */
+/* --- Status badges --- */
 .status {
     padding: 4px 8px;
     border-radius: 12px;
@@ -657,7 +624,7 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     color: #0c5460;
 }
 
-/* Dashboard Stats */
+/* --- Dashboard Stats --- */
 .dashboard-stats {
     margin-bottom: 30px;
 }
@@ -727,8 +694,8 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     font-weight: 500;
 }
 
-/* Shift Forms & Summary */
-.shift-close-form, .accountant-shift-form, .shift-summary, .cashiers-overview, .closures-history, #customerDetailsAccountant { /* Combined common styles */
+/* --- Shift Forms & Summary --- */
+.shift-close-form, .accountant-shift-form, .shift-summary, .cashiers-overview, .closures-history, #customerDetailsAccountant, #employeeDetailsAccountant { /* Added #employeeDetailsAccountant */
     background: white;
     padding: 25px;
     border-radius: 10px;
@@ -736,11 +703,11 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     margin-bottom: 25px; /* Default margin for these sections */
 }
 
-.cashiers-overview, .closures-history, #customerDetailsAccountant {
+.cashiers-overview, .closures-history, #customerDetailsAccountant, #employeeDetailsAccountant {
     margin-top: 30px; /* Specific top margin for these */
 }
 
-.shift-close-form h3, .accountant-shift-form h3, .cashiers-overview h3, .closures-history h3, #customerDetailsAccountant h3, .closure-info h3 {
+.shift-close-form h3, .accountant-shift-form h3, .cashiers-overview h3, .closures-history h3, #customerDetailsAccountant h3, #employeeDetailsAccountant h3, .closure-info h3 {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -748,7 +715,7 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     color: #2c3e50;
 }
 
-#customerDetailsAccountant h3 {
+#customerDetailsAccountant h3, #employeeDetailsAccountant h3 {
     border-bottom: 1px solid #eee;
     padding-bottom: 10px;
 }
@@ -818,7 +785,7 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     min-width: 200px;
 }
 
-/* Modals */
+/* --- Modals --- */
 .modal {
     display: none;
     position: fixed;
@@ -912,7 +879,7 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     border-top: 1px solid #dee2e6;
 }
 
-/* Dynamic Form */
+/* --- Dynamic Form --- */
 #dynamicExpenseForm {
     margin-top: 20px;
     padding: 15px;
@@ -926,7 +893,7 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     margin-bottom: 15px;
 }
 
-/* Suggestions */
+/* --- Suggestions --- */
 .suggestions {
     position: absolute;
     top: 100%;
@@ -958,7 +925,7 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     border-bottom: none;
 }
 
-/* Report Actions & Content */
+/* --- Report Actions & Content --- */
 .report-actions {
     display: flex;
     gap: 15px;
@@ -1002,7 +969,7 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     margin-top: 15px;
 }
 
-/* Closure Results */
+/* --- Closure Results --- */
 .closure-results {
     background: white;
     padding: 25px;
@@ -1073,7 +1040,7 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     border: 1px solid #bee5eb;
 }
 
-/* Customer/Employee Details Section */
+/* --- Customer/Employee Details Section --- */
 #customerDetailsAccountant .form-row,
 #employeeDetailsAccountant .form-row {
     display: flex;
@@ -1090,11 +1057,11 @@ table td .edit-btn, table td .delete-btn, table td .view-btn, table td .block-bt
     margin-bottom: 0;
 }
 
-#customerDetailsAccountant table {
+#customerDetailsAccountant table, #employeeDetailsAccountant table { /* Added #employeeDetailsAccountant table */
     margin-top: 20px;
 }
 
-/* Switch Toggle */
+/* --- Switch Toggle --- */
 .toggle-group {
     display: flex;
     align-items: center;
@@ -1159,7 +1126,7 @@ input:checked + .slider:before {
     border-radius: 50%;
 }
 
-/* Loading Overlay */
+/* --- Loading Overlay --- */
 .loading-overlay {
     position: fixed;
     top: 0;
@@ -1200,7 +1167,7 @@ input:checked + .slider:before {
     font-weight: 500;
 }
 
-/* Checkbox Group Styling */
+/* --- Checkbox Group Styling --- */
 .checkbox-group {
     display: flex;
     align-items: center;
@@ -1225,7 +1192,7 @@ input:checked + .slider:before {
     color: #495057;
 }
 
-/* Custom Fields Container */
+/* --- Custom Fields Container --- */
 .custom-fields-container {
     border: 1px solid #e1e5e9;
     border-radius: 8px;
@@ -1249,7 +1216,7 @@ input:checked + .slider:before {
     flex: 1;
 }
 
-/* Modal Body Styling */
+/* --- Modal Body Styling --- */
 .modal-body {
     padding: 20px 25px;
 }
@@ -1271,7 +1238,7 @@ input:checked + .slider:before {
     border-top: 1px solid #e9ecef;
 }
 
-/* Status for Closure Results */
+/* --- Status for Closure Results --- */
 .closure-status {
     padding: 8px 12px;
     border-radius: 6px;
@@ -1280,7 +1247,7 @@ input:checked + .slider:before {
     margin: 5px 0;
 }
 
-/* Responsive Design */
+/* --- Responsive Design --- */
 @media (max-width: 768px) {
     .main-content {
         padding: 15px;
@@ -1411,12 +1378,12 @@ input:checked + .slider:before {
         padding: 15px;
     }
 
-    .shift-close-form, .accountant-shift-form, .shift-summary, .cashiers-overview, .report-content, .closure-results, .closures-history, #customerDetailsAccountant {
+    .shift-close-form, .accountant-shift-form, .shift-summary, .cashiers-overview, .report-content, .closure-results, .closures-history, #customerDetailsAccountant, #employeeDetailsAccountant {
         padding: 15px;
     }
 }
 
-/* Print Styles */
+/* --- Print Styles --- */
 @media print {
     body {
         background: white;
