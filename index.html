@@ -1042,7 +1042,94 @@
             </div>
         </div>
     </div>
+<!-- مودال تفاصيل العميل -->
+<div id="customerDetailsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="customerDetailsModalTitle">تفاصيل العميل</h3>
+            <span class="close" onclick="closeModal('customerDetailsModal')">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="customer-info">
+                <p><strong>اسم العميل:</strong> <span id="customerDetailsName">--</span></p>
+                <p><strong>رقم التليفون:</strong> <span id="customerDetailsPhone">--</span></p>
+                <p><strong>إجمالي الأجل:</strong> <span id="customerDetailsCredit">0.00</span></p>
+            </div>
+            
+            <div class="payment-section">
+                <h4>سداد الأجل</h4>
+                <div class="form-group">
+                    <label for="customerPaymentAmountModal">مبلغ السداد:</label>
+                    <input type="number" id="customerPaymentAmountModal" placeholder="أدخل مبلغ السداد" step="0.01" min="0">
+                </div>
+                <button type="button" class="save-btn" onclick="processCustomerPaymentModal()">سداد</button>
+            </div>
+            
+            <div class="history-section">
+                <h4>سجل الحركات</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>النوع</th>
+                            <th>المبلغ</th>
+                            <th>رقم الفاتورة</th>
+                            <th>الملاحظات</th>
+                            <th>مسجل بواسطة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customerCreditHistoryModalBody">
+                        <!-- سيتم ملء البيانات ديناميكياً -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
+<!-- مودال تفاصيل الموظف -->
+<div id="employeeDetailsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="employeeDetailsModalTitle">تفاصيل الموظف</h3>
+            <span class="close" onclick="closeModal('employeeDetailsModal')">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="employee-info">
+                <p><strong>اسم الموظف:</strong> <span id="employeeDetailsName">--</span></p>
+                <p><strong>رقم التليفون:</strong> <span id="employeeDetailsPhone">--</span></p>
+                <p><strong>إجمالي السلف:</strong> <span id="employeeDetailsAdvance">0.00</span></p>
+            </div>
+            
+            <div class="payment-section">
+                <h4>سداد السلف</h4>
+                <div class="form-group">
+                    <label for="employeePaymentAmountModal">مبلغ السداد:</label>
+                    <input type="number" id="employeePaymentAmountModal" placeholder="أدخل مبلغ السداد" step="0.01" min="0">
+                </div>
+                <button type="button" class="save-btn" onclick="processEmployeePaymentModal()">سداد</button>
+            </div>
+            
+            <div class="history-section">
+                <h4>سجل الحركات</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>النوع</th>
+                            <th>المبلغ</th>
+                            <th>الملاحظات</th>
+                            <th>مسجل بواسطة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeeAdvanceHistoryModalBody">
+                        <!-- سيتم ملء البيانات ديناميكياً -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
     <!-- JavaScript Files -->
     <script src="script.js"></script>
     <script src="auth.js"></script>
