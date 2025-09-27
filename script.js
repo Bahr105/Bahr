@@ -720,32 +720,38 @@ async function loadShiftClosures(filters = {}) {
         const data = await readSheet(SHEETS.SHIFT_CLOSURES);
         if (data.length <= 1) return [];
 
-        let closures = data.slice(1).map(row => ({
-            id: row[0] || '',
-            cashier: row[1] || '',
-            dateFrom: row[2] || '',
-            timeFrom: row[3] || '',
-            dateTo: row[4] || '',
-            timeTo: row[5] || '',
-            totalExpenses: parseFloat((row[6] || '0').replace(/,/g, '')),
-            expenseCount: parseInt(row[7] || 0),
-            totalInsta: parseFloat((row[8] || '0').replace(/,/g, '')),
-            instaCount: parseInt(row[9] || 0),
-            totalVisa: parseFloat((row[10] || '0').replace(/,/g, '')),
-            visaCount: parseInt(row[11] || 0),
-            totalOnline: parseFloat((row[12] || '0').replace(/,/g, '')),
-            onlineCount: parseInt(row[13] || 0),
-            grandTotal: parseFloat((row[14] || '0').replace(/,/g, '')),
-            drawerCash: parseFloat((row[15] || '0').replace(/,/g, '')),
-            newMindTotal: parseFloat((row[16] || '0').replace(/,/g, '')),
-            difference: parseFloat((row[17] || '0').replace(/,/g, '')),   // هنا المشكلة
-            status: row[18] || '',
-            closureDate: row[19] || '',
-            closureTime: row[20] || '',
-            accountant: row[21] || '',
-            totalReturns: parseFloat((row[22] || '0').replace(/,/g, '')),
-            grandTotalAfterReturns: parseFloat((row[23] || '0').replace(/,/g, ''))
-        }));
+        let closures = data.slice(1).map(row => {
+    const grandTotal = parseFloat((row[14] || '0').replace(/,/g, ''));
+    const newMindTotal = parseFloat((row[16] || '0').replace(/,/g, ''));
+
+    return {
+        id: row[0] || '',
+        cashier: row[1] || '',
+        dateFrom: row[2] || '',
+        timeFrom: row[3] || '',
+        dateTo: row[4] || '',
+        timeTo: row[5] || '',
+        totalExpenses: parseFloat((row[6] || '0').replace(/,/g, '')),
+        expenseCount: parseInt(row[7] || 0),
+        totalInsta: parseFloat((row[8] || '0').replace(/,/g, '')),
+        instaCount: parseInt(row[9] || 0),
+        totalVisa: parseFloat((row[10] || '0').replace(/,/g, '')),
+        visaCount: parseInt(row[11] || 0),
+        totalOnline: parseFloat((row[12] || '0').replace(/,/g, '')),
+        onlineCount: parseInt(row[13] || 0),
+        grandTotal,
+        drawerCash: parseFloat((row[15] || '0').replace(/,/g, '')),
+        newMindTotal,
+        difference: grandTotal - newMindTotal,   // ✅ الفرق الصحيح
+        status: row[18] || '',
+        closureDate: row[19] || '',
+        closureTime: row[20] || '',
+        accountant: row[21] || '',
+        totalReturns: parseFloat((row[22] || '0').replace(/,/g, '')),
+        grandTotalAfterReturns: parseFloat((row[23] || '0').replace(/,/g, ''))
+    };
+});
+
 
         // Apply filters
         if (filters.cashier) {
