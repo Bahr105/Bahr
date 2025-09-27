@@ -3088,36 +3088,37 @@ async function deleteCustomer(customerId, customerName) {
 
 // --- Employees Management (New Section) ---
 function displayEmployees(tableBodyId) {
+    console.log('=== بدء عرض الموظفين ===');
+    console.log('جدول الهدف:', tableBodyId);
+    console.log('عدد الموظفين في الذاكرة:', employees.length);
+    console.log('بيانات الموظفين:', employees);
+    
     const tableBody = document.getElementById(tableBodyId);
     if (!tableBody) {
-        console.error('Element not found:', tableBodyId);
+        console.error('❌ العنصر غير موجود:', tableBodyId);
         return;
     }
 
     tableBody.innerHTML = '';
     
-    // تحقق من وجود بيانات الموظفين
+    // إذا لم تكن البيانات محملة، جلبها أولاً
     if (!employees || employees.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5">لا توجد موظفين مسجلين.</td></tr>';
-        console.log('لا توجد بيانات موظفين للعرض');
+        tableBody.innerHTML = '<tr><td colspan="5">جارٍ تحميل بيانات الموظفين...</td></tr>';
+        
+        // محاولة تحميل البيانات إذا لم تكن موجودة
+        loadEmployees(true).then(() => {
+            // إعادة استدعاء الدالة بعد تحميل البيانات
+            setTimeout(() => displayEmployees(tableBodyId), 500);
+        });
         return;
     }
 
-    console.log('عرض', employees.length, 'موظف في', tableBodyId);
-    console.log('بيانات الموظفين:', employees);
-
-    // ترتيب الموظفين من الأحدث إلى الأقدم
-    employees.sort((a, b) => {
-        const dateA = a.creationDate ? new Date(a.creationDate) : new Date(0);
-        const dateB = b.creationDate ? new Date(b.creationDate) : new Date(0);
-        return dateB - dateA;
-    });
-
-    employees.forEach(emp => {
+    // باقي الكود الحالي للعرض...
+    employees.forEach((emp, index) => {
         const row = tableBody.insertRow();
         
-        // التأكد من أن البيانات موجودة وتعيين قيم افتراضية إذا كانت غير موجودة
-        const name = emp.name || '--';
+        // التأكد من وجود البيانات
+        const name = emp.name || `موظف ${index + 1}`;
         const phone = emp.phone || '--';
         const totalAdvance = emp.totalAdvance || 0;
         const creationDate = emp.creationDate ? new Date(emp.creationDate).toLocaleDateString('ar-EG') : '--';
@@ -3151,9 +3152,8 @@ function displayEmployees(tableBodyId) {
         }
     });
     
-    console.log('تم عرض', employees.length, 'موظف بنجاح');
+    console.log('✅ تم عرض', employees.length, 'موظف بنجاح في', tableBodyId);
 }
-
 // عرض تفاصيل الموظف في نافذة منبثقة
 async function viewEmployeeDetailsModal(employeeId, employeeName) {
     showLoading(true);
