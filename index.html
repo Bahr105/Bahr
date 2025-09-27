@@ -725,32 +725,33 @@
     </div>
 </div>
 
-        <!-- قسم الموظفين (للمحاسب) - New Tab -->
-        <div id="employeesTabAccountant" class="tab-content">
-            <div class="section-header">
-                <h2><i class="fas fa-user-tie"></i> إدارة الموظفين</h2>
-                <button type="button" class="add-btn" id="addEmployeeBtnAccountant">
-      <i class="fas fa-plus"></i>
-      إضافة موظف
-  </button>
-            </div>
-            
-            <div class="employees-table">
-                <table id="employeesTableAccountant">
-                    <thead>
-                        <tr>
-                            <th>اسم الموظف</th>
-                            <th>رقم التليفون</th>
-                            <th>إجمالي السلف</th>
-                            <th>تاريخ الإنشاء</th>
-                            <th>الإجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody id="employeesTableBodyAccountant">
-                        <!-- سيتم ملء البيانات ديناميكياً -->
-                    </tbody>
-                </table>
-            </div>
+        <!-- في قسم الموظفين للمحاسب -->
+<div id="employeesTabAccountant" class="tab-content">
+    <div class="section-header">
+        <h2><i class="fas fa-user-tie"></i> إدارة الموظفين</h2>
+        <button type="button" class="add-btn" onclick="showAddEmployeeModal()">
+            <i class="fas fa-plus"></i>
+            إضافة موظف
+        </button>
+    </div>
+    
+    <div class="employees-table">
+        <table id="employeesTableAccountant">
+            <thead>
+                <tr>
+                    <th>اسم الموظف</th>
+                    <th>رقم التليفون</th>
+                    <th>إجمالي السلف</th>
+                    <th>تاريخ الإنشاء</th>
+                    <th>الإجراءات</th>
+                </tr>
+            </thead>
+            <tbody id="employeesTableBodyAccountant">
+                <!-- سيتم ملء البيانات ديناميكياً -->
+            </tbody>
+        </table>
+    </div>
+</div>
             <!-- تفاصيل السلف والسداد للموظف -->
             <!-- نافذة تفاصيل الموظف -->
 <div id="employeeDetailsModal" class="modal">
