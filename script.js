@@ -1,6 +1,6 @@
 // تحميل حالة المصادقة من localStorage عند بدء التشغيل
 let isAuthenticated = localStorage.getItem('googleAuthState') === 'authenticated';
-
+let isLoadingEmployees = false; // flag لمنع التحميل المتكرر (أضفه هنا خارج الدالة)
 // عند نجاح المصادقة، احفظ الحالة فوراً
 function handleAuthSuccess() {
     isAuthenticated = true;
@@ -5405,74 +5405,74 @@ function calculateDifferenceAccountant() {
     }
 }
 
-  async function loadAccountantShiftClosuresHistory() {
-      const closures = await loadShiftClosures({});
-      const tableBody = document.getElementById('closuresHistoryBodyAccountant');
-      if (!tableBody) return;
+ async function loadAccountantShiftClosuresHistory() {
+    const closures = await loadShiftClosures({});
+    const tableBody = document.getElementById('closuresHistoryBodyAccountant');
+    if (!tableBody) return;
 
-      tableBody.innerHTML = '';
+    tableBody.innerHTML = '';
 
-      if (closures.length === 0) {
-          tableBody.innerHTML = '<tr><td colspan="9">لا توجد سجلات تقفيلات.</td></tr>';
-          return;
-      }
+    if (closures.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="9">لا توجد سجلات تقفيلات.</td></tr>';
+        return;
+    }
 
-      closures.sort((a, b) => new Date(`${b.closureDate}T${b.closureTime}`) - new Date(`${a.closureDate}T${a.closureTime}`));
+    closures.sort((a, b) => new Date(`${b.closureDate}T${b.closureTime}`) - new Date(`${a.closureDate}T${a.closureTime}`));
 
-      for (const closure of closures) {
-          const row = tableBody.insertRow();
+    for (const closure of closures) {
+        const row = tableBody.insertRow();
 
-          const cashierUser  = users.find(u => u.username === closure.cashier);
-          const cashierDisplayName = cashierUser  ? cashierUser .name : closure.cashier;
+        const cashierUser  = users.find(u => u.username === closure.cashier); // إصلاح المسافات الإضافية
+        const cashierDisplayName = cashierUser  ? cashierUser .name : closure.cashier;
 
-          row.insertCell().textContent = cashierDisplayName;
-          row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom.substring(0,5)} - ${closure.dateTo} ${closure.timeTo.substring(0,5)}`;
+        row.insertCell().textContent = cashierDisplayName;
+        row.insertCell().textContent = `${closure.dateFrom} ${closure.timeFrom.substring(0,5)} - ${closure.dateTo} ${closure.timeTo.substring(0,5)}`;
 
-          // إجمالي الكاشير هو grandTotal الذي سجله الكاشير (يشمل الكاش في الدرج ويستثني المرتجعات)
-          row.insertCell().textContent = closure.grandTotal.toFixed(2);
+        // إجمالي الكاشير هو grandTotal الذي سجله الكاشير (يشمل الكاش في الدرج ويستثني المرتجعات)
+        row.insertCell().textContent = closure.grandTotal.toFixed(2);
 
-          row.insertCell().textContent = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '--';
+        row.insertCell().textContent = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '--';
 
-          const differenceCell = row.insertCell();
-          const diffValue = closure.grandTotal - closure.newMindTotal;  // الحساب الصحيح (موجب = زيادة)
+        const differenceCell = row.insertCell();
+        const diffValue = closure.grandTotal - closure.newMindTotal;  // الحساب الصحيح (موجب = زيادة)
 
-          // ✅ الشروط المُصححة (عكس السابقة)
-          let diffDisplay = '';
-          if (diffValue > 0) {  // زيادة عند الكاشير (grandTotal > newMindTotal)
-              diffDisplay = `+${diffValue.toFixed(2)}`;
-              differenceCell.style.color = 'green';
-              differenceCell.title = 'زيادة عند الكاشير';
-          } else if (diffValue < 0) {  // عجز على الكاشير (grandTotal < newMindTotal)
-              diffDisplay = `${diffValue.toFixed(2)}`;  // سالب كما هو
-              differenceCell.style.color = 'red';
-              differenceCell.title = 'عجز على الكاشير';
-          } else {  // مطابقة
-              diffDisplay = '0.00';
-              differenceCell.style.color = 'blue';
-              differenceCell.title = 'مطابق';
-          }
-          differenceCell.textContent = diffDisplay;
+        // ✅ الشروط المُصححة (عكس السابقة)
+        let diffDisplay = '';
+        if (diffValue > 0) {  // زيادة عند الكاشير (grandTotal > newMindTotal)
+            diffDisplay = `+${diffValue.toFixed(2)}`;
+            differenceCell.style.color = 'green';
+            differenceCell.title = 'زيادة عند الكاشير';
+        } else if (diffValue < 0) {  // عجز على الكاشير (grandTotal < newMindTotal)
+            diffDisplay = `${diffValue.toFixed(2)}`;  // سالب كما هو
+            differenceCell.style.color = 'red';
+            differenceCell.title = 'عجز على الكاشير';
+        } else {  // مطابقة
+            diffDisplay = '0.00';
+            differenceCell.style.color = 'blue';
+            differenceCell.title = 'مطابق';
+        }
+        differenceCell.textContent = diffDisplay;
 
-          const statusCell = row.insertCell();
-          statusCell.innerHTML = `<span class="status ${closure.status === 'مغلق' || closure.status === 'مغلق بواسطة المحاسب' ? 'closed' : 'open'}">${closure.status}</span>`;
+        const statusCell = row.insertCell();
+        statusCell.innerHTML = `<span class="status ${closure.status === 'مغلق' || closure.status === 'مغلق بواسطة المحاسب' ? 'closed' : 'open'}">${closure.status}</span>`;
 
-          row.insertCell().textContent = `${closure.closureDate} ${closure.closureTime.substring(0, 5)}`;
+        row.insertCell().textContent = `${closure.closureDate} ${closure.closureTime.substring(0, 5)}`;
 
-          const actionsCell = row.insertCell();
-          actionsCell.innerHTML = `
-              <button class="view-btn" onclick="viewClosureDetails('${closure.id}')">
-                  <i class="fas fa-eye"></i> عرض
-              </button>
-              <button class="edit-btn" onclick="promptForEditPassword('${closure.id}')">
-                  <i class="fas fa-edit"></i> تعديل
-              </button>
-              ${closure.status !== 'مغلق بواسطة المحاسب' ? `
-              <button class="accountant-close-btn" onclick="showAccountantClosureModal('${closure.id}')">
-                  <i class="fas fa-check-double"></i> تقفيل المحاسب
-              </button>` : ''}
-          `;
-      }
-  }
+        const actionsCell = row.insertCell();
+        actionsCell.innerHTML = `
+            <button class="view-btn" onclick="viewClosureDetails('${closure.id}')">
+                <i class="fas fa-eye"></i> عرض
+            </button>
+            <button class="edit-btn" onclick="promptForEditPassword('${closure.id}')">
+                <i class="fas fa-edit"></i> تعديل
+            </button>
+            ${closure.status !== 'مغلق بواسطة المحاسب' ? `
+            <button class="accountant-close-btn" onclick="showAccountantClosureModal('${closure.id}')">
+                <i class="fas fa-check-double"></i> تقفيل المحاسب
+            </button>` : ''}
+        `;
+    }
+}
   
 
 // --- New Modal for Accountant Closure Details ---
