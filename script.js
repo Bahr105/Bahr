@@ -3550,12 +3550,12 @@ async function loadCashierPreviousClosures() {
             const differenceCell = row.insertCell();
             const diffValue = closure.difference;
             differenceCell.textContent = diffValue.toFixed(2);
-           if (diffValue > 0) { // زيادة عند الكاشير (الإجمالي أكبر من نيو مايند)
+           if (diffValue > 0) { // زيادة عند الكاشير
     diffDisplay = `+${diffValue.toFixed(2)}`;
     differenceCell.style.color = 'green';
     differenceCell.title = 'زيادة عند الكاشير';
-} else if (diffValue < 0) { // عجز على الكاشير (نيو مايند أكبر من الإجمالي)
-    diffDisplay = `${diffValue.toFixed(2)}`; // هتظهر بسالب
+} else if (diffValue < 0) { // عجز على الكاشير
+    diffDisplay = `${diffValue.toFixed(2)}`; // هيظهر بالسالب
     differenceCell.style.color = 'red';
     differenceCell.title = 'عجز على الكاشير';
 } else {
@@ -3563,6 +3563,7 @@ async function loadCashierPreviousClosures() {
     differenceCell.style.color = 'blue';
     differenceCell.title = 'مطابق';
 }
+
 
 
             const statusCell = row.insertCell();
