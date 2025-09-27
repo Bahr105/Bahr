@@ -1963,7 +1963,7 @@ function showAddEmployeeModalFromExpense() {
 
         // التحقق من رقم الفاتورة إذا كان مطلوبًا
        // التحقق من رقم الفاتورة إذا كان مطلوبًا (مع استثناء الأنواع المحددة)
-const excludedFormTypes = ['دفعة_شركة', 'بنزين', 'شحن_تاب', 'شحن_كهربا', 'سلف', 'اونلاين', 'عيش', 'انابيب'];
+const excludedFormTypes = ['دفعة_شركة', 'بنزين', 'شحن_تاب', 'شحن_كهربا', 'سلف_موظف', 'اونلاين', 'عيش', 'انابيب'];
 const formTypesRequiringInvoice = ['عادي', 'فيزا', 'مرتجع', 'خصم عميل', 'إنستا', 'اجل', 'عجوزات', 'سلف_موظف'];
 
 if (formTypesRequiringInvoice.includes(formType)) {
