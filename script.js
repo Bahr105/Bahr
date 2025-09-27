@@ -5112,6 +5112,7 @@ async function loadAccountantShiftClosuresHistory() {
 }
 
 // --- New Modal for Accountant Closure Details ---
+// تعديل الدالة لجعل مفتاح المرتجعات مطفيًا افتراضيًا
 async function showAccountantClosureModal(closureId, isEdit = false) {
     showLoading(true);
     try {
@@ -5131,17 +5132,22 @@ async function showAccountantClosureModal(closureId, isEdit = false) {
         document.getElementById('accountantClosureModalTotalOnline').textContent = closure.totalOnline.toFixed(2);
         document.getElementById('accountantClosureModalDrawerCash').textContent = closure.drawerCash.toFixed(2);
         
-        // grandTotal for modal should be the cashier's recorded grandTotal (includes drawerCash, excludes returns)
         document.getElementById('accountantClosureModalGrandTotal').textContent = closure.grandTotal.toFixed(2);
         
         // إضافة حقول المرتجعات والإجمالي بعد خصم المرتجعات
         document.getElementById('accountantClosureModalTotalReturns').textContent = closure.totalReturns.toFixed(2);
 
-        // Set the state of the deduct returns switch based on the saved closure data
+        // **التعديل المطلوب: جعل المفتاح مطفيًا افتراضيًا**
         const deductReturnsSwitch = document.getElementById('accountantClosureModalDeductReturns');
         if (deductReturnsSwitch) {
-            // إذا كان grandTotalAfterReturns (الذي سجله المحاسب) لا يساوي grandTotal (الذي سجله الكاشير)، فهذا يعني أنه تم إضافة المرتجعات
-            deductReturnsSwitch.checked = (closure.grandTotalAfterReturns !== closure.grandTotal);
+            // في وضع التحرير، نحافظ على الحالة المحفوظة
+            if (isEdit) {
+                // إذا كان grandTotalAfterReturns مختلف عن grandTotal، فهذا يعني أنه تم إضافة المرتجعات
+                deductReturnsSwitch.checked = (closure.grandTotalAfterReturns !== closure.grandTotal);
+            } else {
+                // في وضع التقفيل الجديد، يكون مطفيًا دائمًا
+                deductReturnsSwitch.checked = false;
+            }
         }
 
         document.getElementById('accountantClosureModalNewMindTotal').value = closure.newMindTotal > 0 ? closure.newMindTotal.toFixed(2) : '';
@@ -5150,12 +5156,14 @@ async function showAccountantClosureModal(closureId, isEdit = false) {
 
         // Store current closure data for processing
         window.currentAccountantClosure = closure;
-        window.isEditMode = isEdit; // Set edit mode flag
+        window.isEditMode = isEdit;
 
         // Show the modal
         const accountantClosureDetailsModal = document.getElementById('accountantClosureDetailsModal');
         if (accountantClosureDetailsModal) accountantClosureDetailsModal.classList.add('active');
-        updateAccountantClosureDifference(); // Calculate initial difference if newMindTotal is pre-filled
+        
+        // **تحديث العرض بعد تعيين حالة المفتاح**
+        updateAccountantClosureDifference();
 
         // Update modal title and save button text based on edit mode
         const modalTitle = document.querySelector('#accountantClosureDetailsModal .modal-header h3');
@@ -5164,11 +5172,11 @@ async function showAccountantClosureModal(closureId, isEdit = false) {
             if (isEdit) {
                 modalTitle.innerHTML = `<i class="fas fa-edit"></i> تعديل تقفيل الشيفت`;
                 saveButton.textContent = 'حفظ التعديلات';
-                saveButton.onclick = saveEditedAccountantClosure; // Assign new save function for edit
+                saveButton.onclick = saveEditedAccountantClosure;
             } else {
                 modalTitle.innerHTML = `<i class="fas fa-check-double"></i> تقفيل المحاسب للشيفت`;
                 saveButton.textContent = 'حفظ التقفيل';
-                saveButton.onclick = saveAccountantClosure; // Assign original save function
+                saveButton.onclick = saveAccountantClosure;
             }
         }
 
