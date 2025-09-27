@@ -3545,16 +3545,20 @@ async function loadCashierPreviousClosures() {
             const differenceCell = row.insertCell();
             const diffValue = closure.difference;
             differenceCell.textContent = diffValue.toFixed(2);
-            if (diffValue < 0) {
-                differenceCell.style.color = 'green';
-                differenceCell.title = 'زيادة عند الكاشير';
-            } else if (diffValue > 0) {
-                differenceCell.style.color = 'red';
-                differenceCell.title = 'عجز على الكاشير';
-            } else {
-                differenceCell.style.color = 'blue';
-                differenceCell.title = 'مطابق';
-            }
+           if (diffValue > 0) { // زيادة عند الكاشير (الإجمالي أكبر من نيو مايند)
+    diffDisplay = `+${diffValue.toFixed(2)}`;
+    differenceCell.style.color = 'green';
+    differenceCell.title = 'زيادة عند الكاشير';
+} else if (diffValue < 0) { // عجز على الكاشير (نيو مايند أكبر من الإجمالي)
+    diffDisplay = `${diffValue.toFixed(2)}`; // هتظهر بسالب
+    differenceCell.style.color = 'red';
+    differenceCell.title = 'عجز على الكاشير';
+} else {
+    diffDisplay = '0.00';
+    differenceCell.style.color = 'blue';
+    differenceCell.title = 'مطابق';
+}
+
 
             const statusCell = row.insertCell();
             statusCell.innerHTML = `<span class="status ${closure.status === 'مغلق' || closure.status === 'مغلق بواسطة المحاسب' ? 'closed' : 'open'}">${closure.status}</span>`;
