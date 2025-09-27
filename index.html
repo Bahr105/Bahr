@@ -342,707 +342,334 @@
         </main>
     </div>
 
-    <!-- واجهة المحاسب -->
-    <div id="accountantPage" class="page">
-        <header class="main-header">
-            <div class="header-content">
-                <div class="header-info">
-                    <h1><i class="fas fa-chart-line"></i> لوحة تحكم المحاسب</h1>
-                    <div class="user-info">
-                        <span class="user-name">المحاسب: <span id="accountantNameDisplay">--</span></span>
-                        <span class="current-date" id="currentDateAccountant">--</span>
+  <!-- واجهة المحاسب -->
+<div id="accountantPage" class="page">
+    <header class="main-header">
+        <div class="header-content">
+            <div class="header-info">
+                <h1><i class="fas fa-chart-line"></i> لوحة تحكم المحاسب</h1>
+                <div class="user-info">
+                    <span class="user-name">المحاسب: <span id="accountantNameDisplay">--</span></span>
+                    <span class="current-date" id="currentDateAccountant">--</span>
+                </div>
+            </div>
+            <button type="button" class="logout-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i>
+                خروج
+            </button>
+        </div>
+    </header>
+
+    <nav class="nav-tabs">
+        <button type="button" class="nav-tab active" onclick="showTab('dashboardTabAccountant')">
+            <i class="fas fa-tachometer-alt"></i>
+            الرئيسية
+        </button>
+        <button type="button" class="nav-tab" onclick="showTab('usersTabAccountant')">
+            <i class="fas fa-users-cog"></i>
+            المستخدمين
+        </button>
+        <button type="button" class="nav-tab" onclick="showTab('reportsTabAccountant')">
+            <i class="fas fa-chart-bar"></i>
+            التقارير
+        </button>
+        <button type="button" class="nav-tab" onclick="showTab('categoriesTabAccountant')">
+            <i class="fas fa-tags"></i>
+            التصنيفات
+        </button>
+        <button type="button" class="nav-tab" onclick="showTab('customersTabAccountant')">
+            <i class="fas fa-users"></i>
+            العملاء
+        </button>
+        <button type="button" class="nav-tab" onclick="showTab('employeesTabAccountant')">
+            <i class="fas fa-user-tie"></i>
+            الموظفين
+        </button>
+        <button type="button" class="nav-tab" onclick="showTab('shiftCloseTabAccountant')">
+            <i class="fas fa-calculator"></i>
+            تقفيل الشيفت
+        </button>
+    </nav>
+
+    <main class="main-content">
+        <!-- لوحة التحكم الرئيسية للمحاسب -->
+        <div id="dashboardTabAccountant" class="tab-content active">
+            <div class="dashboard-stats">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>إجمالي المصروفات (نقدي/عادي)</h3>
+                            <div class="stat-value" id="totalNormalExpensesAccountant">0</div>
+                            <div class="stat-period">عدد الفواتير: <span id="countNormalExpensesAccountant">0</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-credit-card"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>إجمالي الفيزا</h3>
+                            <div class="stat-value" id="totalVisaAccountant">0</div>
+                            <div class="stat-period">عدد الفواتير: <span id="countVisaAccountant">0</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>إجمالي الإنستا</h3>
+                            <div class="stat-value" id="totalInstaAccountant">0</div>
+                            <div class="stat-period">عدد الفواتير: <span id="instaCountAccountant">0</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-globe"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>إجمالي الأونلاين</h3>
+                            <div class="stat-value" id="totalOnlineAccountant">0</div>
+                            <div class="stat-period">عدد الفواتير: <span id="countOnlineAccountant">0</span></div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>الكاشيرز</h3>
+                            <div class="stat-value"><span id="totalActiveCashiersAccountant">0</span> / <span id="totalInactiveCashiersAccountant">0</span> / <span id="totalBlockedCashiersAccountant">0</span></div>
+                            <div class="stat-period">نشط / موقوف / محظور</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-user-friends"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>العملاء</h3>
+                            <div class="stat-value" id="totalCustomersAccountant">0</div>
+                            <div class="stat-period">عليهم أجل: <span id="customersWithCreditAccountant">0</span> | إجمالي الأجل: <span id="totalCreditAmountAccountant">0</span> | حسابهم 0: <span id="customersWithZeroCreditAccountant">0</span></div>
+                        </div>
+                    </div>
+                    <!-- في قسم إحصائيات المصروفات في لوحة تحكم المحاسب -->
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-undo-alt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>إجمالي المرتجعات</h3>
+                            <div class="stat-value" id="totalReturnsAccountant">0.00</div>
+                            <div class="stat-period">عدد الفواتير: <span id="countReturnsAccountant">0</span></div>
+                        </div>
+                    </div>
+                    <!-- New Employees Stats Card -->
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>الموظفين</h3>
+                            <div class="stat-value" id="totalEmployeesAccountant">0</div>
+                            <div class="stat-period">عليهم سلف: <span id="employeesWithAdvanceAccountant">0</span> | إجمالي السلف: <span id="totalAdvanceAmountAccountant">0</span> | سلفهم 0: <span id="employeesWithZeroAdvanceAccountant">0</span></div>
+                        </div>
                     </div>
                 </div>
-                <button type="button" class="logout-btn" onclick="logout()">
-                    <i class="fas fa-sign-out-alt"></i>
-                    خروج
+            </div>
+            <div class="dashboard-filters">
+                <div class="filter-group">
+                    <label for="dashboardDateFromAccountant">من تاريخ:</label>
+                    <input type="date" id="dashboardDateFromAccountant" onchange="updateAccountantDashboard()">
+                </div>
+                
+                <div class="filter-group">
+                    <label for="dashboardDateToAccountant">إلى تاريخ:</label>
+                    <input type="date" id="dashboardDateToAccountant" onchange="updateAccountantDashboard()">
+                </div>
+                
+                <div class="filter-group">
+                    <label for="cashierFilterAccountant">الكاشير:</label>
+                    <select id="cashierFilterAccountant" onchange="updateAccountantDashboard()">
+                        <option value="">جميع الكاشيرز</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="searchInputAccountant">البحث عن فاتورة:</label>
+                    <input type="text" id="searchInputAccountant" placeholder="رقم فاتورة" onchange="searchInvoiceAccountant()">
+                </div>
+                <button type="button" class="search-btn" onclick="searchInvoiceAccountant()">
+                    <i class="fas fa-search"></i>
+                    بحث
                 </button>
             </div>
-        </header>
-
-        <nav class="nav-tabs">
-            <button type="button" class="nav-tab active" onclick="showTab('dashboardTabAccountant')">
-                <i class="fas fa-tachometer-alt"></i>
-                الرئيسية
-            </button>
-            <button type="button" class="nav-tab" onclick="showTab('usersTabAccountant')">
-                <i class="fas fa-users-cog"></i>
-                المستخدمين
-            </button>
-            <button type="button" class="nav-tab" onclick="showTab('reportsTabAccountant')">
-                <i class="fas fa-chart-bar"></i>
-                التقارير
-            </button>
-            <button type="button" class="nav-tab" onclick="showTab('categoriesTabAccountant')">
-                <i class="fas fa-tags"></i>
-                التصنيفات
-            </button>
-            <button type="button" class="nav-tab" onclick="showTab('customersTabAccountant')">
-                <i class="fas fa-users"></i>
-                العملاء
-            </button>
-            <button type="button" class="nav-tab" onclick="showTab('employeesTabAccountant')">
-                <i class="fas fa-user-tie"></i>
-                الموظفين
-            </button>
-            <button type="button" class="nav-tab" onclick="showTab('shiftCloseTabAccountant')">
-                <i class="fas fa-calculator"></i>
-                تقفيل الشيفت
-            </button>
-        </nav>
-
-        <main class="main-content">
-            <!-- لوحة التحكم الرئيسية للمحاسب -->
-            <div id="dashboardTabAccountant" class="tab-content active">
-                <div class="dashboard-stats">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-receipt"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>إجمالي المصروفات (نقدي/عادي)</h3>
-                                <div class="stat-value" id="totalNormalExpensesAccountant">0</div>
-                                <div class="stat-period">عدد الفواتير: <span id="countNormalExpensesAccountant">0</span></div>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-credit-card"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>إجمالي الفيزا</h3>
-                                <div class="stat-value" id="totalVisaAccountant">0</div>
-                                <div class="stat-period">عدد الفواتير: <span id="countVisaAccountant">0</span></div>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-mobile-alt"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>إجمالي الإنستا</h3>
-                                <div class="stat-value" id="totalInstaAccountant">0</div>
-                                <div class="stat-period">عدد الفواتير: <span id="instaCountAccountant">0</span></div>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-globe"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>إجمالي الأونلاين</h3>
-                                <div class="stat-value" id="totalOnlineAccountant">0</div>
-                                <div class="stat-period">عدد الفواتير: <span id="countOnlineAccountant">0</span></div>
-                            </div>
-                        </div>
-
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>الكاشيرز</h3>
-                                <div class="stat-value"><span id="totalActiveCashiersAccountant">0</span> / <span id="totalInactiveCashiersAccountant">0</span> / <span id="totalBlockedCashiersAccountant">0</span></div>
-                                <div class="stat-period">نشط / موقوف / محظور</div>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-user-friends"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>العملاء</h3>
-                                <div class="stat-value" id="totalCustomersAccountant">0</div>
-                                <div class="stat-period">عليهم أجل: <span id="customersWithCreditAccountant">0</span> | إجمالي الأجل: <span id="totalCreditAmountAccountant">0</span> | حسابهم 0: <span id="customersWithZeroCreditAccountant">0</span></div>
-                            </div>
-                        </div>
-                        <!-- في قسم إحصائيات المصروفات في لوحة تحكم المحاسب -->
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-undo-alt"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>إجمالي المرتجعات</h3>
-                                <div class="stat-value" id="totalReturnsAccountant">0.00</div>
-                                <div class="stat-period">عدد الفواتير: <span id="countReturnsAccountant">0</span></div>
-                            </div>
-                        </div>
-                        <!-- New Employees Stats Card -->
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-user-tie"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3>الموظفين</h3>
-                                <div class="stat-value" id="totalEmployeesAccountant">0</div>
-                                <div class="stat-period">عليهم سلف: <span id="employeesWithAdvanceAccountant">0</span> | إجمالي السلف: <span id="totalAdvanceAmountAccountant">0</span> | سلفهم 0: <span id="employeesWithZeroAdvanceAccountant">0</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="dashboard-filters">
-                    <div class="filter-group">
-                        <label for="dashboardDateFromAccountant">من تاريخ:</label>
-                        <input type="date" id="dashboardDateFromAccountant" onchange="updateAccountantDashboard()">
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="dashboardDateToAccountant">إلى تاريخ:</label>
-                        <input type="date" id="dashboardDateToAccountant" onchange="updateAccountantDashboard()">
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="cashierFilterAccountant">الكاشير:</label>
-                        <select id="cashierFilterAccountant" onchange="updateAccountantDashboard()">
-                            <option value="">جميع الكاشيرز</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="searchInputAccountant">البحث عن فاتورة:</label>
-                        <input type="text" id="searchInputAccountant" placeholder="رقم فاتورة" onchange="searchInvoiceAccountant()">
-                    </div>
-                    <button type="button" class="search-btn" onclick="searchInvoiceAccountant()">
-                        <i class="fas fa-search"></i>
-                        بحث
-                    </button>
-                </div>
-                <div id="invoiceSearchResultAccountant" class="report-content" style="display: none;"></div>
-                
-                <div class="cashiers-overview">
-                    <h3><i class="fas fa-users"></i> نظرة عامة على الكاشيرز</h3>
-                    <div class="cashiers-table">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>اسم الكاشير</th>
-                                    <th>إجمالي المصروفات (عادي)</th>
-                                    <th>عدد فواتير (عادي)</th>
-                                    <th>إجمالي الفيزا</th>
-                                    <th>عدد فواتير (فيزا)</th>
-                                    <th>إجمالي الإنستا</th>
-                                    <th>عدد فواتير (إنستا)</th>
-                                    <th>إجمالي الأونلاين</th>
-                                    <th>عدد فواتير (أونلاين)</th>
-                                    <th>إجمالي المرتجعات</th>
-                                    <th>عدد فواتير (مرتجعات)</th>
-                                    <th>آخر نشاط</th>
-                                    <th>الحالة</th>
-                                </tr>
-                            </thead>
-                            <tbody id="cashiersOverviewBodyAccountant">
-                                <!-- سيتم ملء البيانات ديناميكياً -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- قسم إدارة المستخدمين للمحاسب -->
-            <div id="usersTabAccountant" class="tab-content">
-                <div class="section-header">
-                    <h2><i class="fas fa-users-cog"></i> إدارة المستخدمين</h2>
-                    <button type="button" class="add-btn" onclick="showAddUserModal()">
-                        <i class="fas fa-plus"></i>
-                        إضافة مستخدم
-                    </button>
-                </div>
-                
-                <div class="users-table">
+            <div id="invoiceSearchResultAccountant" class="report-content" style="display: none;"></div>
+            
+            <div class="cashiers-overview">
+                <h3><i class="fas fa-users"></i> نظرة عامة على الكاشيرز</h3>
+                <div class="cashiers-table">
                     <table>
                         <thead>
                             <tr>
-                                <th>الاسم</th>
-                                <th>رقم التليفون</th>
-                                <th>اسم المستخدم</th>
-                                <th>الدور</th>
+                                <th>اسم الكاشير</th>
+                                <th>إجمالي المصروفات (عادي)</th>
+                                <th>عدد فواتير (عادي)</th>
+                                <th>إجمالي الفيزا</th>
+                                <th>عدد فواتير (فيزا)</th>
+                                <th>إجمالي الإنستا</th>
+                                <th>عدد فواتير (إنستا)</th>
+                                <th>إجمالي الأونلاين</th>
+                                <th>عدد فواتير (أونلاين)</th>
+                                <th>إجمالي المرتجعات</th>
+                                <th>عدد فواتير (مرتجعات)</th>
+                                <th>آخر نشاط</th>
                                 <th>الحالة</th>
-                                <th>تاريخ الإنشاء</th>
-                                <th>الإجراءات</th>
                             </tr>
                         </thead>
-                        <tbody id="usersTableBodyAccountant">
+                        <tbody id="cashiersOverviewBodyAccountant">
                             <!-- سيتم ملء البيانات ديناميكياً -->
                         </tbody>
                     </table>
                 </div>
             </div>
+        </div>
 
-            <!-- قسم التقارير للمحاسب -->
-            <div id="reportsTabAccountant" class="tab-content">
-                <div class="section-header">
-                    <h2><i class="fas fa-chart-bar"></i> التقارير</h2>
-                </div>
-                
-                <div class="reports-filters">
-                    <div class="filter-group">
-                        <label for="reportDateFromAccountant">من تاريخ:</label>
-                        <input type="date" id="reportDateFromAccountant">
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="reportDateToAccountant">إلى تاريخ:</label>
-                        <input type="date" id="reportDateToAccountant">
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="reportCashierAccountant">الكاشير:</label>
-                        <select id="reportCashierAccountant">
-                            <option value="">جميع الكاشيرز</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="reportCategoryAccountant">التصنيف:</label>
-                        <select id="reportCategoryAccountant">
-                            <option value="">جميع التصنيفات</option>
-                        </select>
-                    </div>
-                    
-                    <button type="button" class="generate-report-btn" onclick="generateAccountantReport()">
-                        <i class="fas fa-chart-line"></i>
-                        إنشاء التقرير
-                    </button>
-                </div>
-                
-                <div class="report-actions">
-                    <button type="button" class="print-btn" onclick="printReport()">
-                        <i class="fas fa-print"></i>
-                        طباعة
-                    </button>
-                    
-                    <button type="button" class="whatsapp-btn" onclick="showWhatsAppModal()">
-                        <i class="fab fa-whatsapp"></i>
-                        إرسال واتساب
-                    </button>
-                </div>
-                
-                <div class="report-content" id="reportContentAccountant">
-                    <!-- سيتم عرض التقرير هنا -->
-                </div>
+        <!-- قسم إدارة المستخدمين للمحاسب -->
+        <div id="usersTabAccountant" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-users-cog"></i> إدارة المستخدمين</h2>
+                <button type="button" class="add-btn" onclick="showAddUserModal()">
+                    <i class="fas fa-plus"></i>
+                    إضافة مستخدم
+                </button>
             </div>
-
-            <!-- قسم التصنيفات للمحاسب -->
-            <div id="categoriesTabAccountant" class="tab-content">
-                <div class="section-header">
-                    <h2><i class="fas fa-tags"></i> إدارة التصنيفات</h2>
-                    <button type="button" class="add-btn" onclick="showAddCategoryModal()">
-                        <i class="fas fa-plus"></i>
-                        إضافة تصنيف
-                    </button>
-                </div>
-                
-                <div class="categories-grid" id="categoriesGridAccountant">
-                    <!-- سيتم ملء التصنيفات ديناميكياً -->
-                </div>
-            </div>
-
-            <!-- قسم العملاء (للمحاسب) -->
-            <div id="customersTabAccountant" class="tab-content">
-                <div class="section-header">
-                    <h2><i class="fas fa-users"></i> إدارة العملاء</h2>
-                    <button type="button" class="add-btn" onclick="showAddCustomerModal()">
-                        <i class="fas fa-plus"></i>
-                        إضافة عميل
-                    </button>
-                </div>
-                
-                <div class="customers-table">
-                    <table id="customersTableAccountant">
-                        <thead>
-                            <tr>
-                                <th>اسم العميل</th>
-                                <th>رقم التليفون</th>
-                                <th>إجمالي الأجل</th>
-                                <th>تاريخ الإنشاء</th>
-                                <th>الإجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody id="customersTableBodyAccountant">
-                            <!-- سيتم ملء البيانات ديناميكياً -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- قسم الموظفين (للمحاسب) -->
-            <div id="employeesTabAccountant" class="tab-content">
-                <div class="section-header">
-                    <h2><i class="fas fa-user-tie"></i> إدارة الموظفين</h2>
-                    <button type="button" class="add-btn" onclick="showAddEmployeeModal()">
-                        <i class="fas fa-plus"></i>
-                        إضافة موظف
-                    </button>
-                </div>
-                
-                <div class="employees-table">
-                    <table id="employeesTableAccountant">
-                        <thead>
-                            <tr>
-                                <th>اسم الموظف</th>
-                                <th>رقم التليفون</th>
-                                <th>إجمالي السلف</th>
-                                <th>تاريخ الإنشاء</th>
-                                <th>الإجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody id="employeesTableBodyAccountant">
-                            <!-- سيتم ملء البيانات ديناميكياً -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- قسم تقفيل الشيفت للمحاسب -->
-            <div id="shiftCloseTabAccountant" class="tab-content">
-                <div class="section-header">
-                    <h2><i class="fas fa-calculator"></i> تقفيل الشيفت</h2>
-                </div>
-                
-                <div class="accountant-shift-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="selectedCashierAccountant">البحث عن الكاشير:</label>
-                            <select id="selectedCashierAccountant" onchange="searchCashierClosuresAccountant()">
-                                <option value="">اختر الكاشير</option>
-                                <!-- Options will be populated by JavaScript -->
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="accountantShiftDateFrom">من تاريخ:</label>
-                            <input type="date" id="accountantShiftDateFrom">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="accountantShiftDateTo">إلى تاريخ:</label>
-                            <input type="date" id="accountantShiftDateTo">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="accountantShiftTimeFrom">من الساعة:</label>
-                            <input type="time" id="accountantShiftTimeFrom">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="accountantShiftTimeTo">إلى الساعة:</label>
-                            <input type="time" id="accountantShiftTimeTo">
-                        </div>
-                    </div>
-                    
-                    <button type="button" class="search-btn" onclick="searchCashierClosuresAccountant()">
-                        <i class="fas fa-search"></i>
-                        بحث
-                    </button>
-                </div>
-                
-                <div class="closure-results" id="closureResultsAccountant" style="display: none;">
-                    <div class="closure-info">
-                        <h3>نتائج البحث</h3>
-                        <div class="closure-summary" id="closureSummaryAccountant">
-                            <p>إجمالي المصروفات (عادي): <span id="accTotalNormalExpenses">0</span></p>
-                            <p>إجمالي الفيزا: <span id="accTotalVisa">0</span></p>
-                            <p>إجمالي الإنستا: <span id="accTotalInsta">0</span></p>
-                            <p>إجمالي الأونلاين: <span id="accTotalOnline">0</span></p>
-                            <p>إجمالي المرتجعات: <span id="accTotalReturns">0.00</span> (<span class="invoice-count" id="accReturnsCount">0 فاتورة</span>)</p>
-                            <div class="form-group">
-                                <label class="switch">
-                                    <input type="checkbox" id="deductReturnsAccountant" onchange="updateAccountantClosureDisplay()">
-                                    <span class="slider round"></span>
-                                </label>
-                                <label for="deductReturnsAccountant" style="display: inline-block; margin-right: 10px;">إضافة المرتجعات إلى الإجمالي</label>
-                            </div>
-                            <p>إجمالي الكاش في الدرج: <span id="accDrawerCash">0</span></p>
-                            <p><strong>الإجمالي الكلي للكاشير: <span id="accGrandTotalCashier">0</span></strong></p>
-                            <p id="accGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد إضافة المرتجع: <span id="accGrandTotalAfterReturns">0.00</span></strong></p>
-                        </div>
-                        <div class="newmind-input">
-                            <div class="form-group">
-                                <label for="newmindTotalAccountant">إجمالي نيو مايند:</label>
-                                <input type="number" id="newmindTotalAccountant" placeholder="أدخل إجمالي نظام نيو مايند" step="0.01" onkeyup="calculateDifferenceAccountant()">
-                            </div>
-                            
-                            <button type="button" class="calculate-difference-btn" onclick="calculateDifferenceAccountant()">
-                                <i class="fas fa-calculator"></i>
-                                حساب الفرق
-                            </button>
-                        </div>
-                        
-                        <div class="difference-result" id="differenceResultAccountant" style="display: none;">
-                            <!-- سيتم عرض نتيجة المقارنة هنا -->
-                        </div>
-                        
-                        <button type="button" class="close-cashier-btn" onclick="closeCashierByAccountant()" style="display: none;">
-                            <i class="fas fa-check"></i>
-                            تقفيل الكاشير
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="closures-history">
-                    <h3><i class="fas fa-history"></i> سجل التقفيلات</h3>
-                    <div class="closures-table">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>الكاشير</th>
-                                    <th>الفترة</th>
-                                    <th>إجمالي الكاشير</th>
-                                    <th>إجمالي نيو مايند</th>
-                                    <th>الفرق</th>
-                                    <th>الحالة</th>
-                                    <th>تاريخ التقفيل</th>
-                                    <th>الإجراءات</th>
-                                </tr>
-                            </thead>
-                            <tbody id="closuresHistoryBodyAccountant">
-                                <!-- سيتم ملء البيانات ديناميكياً -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- موديل إضافة/تعديل تصنيف -->
-    <div id="categoryModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="categoryModalTitle">إضافة تصنيف جديد</h3>
-                <span class="close" onclick="closeCategoryModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="categoryForm" onsubmit="event.preventDefault(); saveCategory();">
-                    <div class="form-group">
-                        <label for="categoryName">اسم التصنيف</label>
-                        <input type="text" id="categoryName" required placeholder="أدخل اسم التصنيف">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="categoryDescription">وصف التصنيف</label>
-                        <textarea id="categoryDescription" placeholder="أدخل وصف التصنيف (اختياري)"></textarea>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="cancel-btn" onclick="closeCategoryModal()">إلغاء</button>
-                        <button type="submit" class="save-btn">حفظ</button>
-                    </div>
-                </form>
+            
+            <div class="users-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>رقم التليفون</th>
+                            <th>اسم المستخدم</th>
+                            <th>الدور</th>
+                            <th>الحالة</th>
+                            <th>تاريخ الإنشاء</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBodyAccountant">
+                        <!-- سيتم ملء البيانات ديناميكياً -->
+                    </tbody>
+                </table>
             </div>
         </div>
-    </div>
 
-    <!-- موديل إضافة/تعديل مصروف -->
-    <div id="expenseModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="expenseModalTitle">إضافة مصروف جديد</h3>
-                <span class="close" onclick="closeExpenseModal()">&times;</span>
+        <!-- قسم التقارير للمحاسب -->
+        <div id="reportsTabAccountant" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-chart-bar"></i> التقارير</h2>
             </div>
-            <div class="modal-body">
-                <form id="expenseForm" onsubmit="event.preventDefault(); saveExpense();">
-                    <div class="form-group">
-                        <label for="expenseCategory">التصنيف</label>
-                        <select id="expenseCategory" required>
-                            <option value="">اختر التصنيف</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="expenseAmount">القيمة</label>
-                        <input type="number" id="expenseAmount" required placeholder="أدخل قيمة المصروف" step="0.01" min="0">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="expenseInvoiceNumber">رقم الفاتورة</label>
-                        <input type="text" id="expenseInvoiceNumber" placeholder="أدخل رقم الفاتورة (اختياري)">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="expenseNotes">الملاحظات</label>
-                        <textarea id="expenseNotes" placeholder="أدخل ملاحظات (اختياري)"></textarea>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="cancel-btn" onclick="closeExpenseModal()">إلغاء</button>
-                        <button type="submit" class="save-btn">حفظ</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- موديل إضافة/تعديل عميل -->
-    <div id="customerModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="customerModalTitle">إضافة عميل جديد</h3>
-                <span class="close" onclick="closeCustomerModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="customerForm" onsubmit="event.preventDefault(); saveCustomer();">
-                    <div class="form-group">
-                        <label for="customerName">اسم العميل</label>
-                        <input type="text" id="customerName" required placeholder="أدخل اسم العميل">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="customerPhone">رقم التليفون</label>
-                        <input type="tel" id="customerPhone" placeholder="أدخل رقم التليفون (اختياري)">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="customerInitialCredit">الأجل الابتدائي</label>
-                        <input type="number" id="customerInitialCredit" placeholder="أدخل الأجل الابتدائي" step="0.01" min="0" value="0">
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="cancel-btn" onclick="closeCustomerModal()">إلغاء</button>
-                        <button type="submit" class="save-btn">حفظ</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- موديل إضافة/تعديل موظف -->
-    <div id="employeeModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="employeeModalTitle">إضافة موظف جديد</h3>
-                <span class="close" onclick="closeEmployeeModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="employeeForm" onsubmit="event.preventDefault(); saveEmployee();">
-                    <div class="form-group">
-                        <label for="employeeName">اسم الموظف</label>
-                        <input type="text" id="employeeName" required placeholder="أدخل اسم الموظف">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="employeePhone">رقم التليفون</label>
-                        <input type="tel" id="employeePhone" placeholder="أدخل رقم التليفون (اختياري)">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="employeeInitialAdvance">السلفة الابتدائية</label>
-                        <input type="number" id="employeeInitialAdvance" placeholder="أدخل السلفة الابتدائية" step="0.01" min="0" value="0">
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="cancel-btn" onclick="closeEmployeeModal()">إلغاء</button>
-                        <button type="submit" class="save-btn">حفظ</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- موديل إضافة/تعديل مستخدم -->
-    <div id="userModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="userModalTitle">إضافة مستخدم جديد</h3>
-                <span class="close" onclick="closeUserModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="userForm" onsubmit="event.preventDefault(); saveUser();">
-                    <div class="form-group">
-                        <label for="userName">الاسم الكامل</label>
-                        <input type="text" id="userName" required placeholder="أدخل الاسم الكامل">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="userPhone">رقم التليفون</label>
-                        <input type="tel" id="userPhone" placeholder="أدخل رقم التليفون">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="userUsername">اسم المستخدم</label>
-                        <input type="text" id="userUsername" required placeholder="أدخل اسم المستخدم">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="userPassword">كلمة المرور</label>
-                        <input type="password" id="userPassword" required placeholder="أدخل كلمة المرور">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="userRole">الدور</label>
-                        <select id="userRole" required>
-                            <option value="">اختر الدور</option>
-                            <option value="cashier">كاشير</option>
-                            <option value="accountant">محاسب</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="userStatus">الحالة</label>
-                        <select id="userStatus" required>
-                            <option value="active">نشط</option>
-                            <option value="inactive">غير نشط</option>
-                            <option value="blocked">محظور</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="cancel-btn" onclick="closeUserModal()">إلغاء</button>
-                        <button type="submit" class="save-btn">حفظ</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- موديل تأكيد الحذف -->
-    <div id="confirmModal" class="modal">
-        <div class="modal-content confirm-modal">
-            <div class="modal-header">
-                <h3>تأكيد الحذف</h3>
-                <span class="close" onclick="closeConfirmModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p id="confirmMessage">هل أنت متأكد أنك تريد حذف هذا العنصر؟</p>
-                <div class="form-actions">
-                    <button type="button" class="cancel-btn" onclick="closeConfirmModal()">إلغاء</button>
-                    <button type="button" class="delete-btn" onclick="confirmDelete()">حذف</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- موديل إرسال واتساب -->
-    <div id="whatsappModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>إرسال التقرير عبر واتساب</h3>
-                <span class="close" onclick="closeWhatsAppModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="whatsappNumber">رقم الواتساب</label>
-                    <input type="tel" id="whatsappNumber" placeholder="أدخل رقم الواتساب مع رمز الدولة">
+            
+            <div class="reports-filters">
+                <div class="filter-group">
+                    <label for="reportDateFromAccountant">من تاريخ:</label>
+                    <input type="date" id="reportDateFromAccountant">
                 </div>
                 
-                <div class="form-group">
-                    <label for="whatsappMessage">الرسالة</label>
-                    <textarea id="whatsappMessage" placeholder="الرسالة (اختياري)"></textarea>
+                <div class="filter-group">
+                    <label for="reportDateToAccountant">إلى تاريخ:</label>
+                    <input type="date" id="reportDateToAccountant">
                 </div>
                 
-                <div class="form-actions">
-                    <button type="button" class="cancel-btn" onclick="closeWhatsAppModal()">إلغاء</button>
-                    <button type="button" class="send-btn" onclick="sendWhatsApp()">إرسال</button>
+                <div class="filter-group">
+                    <label for="reportCashierAccountant">الكاشير:</label>
+                    <select id="reportCashierAccountant">
+                        <option value="">جميع الكاشيرز</option>
+                    </select>
                 </div>
+                
+                <div class="filter-group">
+                    <label for="reportCategoryAccountant">التصنيف:</label>
+                    <select id="reportCategoryAccountant">
+                        <option value="">جميع التصنيفات</option>
+                    </select>
+                </div>
+                
+                <button type="button" class="generate-report-btn" onclick="generateAccountantReport()">
+                    <i class="fas fa-chart-line"></i>
+                    إنشاء التقرير
+                </button>
+            </div>
+            
+            <div class="report-actions">
+                <button type="button" class="print-btn" onclick="printReport()">
+                    <i class="fas fa-print"></i>
+                    طباعة
+                </button>
+                
+                <button type="button" class="whatsapp-btn" onclick="showWhatsAppModal()">
+                    <i class="fab fa-whatsapp"></i>
+                    إرسال واتساب
+                </button>
+            </div>
+            
+            <div class="report-content" id="reportContentAccountant">
+                <!-- سيتم عرض التقرير هنا -->
             </div>
         </div>
-    </div>
-<!-- مودال تفاصيل العميل -->
+
+        <!-- قسم التصنيفات للمحاسب -->
+        <div id="categoriesTabAccountant" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-tags"></i> إدارة التصنيفات</h2>
+                <button type="button" class="add-btn" onclick="showAddCategoryModal()">
+                    <i class="fas fa-plus"></i>
+                    إضافة تصنيف
+                </button>
+            </div>
+            
+            <div class="categories-grid" id="categoriesGridAccountant">
+                <!-- سيتم ملء التصنيفات ديناميكياً -->
+            </div>
+        </div>
+
+        <!-- قسم العملاء (للمحاسب) -->
+        <div id="customersTabAccountant" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-users"></i> إدارة العملاء</h2>
+                <button type="button" class="add-btn" onclick="showAddCustomerModal()">
+                    <i class="fas fa-plus"></i>
+                    إضافة عميل
+                </button>
+            </div>
+            
+            <div class="customers-table">
+                <table id="customersTableAccountant">
+                    <thead>
+                        <tr>
+                            <th>اسم العميل</th>
+                            <th>رقم التليفون</th>
+                            <th>إجمالي الأجل</th>
+                            <th>تاريخ الإنشاء</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customersTableBodyAccountant">
+                        <!-- سيتم ملء البيانات ديناميكياً -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- تفاصيل الأجل والسداد للعميل -->
+            <!-- نافذة تفاصيل العميل -->
 <div id="customerDetailsModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -1051,43 +678,81 @@
         </div>
         <div class="modal-body">
             <div class="customer-info">
-                <p><strong>اسم العميل:</strong> <span id="customerDetailsName">--</span></p>
-                <p><strong>رقم التليفون:</strong> <span id="customerDetailsPhone">--</span></p>
-                <p><strong>إجمالي الأجل:</strong> <span id="customerDetailsCredit">0.00</span></p>
+                <h4 id="customerDetailsName"></h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>رقم الهاتف:</label>
+                        <span id="customerDetailsPhone"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>إجمالي الأجل:</label>
+                        <span id="customerDetailsCredit" class="amount"></span>
+                    </div>
+                </div>
             </div>
             
             <div class="payment-section">
                 <h4>سداد الأجل</h4>
                 <div class="form-group">
                     <label for="customerPaymentAmountModal">مبلغ السداد:</label>
-                    <input type="number" id="customerPaymentAmountModal" placeholder="أدخل مبلغ السداد" step="0.01" min="0">
+                    <input type="number" id="customerPaymentAmountModal" step="0.01" min="0.01" placeholder="أدخل مبلغ السداد">
                 </div>
-                <button type="button" class="save-btn" onclick="processCustomerPaymentModal()">سداد</button>
+                <button class="submit-btn" onclick="processCustomerPaymentModal()">
+                    <i class="fas fa-check"></i> تأكيد السداد
+                </button>
             </div>
             
             <div class="history-section">
-                <h4>سجل الحركات</h4>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>التاريخ</th>
-                            <th>النوع</th>
-                            <th>المبلغ</th>
-                            <th>رقم الفاتورة</th>
-                            <th>الملاحظات</th>
-                            <th>مسجل بواسطة</th>
-                        </tr>
-                    </thead>
-                    <tbody id="customerCreditHistoryModalBody">
-                        <!-- سيتم ملء البيانات ديناميكياً -->
-                    </tbody>
-                </table>
+                <h4>سجل الأجل والسداد</h4>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>نوع الحركة</th>
+                                <th>المبلغ</th>
+                                <th>رقم الفاتورة</th>
+                                <th>ملاحظات</th>
+                                <th>مسجل بواسطة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customerCreditHistoryModalBody">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- مودال تفاصيل الموظف -->
+        <!-- قسم الموظفين (للمحاسب) - New Tab -->
+        <div id="employeesTabAccountant" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-user-tie"></i> إدارة الموظفين</h2>
+                <button type="button" class="add-btn" id="addEmployeeBtnAccountant">
+      <i class="fas fa-plus"></i>
+      إضافة موظف
+  </button>
+            </div>
+            
+            <div class="employees-table">
+                <table id="employeesTableAccountant">
+                    <thead>
+                        <tr>
+                            <th>اسم الموظف</th>
+                            <th>رقم التليفون</th>
+                            <th>إجمالي السلف</th>
+                            <th>تاريخ الإنشاء</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeesTableBodyAccountant">
+                        <!-- سيتم ملء البيانات ديناميكياً -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- تفاصيل السلف والسداد للموظف -->
+            <!-- نافذة تفاصيل الموظف -->
 <div id="employeeDetailsModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -1096,49 +761,529 @@
         </div>
         <div class="modal-body">
             <div class="employee-info">
-                <p><strong>اسم الموظف:</strong> <span id="employeeDetailsName">--</span></p>
-                <p><strong>رقم التليفون:</strong> <span id="employeeDetailsPhone">--</span></p>
-                <p><strong>إجمالي السلف:</strong> <span id="employeeDetailsAdvance">0.00</span></p>
+                <h4 id="employeeDetailsName"></h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>رقم الهاتف:</label>
+                        <span id="employeeDetailsPhone"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>إجمالي السلف:</label>
+                        <span id="employeeDetailsAdvance" class="amount"></span>
+                    </div>
+                </div>
             </div>
             
             <div class="payment-section">
                 <h4>سداد السلف</h4>
                 <div class="form-group">
                     <label for="employeePaymentAmountModal">مبلغ السداد:</label>
-                    <input type="number" id="employeePaymentAmountModal" placeholder="أدخل مبلغ السداد" step="0.01" min="0">
+                    <input type="number" id="employeePaymentAmountModal" step="0.01" min="0.01" placeholder="أدخل مبلغ السداد">
                 </div>
-                <button type="button" class="save-btn" onclick="processEmployeePaymentModal()">سداد</button>
+                <button class="submit-btn" onclick="processEmployeePaymentModal()">
+                    <i class="fas fa-check"></i> تأكيد السداد
+                </button>
             </div>
             
             <div class="history-section">
-                <h4>سجل الحركات</h4>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>التاريخ</th>
-                            <th>النوع</th>
-                            <th>المبلغ</th>
-                            <th>الملاحظات</th>
-                            <th>مسجل بواسطة</th>
-                        </tr>
-                    </thead>
-                    <tbody id="employeeAdvanceHistoryModalBody">
-                        <!-- سيتم ملء البيانات ديناميكياً -->
-                    </tbody>
-                </table>
+                <h4>سجل السلف والسداد</h4>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>نوع الحركة</th>
+                                <th>المبلغ</th>
+                                <th>ملاحظات</th>
+                                <th>مسجل بواسطة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeeAdvanceHistoryModalBody">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </div>
-    <!-- JavaScript Files -->
+
+        <!-- قسم تقفيل الشيفت للمحاسب -->
+        <div id="shiftCloseTabAccountant" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-calculator"></i> تقفيل الشيفت</h2>
+            </div>
+            
+            <div class="accountant-shift-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="selectedCashierAccountant">البحث عن الكاشير:</label>
+                        <select id="selectedCashierAccountant" onchange="searchCashierClosuresAccountant()">
+                            <option value="">اختر الكاشير</option>
+                            <!-- Options will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="accountantShiftDateFrom">من تاريخ:</label>
+                        <input type="date" id="accountantShiftDateFrom">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="accountantShiftDateTo">إلى تاريخ:</label>
+                        <input type="date" id="accountantShiftDateTo">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="accountantShiftTimeFrom">من الساعة:</label>
+                        <input type="time" id="accountantShiftTimeFrom">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="accountantShiftTimeTo">إلى الساعة:</label>
+                        <input type="time" id="accountantShiftTimeTo">
+                    </div>
+                </div>
+                
+                <button type="button" class="search-btn" onclick="searchCashierClosuresAccountant()">
+                    <i class="fas fa-search"></i>
+                    بحث
+                </button>
+            </div>
+            
+            <div class="closure-results" id="closureResultsAccountant" style="display: none;">
+                <div class="closure-info">
+                    <h3>نتائج البحث</h3>
+                    <div class="closure-summary" id="closureSummaryAccountant">
+                        <p>إجمالي المصروفات (عادي): <span id="accTotalNormalExpenses">0</span></p>
+                        <p>إجمالي الفيزا: <span id="accTotalVisa">0</span></p>
+                        <p>إجمالي الإنستا: <span id="accTotalInsta">0</span></p>
+                        <p>إجمالي الأونلاين: <span id="accTotalOnline">0</span></p>
+                        <p>إجمالي المرتجعات: <span id="accTotalReturns">0.00</span> (<span class="invoice-count" id="accReturnsCount">0 فاتورة</span>)</p>
+                        <div class="form-group">
+                            <label class="switch">
+                                <input type="checkbox" id="deductReturnsAccountant" onchange="updateAccountantClosureDisplay()">
+                                <span class="slider round"></span>
+                            </label>
+                            <label for="deductReturnsAccountant" style="display: inline-block; margin-right: 10px;">إضافة المرتجعات إلى الإجمالي</label>
+                        </div>
+                        <p>إجمالي الكاش في الدرج: <span id="accDrawerCash">0</span></p>
+                        <p><strong>الإجمالي الكلي للكاشير: <span id="accGrandTotalCashier">0</span></strong></p>
+                        <p id="accGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد إضافة المرتجع: <span id="accGrandTotalAfterReturns">0.00</span></strong></p>
+                    </div>
+                    <div class="newmind-input">
+                        <div class="form-group">
+                            <label for="newmindTotalAccountant">إجمالي نيو مايند:</label>
+                            <input type="number" id="newmindTotalAccountant" placeholder="أدخل إجمالي نظام نيو مايند" step="0.01" onkeyup="calculateDifferenceAccountant()">
+                        </div>
+                        
+                        <button type="button" class="calculate-difference-btn" onclick="calculateDifferenceAccountant()">
+                            <i class="fas fa-calculator"></i>
+                            حساب الفرق
+                        </button>
+                    </div>
+                    
+                    <div class="difference-result" id="differenceResultAccountant" style="display: none;">
+                        <!-- سيتم عرض نتيجة المقارنة هنا -->
+                    </div>
+                    
+                    <button type="button" class="close-cashier-btn" onclick="closeCashierByAccountant()" style="display: none;">
+                        <i class="fas fa-check"></i>
+                        تقفيل الكاشير
+                    </button>
+                </div>
+            </div>
+            
+            <div class="closures-history">
+                <h3><i class="fas fa-history"></i> سجل التقفيلات</h3>
+                <div class="closures-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>الكاشير</th>
+                                <th>الفترة</th>
+                                <th>إجمالي الكاشير</th>
+                                <th>إجمالي نيو مايند</th>
+                                <th>الفرق</th>
+                                <th>الحالة</th>
+                                <th>تاريخ التقفيل</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="closuresHistoryBodyAccountant">
+                            <!-- سيتم ملء البيانات ديناميكياً -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+    <!-- النوافذ المنبثقة -->
+    <!-- نافذة إضافة تصنيف -->
+    <div id="addCategoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="addCategoryModalTitle"><i class="fas fa-plus"></i> إضافة تصنيف جديد</h3>
+                <button type="button" class="close-btn" onclick="closeModal('addCategoryModal')">&times;</button>
+            </div>
+            <form id="addCategoryForm" onsubmit="event.preventDefault(); addCategory();">
+                <div class="form-group">
+                    <label for="categoryCode">كود التصنيف:</label>
+                    <input type="text" id="categoryCode" required placeholder="مثال: BG001">
+                </div>
+                
+                <div class="form-group">
+                    <label for="categoryName">اسم التصنيف:</label>
+                    <input type="text" id="categoryName" required placeholder="مثال: بقالة">
+                </div>
+                
+                <div class="form-group">
+                    <label for="formType">نوع الفورم:</label>
+                    <select id="formType" required>
+                        <option value="">اختر نوع الفورم</option>
+                        <option value="عادي">عادي</option>
+                        <option value="فيزا">فيزا</option>
+                        <option value="شحن_تاب">شحن تاب</option>
+                        <option value="شحن_كهربا">شحن كهربا</option>
+                        <option value="بنزين">بنزين</option>
+                        <option value="سلف">سلف</option>
+                        <option value="دفعة_شركة">دفعة شركة</option>
+                        <option value="عجوزات">عجوزات</option>
+                        <option value="اجل">أجل</option>
+                        <option value="اونلاين">أونلاين</option>
+                        <option value="إنستا">إنستا</option>
+                        <option value="مرتجع">مرتجع</option>
+                        <option value="سلف_موظف">سلف موظف</option>
+                    </select>
+                </div>
+
+                <!-- Custom Fields Section -->
+                <div class="section-header" style="margin-top: 20px;">
+                    <h4>الحقول المخصصة</h4>
+                    <button type="button" class="add-btn" onclick="addCustomFieldToEditor()">
+                        <i class="fas fa-plus"></i> إضافة حقل مخصص
+                    </button>
+                </div>
+                <div id="customFieldsContainer" class="custom-fields-container">
+                    <!-- Custom fields will be added here dynamically -->
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="submit" class="save-btn" id="addCategoryModalSaveBtn">
+                        <i class="fas fa-save"></i>
+                        حفظ
+                    </button>
+                    <button type="button" class="cancel-btn" onclick="closeModal('addCategoryModal')">
+                        <i class="fas fa-times"></i>
+                        إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+        <!-- نافذة إضافة مصروف -->
+    <div id="addExpenseModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3 id="addExpenseModalTitle"><i class="fas fa-plus"></i> إضافة مصروف جديد</h3>
+                <button type="button" class="close-btn" onclick="closeModal('addExpenseModal')">&times;</button>
+            </div>
+            <div class="form-group toggle-group">
+    <label for="pinExpenseFormToggle">تثبيت النموذج:</label>
+    <label class="switch">
+        <input type="checkbox" id="pinExpenseFormToggle">
+        <span class="slider round"></span>
+    </label>
+</div>
+            <form id="addExpenseForm" onsubmit="event.preventDefault(); addExpense();">
+                <div class="form-group">
+                    <label for="expenseCategorySearch">البحث عن التصنيف:</label>
+                    <div class="input-group">
+                        <input type="text" id="expenseCategorySearch" placeholder="ابحث بالاسم أو الكود" onkeyup="searchExpenseCategories(this.value)" autocomplete="off">
+                        <div id="expenseCategorySuggestions" class="suggestions"></div>
+                    </div>
+                   <input type="hidden" id="selectedExpenseCategoryId">
+<input type="hidden" id="selectedExpenseCategoryCode">
+<input type="hidden" id="selectedExpenseCategoryName">
+<input type="hidden" id="selectedExpenseCategoryFormType">
+                    <input type="hidden" id="selectedExpenseCategoryCustomFields">
+                </div>
+                <!-- إضافة هذا الكود داخل نموذج إضافة المصروفات -->
+
+                <div id="dynamicExpenseForm">
+                    <!-- سيتم إنشاء الفورم ديناميكياً حسب نوع التصنيف -->
+                </div>
+
+                
+                
+                <div class="modal-actions">
+                    <button type="submit" class="save-btn" id="addExpenseModalSaveBtn">
+                        <i class="fas fa-save"></i>
+                        حفظ
+                    </button>
+                    <button type="button" class="cancel-btn" onclick="closeModal('addExpenseModal')">
+                        <i class="fas fa-times"></i>
+                        إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- نافذة إضافة عميل -->
+    <div id="addCustomerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="addCustomerModalTitle"><i class="fas fa-plus"></i> إضافة عميل جديد</h3>
+                <button type="button" class="close-btn" onclick="closeModal('addCustomerModal')">&times;</button>
+            </div>
+            <form id="addCustomerForm" onsubmit="event.preventDefault(); addCustomer();">
+                <div class="form-group">
+                    <label for="customerName">اسم العميل:</label>
+                    <input type="text" id="customerName" required placeholder="أدخل اسم العميل">
+                </div>
+                
+                <div class="form-group">
+                    <label for="customerPhone">رقم التليفون:</label>
+                    <input type="tel" id="customerPhone" required placeholder="أدخل رقم التليفون">
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="submit" class="save-btn" id="addCustomerModalSaveBtn">
+                        <i class="fas fa-save"></i>
+                        حفظ
+                    </button>
+                    <button type="button" class="cancel-btn" onclick="closeModal('addCustomerModal')">
+                        <i class="fas fa-times"></i>
+                        إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة إضافة موظف - New Modal -->
+    <div id="addEmployeeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="addEmployeeModalTitle"><i class="fas fa-plus"></i> إضافة موظف جديد</h3>
+                <button type="button" class="close-btn" onclick="closeModal('addEmployeeModal')">&times;</button>
+            </div>
+            <form id="addEmployeeForm" onsubmit="event.preventDefault(); addEmployee();">
+                <div class="form-group">
+                    <label for="employeeName">اسم الموظف:</label>
+                    <input type="text" id="employeeName" required placeholder="أدخل اسم الموظف">
+                </div>
+                
+                <div class="form-group">
+                    <label for="employeePhone">رقم التليفون:</label>
+                    <input type="tel" id="employeePhone" required placeholder="أدخل رقم التليفون">
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="submit" class="save-btn" id="addEmployeeModalSaveBtn">
+                        <i class="fas fa-save"></i>
+                        حفظ
+                    </button>
+                    <button type="button" class="cancel-btn" onclick="closeModal('addEmployeeModal')">
+                        <i class="fas fa-times"></i>
+                        إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة إضافة مستخدم -->
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <div class-header">
+                <h3 id="addUserModalTitle"><i class="fas fa-plus"></i> إضافة مستخدم جديد</h3>
+                <button type="button" class="close-btn" onclick="closeModal('addUserModal')">&times;</button>
+            </div>
+            <form id="addUserForm" onsubmit="event.preventDefault(); addUser();">
+                <div class="form-group">
+                    <label for="userName">الاسم:</label>
+                    <input type="text" id="userName" required placeholder="أدخل اسم المستخدم">
+                </div>
+                
+                <div class="form-group">
+                    <label for="userPhone">رقم التليفون:</label>
+                    <input type="tel" id="userPhone" required placeholder="أدخل رقم التليفون">
+                </div>
+                
+                <div class="form-group">
+                    <label for="userUsername">اسم المستخدم:</label>
+                    <input type="text" id="userUsername" required placeholder="أدخل اسم المستخدم للدخول">
+                </div>
+                
+                <div class="form-group">
+                    <label for="userPassword">كلمة المرور:</label>
+                    <input type="password" id="userPassword" required placeholder="أدخل كلمة المرور">
+                </div>
+                
+                <div class="form-group">
+                    <label for="userRole">الدور:</label>
+                    <select id="userRole" required>
+                        <option value="">اختر الدور</option>
+                        <option value="كاشير">كاشير</option>
+                        <option value="محاسب">محاسب</option>
+                    </select>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="submit" class="save-btn" id="addUserModalSaveBtn">
+                        <i class="fas fa-save"></i>
+                        حفظ
+                    </button>
+                    <button type="button" class="cancel-btn" onclick="closeModal('addUserModal')">
+                        <i class="fas fa-times"></i>
+                        إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة تغيير كلمة المرور -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-key"></i> تغيير كلمة المرور</h3>
+                <button type="button" class="close-btn" onclick="closeModal('changePasswordModal')">&times;</button>
+            </div>
+            <form id="changePasswordForm" onsubmit="event.preventDefault();">
+                <p>تغيير كلمة المرور للمستخدم: <strong><span id="changePasswordModalUserName"></span></strong></p>
+                <div class="form-group">
+                    <label for="newPassword">كلمة المرور الجديدة:</label>
+                    <input type="password" id="newPassword" required placeholder="أدخل كلمة المرور الجديدة">
+                </div>
+                <div class="form-group">
+                    <label for="confirmNewPassword">تأكيد كلمة المرور الجديدة:</label>
+                    <input type="password" id="confirmNewPassword" required placeholder="أعد إدخال كلمة المرور الجديدة">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="save-btn" id="changePasswordModalSaveBtn">
+                        <i class="fas fa-save"></i>
+                        حفظ
+                    </button>
+                    <button type="button" class="cancel-btn" onclick="closeModal('changePasswordModal')">
+                        <i class="fas fa-times"></i>
+                        إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة إرسال واتساب -->
+    <div id="whatsappModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fab fa-whatsapp"></i> إرسال التقرير عبر واتساب</h3>
+                <button type="button" class="close-btn" onclick="closeModal('whatsappModal')">&times;</button>
+            </div>
+            <form id="whatsappForm" onsubmit="event.preventDefault(); sendReportViaWhatsApp();">
+                <div class="form-group">
+                    <label for="whatsappNumber">رقم الواتساب:</label>
+                    <input type="tel" id="whatsappNumber" required placeholder="أدخل رقم الواتساب">
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="submit" class="send-btn">
+                        <i class="fab fa-whatsapp"></i>
+                        إرسال
+                    </button>
+                    <button type="button" class="cancel-btn" onclick="closeModal('whatsappModal')">
+                        <i class="fas fa-times"></i>
+                        إلغاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة تفاصيل التقفيلة العامة (يمكن استخدامها لعرض تفاصيل أي تقفيلة) -->
+    <div id="genericDetailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-info-circle"></i> تفاصيل التقفيلة</h3>
+                <button type="button" class="close-btn" onclick="closeModal('genericDetailsModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="genericDetailsModalContent">
+                <!-- سيتم ملء المحتوى هنا ديناميكياً -->
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="cancel-btn" onclick="closeModal('genericDetailsModal')">
+                    <i class="fas fa-times"></i>
+                    إغلاق
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة تقفيل المحاسب (لعرض التفاصيل وإدخال إجمالي نيو مايند) -->
+    <div id="accountantClosureDetailsModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3><i class="fas fa-check-double"></i> تقفيل المحاسب للشيفت</h3>
+                <button type="button" class="close-btn" onclick="closeModal('accountantClosureDetailsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h4>بيانات الشيفت:</h4>
+                <p><strong>الكاشير:</strong> <span id="accountantClosureModalCashierName"></span></p>
+                <p><strong>الفترة:</strong> <span id="accountantClosureModalPeriod"></span></p>
+                <p><strong>إجمالي المصروفات (عادي):</strong> <span id="accountantClosureModalTotalExpenses">0.00</span></p>
+                <p><strong>إجمالي الإنستا:</strong> <span id="accountantClosureModalTotalInsta">0.00</span></p>
+                <p><strong>إجمالي الفيزا:</strong> <span id="accountantClosureModalTotalVisa">0.00</span></p>
+                <p><strong>إجمالي الأونلاين:</strong> <span id="accountantClosureModalTotalOnline">0.00</span></p>
+                <p><strong>إجمالي المرتجعات:</strong> <span id="accountantClosureModalTotalReturns">0.00</span></p>
+               <div class="form-group">
+                    <label class="switch">
+                        <input type="checkbox" id="accountantClosureModalDeductReturns" onchange="updateAccountantClosureDifference()">
+                        <span class="slider round"></span>
+                    </label>
+                    <label for="accountantClosureModalDeductReturns" style="display: inline-block; margin-right: 10px;">إضافة المرتجعات إلى الإجمالي</label>
+                </div>
+                <p><strong>إجمالي الكاش في الدرج:</strong> <span id="accountantClosureModalDrawerCash">0.00</span></p>
+                <p><strong>الإجمالي الكلي للكاشير:</strong> <span id="accountantClosureModalGrandTotal">0.00</span></p>
+                <p id="accountantClosureModalGrandTotalAfterReturnsContainer" style="display: none;"><strong>الإجمالي الكلي للكاشير بعد إضافة المرتجع: <span id="accountantClosureModalGrandTotalAfterReturns">0.00</span></strong></p>
+                <hr>
+
+                <div class="form-group">
+                    <label for="accountantClosureModalNewMindTotal">إجمالي نيو مايند:</label>
+                    <input type="number" id="accountantClosureModalNewMindTotal" step="0.01" placeholder="أدخل إجمالي نظام نيو مايند" onkeyup="updateAccountantClosureDifference()">
+                </div>
+                
+                <p><strong>الفرق:</strong> <span id="accountantClosureModalDifference">0.00</span></p>
+                <p><strong>الحالة:</strong> <span id="accountantClosureModalStatus" class="status open">في انتظار الإدخال</span></p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="save-btn" id="saveAccountantClosureBtn" onclick="saveAccountantClosure()" disabled>
+                    <i class="fas fa-check"></i>
+                    حفظ التقفيل
+                </button>
+                <button type="button" class="cancel-btn" onclick="closeModal('accountantClosureDetailsModal')">
+                    <i class="fas fa-times"></i>
+                    إلغاء
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- تراكب التحميل -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>جار التحميل...</p>
+        </div>
+    </div>
+
+    <!-- تحميل ملفات إضافية -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <!-- تحميل الملفات -->
     <script src="script.js"></script>
-    <script src="auth.js"></script>
-    <script src="categories.js"></script>
-    <script src="expenses.js"></script>
-    <script src="customers.js"></script>
-    <script src="employees.js"></script>
-    <script src="users.js"></script>
-    <script src="reports.js"></script>
-    <script src="shift-close.js"></script>
 </body>
 </html>
