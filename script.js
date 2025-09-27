@@ -5528,7 +5528,7 @@ async function saveEditedAccountantClosure() {
             grandTotalAfterReturnsValue = cashierRecordedGrandTotal;
         }
 
-        const difference = newMindTotal - grandTotalForComparison;
+        const difference =   grandTotalForComparison - newMindTotal;
         const now = new Date();
 
         const rowIndex = await findRowIndex(SHEETS.SHIFT_CLOSURES, 0, closure.id);
