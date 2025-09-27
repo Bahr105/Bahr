@@ -4571,10 +4571,11 @@ function resetAccountantShiftForm() {
         closeCashierBtn.style.display = 'none';
     }
 
-    // Reset the return deduction switch
+    
+    // Reset the return deduction switch to OFF by default
     const deductReturnsSwitch = document.getElementById('deductReturnsAccountant');
     if (deductReturnsSwitch) {
-        deductReturnsSwitch.checked = false;
+        deductReturnsSwitch.checked = false; // هذا السطر يجعله مطفأ افتراضيًا
     }
     // Hide the container for grand total after returns
     const grandTotalAfterReturnsContainer = document.getElementById('accGrandTotalAfterReturnsContainer');
@@ -4895,7 +4896,10 @@ async function searchCashierClosuresAccountant() {
             drawerCashCount: drawerCashCount,
             grandTotal: grandTotal // هذا الإجمالي يشمل الكاش في الدرج ويستثني المرتجعات
         };
-
+ const deductReturnsSwitch = document.getElementById('deductReturnsAccountant');
+    if (deductReturnsSwitch) {
+        deductReturnsSwitch.checked = false;
+    }
         updateAccountantClosureDisplay(); // تحديث العرض بعد تحميل البيانات
 
         const cashierUser  = users.find(u => u.username === selectedCashier);
