@@ -924,14 +924,13 @@ async function showTab(tabId) {
             if (customerDetailsAccountant) {
                 customerDetailsAccountant.style.display = 'none';
             }
-        } else if (tabId === 'employeesTabAccountant') { // علامة تبويب الموظفين الجديدة
-            await loadEmployees();
-            displayEmployees('employeesTableBodyAccountant');
-            const employeeDetailsAccountant = document.getElementById('employeeDetailsAccountant');
-            if (employeeDetailsAccountant) {
-                employeeDetailsAccountant.style.display = 'none';
-            }
-        } else if (tabId === 'dashboardTabAccountant') {
+        } else if (tabId === 'employeesTabCashier') {
+    await loadEmployees(true); // تحميل قسري للموظفين
+    displayEmployees('employeesTableBodyCashier');
+} else if (tabId === 'employeesTabAccountant') {
+    await loadEmployees(true); // تحميل قسري للموظفين
+    displayEmployees('employeesTableBodyAccountant');
+} else if (tabId === 'dashboardTabAccountant') {
             await loadUsers(); // لضمان تحديث قائمة الكاشيرز في الفلتر
             await loadCategories(); // لضمان تحديث أنواع المصروفات
             await loadCustomers(); // لضمان تحديث إحصائيات العملاء
@@ -965,7 +964,12 @@ async function showTab(tabId) {
         showLoading(false); // إخفاء شاشة التحميل بعد تحديث المحتوى
     }
 }
-
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
 // --- Cashier Page Functions ---
 async function showCashierPage() {
     document.getElementById('loginPage').classList.remove('active');
@@ -3066,35 +3070,54 @@ async function deleteCustomer(customerId, customerName) {
 // --- Employees Management (New Section) ---
 function displayEmployees(tableBodyId) {
     const tableBody = document.getElementById(tableBodyId);
-    if (!tableBody) return;
+    if (!tableBody) {
+        console.error('Element not found:', tableBodyId);
+        return;
+    }
 
     tableBody.innerHTML = '';
-    if (employees.length === 0) {
+    
+    if (!employees || employees.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="5">لا توجد موظفين مسجلين.</td></tr>';
         return;
     }
 
+    // ترتيب الموظفين من الأحدث إلى الأقدم
     employees.sort((a, b) => new Date(b.creationDate) - new Date(a.creationDate));
 
     employees.forEach(emp => {
         const row = tableBody.insertRow();
-        row.insertCell().textContent = emp.name;
-        row.insertCell().textContent = emp.phone;
-        row.insertCell().textContent = emp.totalAdvance.toFixed(2);
-        row.insertCell().textContent = new Date(emp.creationDate).toLocaleDateString('ar-EG');
+        
+        // التأكد من أن البيانات موجودة
+        row.insertCell().textContent = emp.name || '--';
+        row.insertCell().textContent = emp.phone || '--';
+        row.insertCell().textContent = (emp.totalAdvance || 0).toFixed(2);
+        row.insertCell().textContent = emp.creationDate ? new Date(emp.creationDate).toLocaleDateString('ar-EG') : '--';
+        
         const actionsCell = row.insertCell();
-
-        // الأزرار تظهر فقط للمحاسب
+        
         if (currentUserRole === 'محاسب') {
             actionsCell.innerHTML = `
-    <button class="edit-btn" onclick="showEditEmployeeModal('${emp.id}')"><i class="fas fa-edit"></i> تعديل</button>
-    <button class="delete-btn" onclick="deleteEmployee('${emp.id}', '${emp.name}')"><i class="fas fa-trash"></i> حذف</button>
-    <button class="view-btn" onclick="viewEmployeeDetailsModal('${emp.id}', '${emp.name}')"><i class="fas fa-eye"></i> تفاصيل</button>
-`;
+                <button class="edit-btn" onclick="showEditEmployeeModal('${emp.id}')">
+                    <i class="fas fa-edit"></i> تعديل
+                </button>
+                <button class="delete-btn" onclick="deleteEmployee('${emp.id}', '${emp.name}')">
+                    <i class="fas fa-trash"></i> حذف
+                </button>
+                <button class="view-btn" onclick="viewEmployeeDetailsModal('${emp.id}', '${emp.name}')">
+                    <i class="fas fa-eye"></i> تفاصيل
+                </button>
+            `;
         } else {
-            actionsCell.textContent = '--'; // لا توجد إجراءات للكاشير
+            actionsCell.innerHTML = `
+                <button class="view-btn" onclick="viewEmployeeDetailsModal('${emp.id}', '${emp.name}')">
+                    <i class="fas fa-eye"></i> تفاصيل
+                </button>
+            `;
         }
     });
+    
+    console.log('تم عرض', employees.length, 'موظف في', tableBodyId);
 }
 
 // عرض تفاصيل الموظف في نافذة منبثقة
