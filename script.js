@@ -5143,14 +5143,23 @@ async function loadAccountantShiftClosuresHistory() {
 
         const differenceCell = row.insertCell();
         const diffValue = closure.difference;
-        differenceCell.textContent = diffValue.toFixed(2);
-        if (diffValue < 0) { // إذا كان نيو مايند أقل من الإجمالي الذي قارنه المحاسب (الكاشير أعلى)
+        
+        // تحديد التنسيق بناءً على قيمة الفرق
+        if (diffValue > 0) {
+            // زيادة عند الكاشير (إجمالي الكاشير أكبر من نيو مايند)
+            differenceCell.textContent = `+${diffValue.toFixed(2)}`;
             differenceCell.style.color = 'green';
+            differenceCell.style.fontWeight = 'bold';
             differenceCell.title = 'زيادة عند الكاشير';
-        } else if (diffValue > 0) { // إذا كان نيو مايند أعلى من الإجمالي الذي قارنه المحاسب (الكاشير أقل)
+        } else if (diffValue < 0) {
+            // عجز على الكاشير (نيو مايند أكبر من إجمالي الكاشير)
+            differenceCell.textContent = `${diffValue.toFixed(2)}`; // سيكون سالباً تلقائياً
             differenceCell.style.color = 'red';
+            differenceCell.style.fontWeight = 'bold';
             differenceCell.title = 'عجز على الكاشير';
         } else {
+            // مطابق
+            differenceCell.textContent = diffValue.toFixed(2);
             differenceCell.style.color = 'blue';
             differenceCell.title = 'مطابق';
         }
@@ -5158,20 +5167,13 @@ async function loadAccountantShiftClosuresHistory() {
         const statusCell = row.insertCell();
         statusCell.innerHTML = `<span class="status ${closure.status === 'مغلق' || closure.status === 'مغلق بواسطة المحاسب' ? 'closed' : 'open'}">${closure.status}</span>`;
 
-        row.insertCell().textContent = `${closure.closureDate} ${closure.closureTime.substring(0, 5)}`;
+        row.insertCell().textContent = `${closure.closureDate} ${closure.closureTime.substring(0,5)}`;
 
         const actionsCell = row.insertCell();
         actionsCell.innerHTML = `
             <button class="view-btn" onclick="viewClosureDetails('${closure.id}')">
                 <i class="fas fa-eye"></i> عرض
             </button>
-            <button class="edit-btn" onclick="promptForEditPassword('${closure.id}')">
-                <i class="fas fa-edit"></i> تعديل
-            </button>
-            ${closure.status !== 'مغلق بواسطة المحاسب' ? `
-            <button class="accountant-close-btn" onclick="showAccountantClosureModal('${closure.id}')">
-                <i class="fas fa-check-double"></i> تقفيل المحاسب
-            </button>` : ''}
         `;
     }
 }
