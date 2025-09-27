@@ -589,32 +589,50 @@ async function loadCustomerCreditHistory(customerId) {
 }
 
 async function loadEmployees(forceReload = false) {
-    if (!forceReload && employees.length > 0) {
-        return; // لا داعي لإعادة التحميل إذا البيانات موجودة
+    if (!forceReload && employees && employees.length > 0) {
+        console.log('بيانات الموظفين موجودة مسبقاً، عدد الموظفين:', employees.length);
+        return;
     }
     
     try {
+        console.log('جاري تحميل بيانات الموظفين...');
         const data = await readSheet(SHEETS.EMPLOYEES);
-        if (data.length > 1) {
-            employees = data.slice(1).map(row => ({
-                id: row[0] || '',
-                name: row[1] || '',
-                phone: row[2] || '',
-                totalAdvance: parseFloat((row[3] || '0').replace(/,/g, '')),
-                creationDate: row[4] || '',
-                lastUpdate: row[5] || ''
-            }));
-            console.log('تم تحميل', employees.length, 'موظف');
+        
+        if (data && data.length > 1) {
+            employees = data.slice(1).map((row, index) => {
+                // معالجة البيانات وتنظيفها
+                return {
+                    id: row[0]?.toString().trim() || `EMP_${index + 1}`,
+                    name: row[1]?.toString().trim() || 'غير معروف',
+                    phone: row[2]?.toString().trim() || '--',
+                    totalAdvance: parseFloat((row[3] || '0').toString().replace(/,/g, '')) || 0,
+                    creationDate: row[4]?.toString().trim() || new Date().toISOString().split('T')[0],
+                    lastUpdate: row[5]?.toString().trim() || ''
+                };
+            });
+            console.log('تم تحميل', employees.length, 'موظف بنجاح');
         } else {
             employees = [];
-            console.log('لا توجد بيانات موظفين');
+            console.log('لا توجد بيانات موظفين في الجدول');
         }
     } catch (error) {
         console.error('Error loading employees:', error);
         employees = [];
+        showMessage('حدث خطأ أثناء تحميل بيانات الموظفين', 'error');
     }
 }
-
+function debugEmployeesData() {
+    console.log('=== فحص بيانات الموظفين ===');
+    console.log('عدد الموظفين:', employees.length);
+    console.log('بيانات الموظفين:', employees);
+    
+    const tableBodyCashier = document.getElementById('employeesTableBodyCashier');
+    const tableBodyAccountant = document.getElementById('employeesTableBodyAccountant');
+    
+    console.log('جدول الكاشير موجود:', !!tableBodyCashier);
+    console.log('جدول المحاسب موجود:', !!tableBodyAccountant);
+    console.log('دور المستخدم الحالي:', currentUserRole);
+}
 async function loadEmployeeAdvanceHistory(employeeId) {
     try {
         const data = await readSheet(SHEETS.EMPLOYEE_ADVANCE_HISTORY);
@@ -914,16 +932,7 @@ async function showTab(tabId) {
         } else if (tabId === 'customersTabCashier') {
             await loadCustomers(); // إعادة تحميل العملاء لضمان التحديث
             displayCustomers('customersTableBodyCashier');
-        } else if (tabId === 'employeesTabCashier') { // تبويب الموظفين الجديد للكاشير
-            await loadEmployees(); // تحميل بيانات الموظفين
-            displayEmployees('employeesTableBodyCashier'); // عرض الموظفين في جدول الكاشير
-        } else if (tabId === 'customersTabAccountant') {
-            await loadCustomers(); // إعادة تحميل العملاء لضمان التحديث
-            displayCustomers('customersTableBodyAccountant');
-            const customerDetailsAccountant = document.getElementById('customerDetailsAccountant');
-            if (customerDetailsAccountant) {
-                customerDetailsAccountant.style.display = 'none';
-            }
+        
         } else if (tabId === 'employeesTabCashier') {
     await loadEmployees(true); // تحميل قسري للموظفين
     displayEmployees('employeesTableBodyCashier');
@@ -3087,47 +3096,62 @@ function displayEmployees(tableBodyId) {
 
     tableBody.innerHTML = '';
     
+    // تحقق من وجود بيانات الموظفين
     if (!employees || employees.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="5">لا توجد موظفين مسجلين.</td></tr>';
+        console.log('لا توجد بيانات موظفين للعرض');
         return;
     }
 
+    console.log('عرض', employees.length, 'موظف في', tableBodyId);
+    console.log('بيانات الموظفين:', employees);
+
     // ترتيب الموظفين من الأحدث إلى الأقدم
-    employees.sort((a, b) => new Date(b.creationDate) - new Date(a.creationDate));
+    employees.sort((a, b) => {
+        const dateA = a.creationDate ? new Date(a.creationDate) : new Date(0);
+        const dateB = b.creationDate ? new Date(b.creationDate) : new Date(0);
+        return dateB - dateA;
+    });
 
     employees.forEach(emp => {
         const row = tableBody.insertRow();
         
-        // التأكد من أن البيانات موجودة
-        row.insertCell().textContent = emp.name || '--';
-        row.insertCell().textContent = emp.phone || '--';
-        row.insertCell().textContent = (emp.totalAdvance || 0).toFixed(2);
-        row.insertCell().textContent = emp.creationDate ? new Date(emp.creationDate).toLocaleDateString('ar-EG') : '--';
+        // التأكد من أن البيانات موجودة وتعيين قيم افتراضية إذا كانت غير موجودة
+        const name = emp.name || '--';
+        const phone = emp.phone || '--';
+        const totalAdvance = emp.totalAdvance || 0;
+        const creationDate = emp.creationDate ? new Date(emp.creationDate).toLocaleDateString('ar-EG') : '--';
+        
+        row.insertCell().textContent = name;
+        row.insertCell().textContent = phone;
+        row.insertCell().textContent = totalAdvance.toFixed(2);
+        row.insertCell().textContent = creationDate;
         
         const actionsCell = row.insertCell();
         
+        // تحديد الأزرار بناءً على دور المستخدم
         if (currentUserRole === 'محاسب') {
             actionsCell.innerHTML = `
                 <button class="edit-btn" onclick="showEditEmployeeModal('${emp.id}')">
                     <i class="fas fa-edit"></i> تعديل
                 </button>
-                <button class="delete-btn" onclick="deleteEmployee('${emp.id}', '${emp.name}')">
+                <button class="delete-btn" onclick="deleteEmployee('${emp.id}', '${name}')">
                     <i class="fas fa-trash"></i> حذف
                 </button>
-                <button class="view-btn" onclick="viewEmployeeDetailsModal('${emp.id}', '${emp.name}')">
+                <button class="view-btn" onclick="viewEmployeeDetailsModal('${emp.id}', '${name}')">
                     <i class="fas fa-eye"></i> تفاصيل
                 </button>
             `;
         } else {
             actionsCell.innerHTML = `
-                <button class="view-btn" onclick="viewEmployeeDetailsModal('${emp.id}', '${emp.name}')">
+                <button class="view-btn" onclick="viewEmployeeDetailsModal('${emp.id}', '${name}')">
                     <i class="fas fa-eye"></i> تفاصيل
                 </button>
             `;
         }
     });
     
-    console.log('تم عرض', employees.length, 'موظف في', tableBodyId);
+    console.log('تم عرض', employees.length, 'موظف بنجاح');
 }
 
 // عرض تفاصيل الموظف في نافذة منبثقة
