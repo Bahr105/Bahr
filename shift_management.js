@@ -587,7 +587,6 @@ function updateAccountantClosureDisplay() {
  * Closes a cashier's shift by the accountant, saving the closure data.
  */
 async function closeCashierByAccountant() {
-    // منع الإضافة المزدوجة
     if (window.closingCashierInProgress) {
         showMessage('جاري تقفيل الشيفت، يرجى الانتظار...', 'warning');
         return;
@@ -608,52 +607,78 @@ async function closeCashierByAccountant() {
         return;
     }
 
-    const addReturns = document.getElementById('deductReturnsAccountant')?.checked || false;
-    let cashierTotalForComparison = window.currentClosureData.grandTotal;
-    let grandTotalAfterReturnsValue = cashierTotalForComparison;
-
-    if (addReturns) {
-        cashierTotalForComparison = cashierTotalForComparison + window.currentClosureData.totalReturns;
-        grandTotalAfterReturnsValue = cashierTotalForComparison;
-    } else {
-        grandTotalAfterReturnsValue = cashierTotalForComparison;
-    }
-
-    const difference = cashierTotalForComparison - newMindTotal;
-
     showLoading(true);
     try {
-        const now = new Date();
-        const shiftId = 'SHIFT_ACC_' + now.getTime();
+        // البحث عن تقفيلة الكاشير الأصلية
+        const allClosures = await loadShiftClosures({});
+        const originalClosure = allClosures.find(closure => 
+            closure.cashier === window.currentClosureData.cashier &&
+            closure.dateFrom === window.currentClosureData.dateFrom &&
+            closure.timeFrom === window.currentClosureData.timeFrom &&
+            closure.dateTo === window.currentClosureData.dateTo &&
+            closure.timeTo === window.currentClosureData.timeTo &&
+            closure.status === 'مغلق' // التأكد أنها التقفيلة الأصلية للكاشير
+        );
 
-        const shiftClosureData = [
-            shiftId,
-            window.currentClosureData.cashier,
-            window.currentClosureData.dateFrom,
-            window.currentClosureData.timeFrom,
-            window.currentClosureData.dateTo,
-            window.currentClosureData.timeTo,
-            window.currentClosureData.totalNormal.toFixed(2),
-            window.currentClosureData.normalCount,
-            window.currentClosureData.totalInsta.toFixed(2),
-            window.currentClosureData.instaCount,
-            window.currentClosureData.totalVisa.toFixed(2),
-            window.currentClosureData.visaCount,
-            window.currentClosureData.totalOnline.toFixed(2),
-            window.currentClosureData.onlineCount,
-            window.currentClosureData.grandTotal.toFixed(2),
-            window.currentClosureData.drawerCash.toFixed(2),
-            newMindTotal.toFixed(2),
-            difference.toFixed(2),
-            'مغلق بواسطة المحاسب',
-            now.toISOString().split('T')[0],
-            now.toTimeString().split(' ')[0],
-            currentUser.username,
-            window.currentClosureData.totalReturns.toFixed(2),
+        if (!originalClosure) {
+            showMessage('لم يتم العثور على تقفيلة الكاشير الأصلية.', 'error');
+            window.closingCashierInProgress = false;
+            return;
+        }
+
+        const addReturns = document.getElementById('deductReturnsAccountant')?.checked || false;
+        let cashierTotalForComparison = window.currentClosureData.grandTotal;
+        let grandTotalAfterReturnsValue = cashierTotalForComparison;
+
+        if (addReturns) {
+            cashierTotalForComparison = cashierTotalForComparison + window.currentClosureData.totalReturns;
+            grandTotalAfterReturnsValue = cashierTotalForComparison;
+        } else {
+            grandTotalAfterReturnsValue = cashierTotalForComparison;
+        }
+
+        const difference = cashierTotalForComparison - newMindTotal;
+        const now = new Date();
+
+        // تحديث البيانات في السجل الأصلي
+        const updatedData = [
+            originalClosure.id, // استخدام نفس ال ID
+            originalClosure.cashier,
+            originalClosure.dateFrom,
+            originalClosure.timeFrom,
+            originalClosure.dateTo,
+            originalClosure.timeTo,
+            originalClosure.totalExpenses.toFixed(2),
+            originalClosure.expenseCount,
+            originalClosure.totalInsta.toFixed(2),
+            originalClosure.instaCount,
+            originalClosure.totalVisa.toFixed(2),
+            originalClosure.visaCount,
+            originalClosure.totalOnline.toFixed(2),
+            originalClosure.onlineCount,
+            originalClosure.grandTotal.toFixed(2),
+            originalClosure.drawerCash.toFixed(2),
+            newMindTotal.toFixed(2), // إضافة NewMind Total
+            difference.toFixed(2),   // إضافة الفرق
+            'مغلق بواسطة المحاسب',   // تحديث الحالة
+            now.toISOString().split('T')[0], // تاريخ التقفيل
+            now.toTimeString().split(' ')[0], // وقت التقفيل
+            currentUser.username,    // اسم المحاسب
+            originalClosure.totalReturns.toFixed(2),
             grandTotalAfterReturnsValue.toFixed(2)
         ];
 
-        const result = await appendToSheet(SHEETS.SHIFT_CLOSURES, shiftClosureData);
+        // البحث عن رقم الصف لتحديثه
+        const rowIndex = await findRowIndex(SHEETS.SHIFT_CLOSURES, 0, originalClosure.id);
+        
+        if (rowIndex === -1) {
+            showMessage('لم يتم العثور على صف التقفيلة الأصلية.', 'error');
+            window.closingCashierInProgress = false;
+            return;
+        }
+
+        // تحديث السجل الأصلي بدلاً من إضافة سجل جديد
+        const result = await updateSheet(SHEETS.SHIFT_CLOSURES, `A${rowIndex}:X${rowIndex}`, [updatedData]);
 
         if (result.success) {
             showMessage(`تم تقفيل شيفت الكاشير ${users.find(u => u.username === window.currentClosureData.cashier)?.name || window.currentClosureData.cashier} بنجاح بواسطة المحاسب.`, 'success');
