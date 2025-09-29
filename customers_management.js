@@ -219,9 +219,17 @@ async function addCustomer() {
         return;
     }
 
+    // منع الإضافة المزدوجة
+    if (window.addingCustomerInProgress) {
+        showMessage('جاري إضافة العميل، يرجى الانتظار...', 'warning');
+        return;
+    }
+    window.addingCustomerInProgress = true;
+
     const existingCustomer = customers.find(cust => cust.phone === phone);
     if (existingCustomer) {
         showMessage('رقم التليفون موجود بالفعل لعميل آخر. يرجى استخدام رقم فريد.', 'warning');
+        window.addingCustomerInProgress = false;
         return;
     }
 
@@ -261,6 +269,7 @@ async function addCustomer() {
         showMessage('حدث خطأ أثناء إضافة العميل.', 'error');
     } finally {
         showLoading(false);
+        window.addingCustomerInProgress = false;
     }
 }
 
