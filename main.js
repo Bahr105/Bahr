@@ -52,20 +52,15 @@ function handleKeyboardShortcuts(event) {
         return; // إذا لم تكن صفحة الكاشير نشطة، لا تفعل شيئًا
     }
 
-    // 2. التحقق مما إذا كان هناك أي نافذة منبثقة (modal) مفتوحة حاليًا
-    //    إذا كان هناك مودال مفتوح غير مودال إضافة المصروف، لا تفعل شيئًا
-    const activeModals = document.querySelectorAll('.modal.active');
-    if (activeModals.length > 0 && activeModals[0].id !== 'addExpenseModal') {
-        return;
-    }
-
-    // 3. اختصار Ctrl + z: لفتح نافذة إضافة مصروف جديد
+    // 2. اختصار Ctrl + z: لفتح نافذة إضافة مصروف جديد
+    //    تم إزالة شرط عدم وجود مودال مفتوح آخر للسماح بفتح مودال المصروف في أي وقت بصفحة الكاشير.
     if (event.ctrlKey && event.key === 'z') {
         event.preventDefault(); // منع السلوك الافتراضي للمتصفح (مثل تحديد كل النص)
         showAddExpenseModal(); // استدعاء الدالة التي تفتح نافذة إضافة المصروف
     }
 
-    // 4. اختصار Ctrl + S: لحفظ المصروف (إذا كانت نافذة إضافة المصروف مفتوحة)
+    // 3. اختصار Ctrl + S: لحفظ المصروف (إذا كانت نافذة إضافة المصروف مفتوحة)
+    //    تم إزالة شرط عدم وجود مودال مفتوح آخر للسماح بحفظ المصروف في أي وقت بصفحة الكاشير.
     if (event.ctrlKey && event.key === 's') {
         const addExpenseModal = document.getElementById('addExpenseModal');
         // التحقق مما إذا كانت نافذة إضافة المصروف مفتوحة ونشطة
@@ -142,9 +137,11 @@ document.addEventListener('keydown', handlePinShortcut);
 // يعمل على أي input بكلاس 'search-box' (مثل حقل البحث عن التصنيفات)
 /**
  * تهيئة صناديق البحث العامة للـ autocomplete.
+ * تم تعديل هذا الجزء ليشمل جميع حقول الإدخال التي تحمل الفئة 'search-box'.
+ * يجب إضافة الفئة 'search-box' إلى أي حقل إدخال تريد تفعيل ميزة الإكمال التلقائي عليه.
  */
 function initGlobalSearchBoxes() {
-  const inputs = document.querySelectorAll('input.search-box, #expenseCategorySearch'); // يشمل حقل التصنيفات تحديداً
+  const inputs = document.querySelectorAll('input.search-box, #expenseCategorySearch');
   inputs.forEach(setupSearchBox);
 }
 
@@ -180,10 +177,26 @@ function setupSearchBox(input) {
       return;
     }
 
-    const cats = await getCategoriesList();
-    suggestions = cats.filter(c => 
-      c.name.toLowerCase().includes(q) || 
-      (c.code && c.code.toLowerCase().includes(q))
+    // --- نقطة التوسع: هنا يمكنك تحديد مصدر البيانات بناءً على حقل الإدخال ---
+    // مثال:
+    let dataList = [];
+    if (input.id === 'expenseCategorySearch' || input.classList.contains('category-search-box')) {
+        dataList = await getCategoriesList();
+    } else if (input.id === 'customerSearch' || input.classList.contains('customer-search-box')) {
+        // افترض وجود دالة getCustomersList()
+        dataList = await getCustomersList();
+    } else if (input.id === 'employeeSearch' || input.classList.contains('employee-search-box')) {
+        // افترض وجود دالة getEmployeesList()
+        dataList = await getEmployeesList();
+    } else {
+        // افتراضيًا، استخدم التصنيفات إذا لم يتم تحديد نوع آخر
+        dataList = await getCategoriesList();
+    }
+    // ---------------------------------------------------------------------
+
+    suggestions = dataList.filter(item =>
+      item.name.toLowerCase().includes(q) ||
+      (item.code && item.code.toLowerCase().includes(q)) // افترض أن جميع العناصر لديها 'name' و 'code'
     ).slice(0, 10); // أقصى 10 اقتراحات
 
     renderSuggestions();
@@ -234,7 +247,8 @@ function setupSearchBox(input) {
     suggestions.forEach((item, i) => {
       const row = document.createElement('div');
       row.className = 'suggestion-item';
-      row.textContent = `${item.name} (${item.code || ''})`;
+      // عرض الاسم والكود، أو الاسم فقط إذا لم يكن هناك كود
+      row.textContent = `${item.name} ${item.code ? `(${item.code})` : ''}`;
       row.style.padding = '8px 12px';
       row.style.cursor = 'pointer';
       row.style.borderBottom = '1px solid #eee';
@@ -271,18 +285,23 @@ function setupSearchBox(input) {
 
   /**
    * اختيار اقتراح وتحديث الحقل.
-   * @param {Object} item - التصنيف المختار.
+   * @param {Object} item - العنصر المختار (تصنيف، عميل، موظف، إلخ).
    */
   function chooseSuggestion(item) {
-    input.value = `${item.name} (${item.code || ''})`;
+    input.value = `${item.name} ${item.code ? `(${item.code})` : ''}`;
     container.style.display = 'none';
     focusedIndex = -1;
 
-    // استدعاء دالة الاختيار إذا كانت موجودة (مثل selectExpenseCategory)
-    if (typeof window.selectExpenseCategory === 'function') {
+    // استدعاء دالة الاختيار المناسبة بناءً على حقل الإدخال
+    if (input.id === 'expenseCategorySearch' && typeof window.selectExpenseCategory === 'function') {
       window.selectExpenseCategory(item);
+    } else if (input.id === 'customerSearch' && typeof window.selectCustomerForExpense === 'function') {
+      window.selectCustomerForExpense(item);
+    } else if (input.id === 'employeeSearch' && typeof window.selectEmployeeForExpense === 'function') {
+      window.selectEmployeeForExpense(item);
     }
-    console.log('تم اختيار التصنيف:', item);
+    // يمكنك إضافة المزيد من الشروط هنا لدوال اختيار أخرى
+    console.log('تم اختيار العنصر:', item);
   }
 }
 
@@ -314,6 +333,40 @@ async function getCategoriesList() {
     })).slice(0, 20);
   }
 }
+
+// --- نقطة التوسع: دوال لجلب بيانات أخرى (عملاء، موظفين، إلخ) ---
+// يجب عليك تعريف هذه الدوال إذا كنت تريد استخدام الإكمال التلقائي لبيانات غير التصنيفات.
+/*
+async function getCustomersList() {
+    // مثال: جلب العملاء من API أو من متغير عام
+    if (Array.isArray(window.customers) && window.customers.length > 0) {
+        return window.customers.map(cust => ({
+            id: cust.id,
+            name: cust.name,
+            code: cust.phone || '' // افترض أن الكود هو رقم الهاتف
+        }));
+    }
+    // يمكنك إضافة منطق لجلب العملاء من الخادم هنا
+    console.warn('دالة getCustomersList() لم يتم تعريفها أو لم يتم تحميل بيانات العملاء.');
+    return [];
+}
+
+async function getEmployeesList() {
+    // مثال: جلب الموظفين من API أو من متغير عام
+    if (Array.isArray(window.employees) && window.employees.length > 0) {
+        return window.employees.map(emp => ({
+            id: emp.id,
+            name: emp.name,
+            code: emp.employeeId || '' // افترض أن الكود هو معرف الموظف
+        }));
+    }
+    // يمكنك إضافة منطق لجلب الموظفين من الخادم هنا
+    console.warn('دالة getEmployeesList() لم يتم تعريفها أو لم يتم تحميل بيانات الموظفين.');
+    return [];
+}
+*/
+// ---------------------------------------------------------------------
+
 
 // --- Global Error Handling ---
 window.addEventListener('unhandledrejection', (event) => {
