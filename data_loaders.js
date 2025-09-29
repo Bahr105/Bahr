@@ -315,9 +315,9 @@ async function loadShiftClosures(filters = {}) {
             id: row[0] || '',
             cashier: row[1] || '',
             dateFrom: row[2] || '',
-            timeFrom: row[3] || '',
+            timeFrom: row[3] ? row[3].substring(0, 5) : '00:00', // توحيد إلى HH:MM
             dateTo: row[4] || '',
-            timeTo: row[5] || '',
+            timeTo: row[5] ? row[5].substring(0, 5) : '23:59',
             totalExpenses: parseFloat((row[6] || '0').replace(/,/g, '')),
             expenseCount: parseInt(row[7] || 0),
             totalInsta: parseFloat((row[8] || '0').replace(/,/g, '')),
@@ -336,6 +336,7 @@ async function loadShiftClosures(filters = {}) {
             accountant: row[21] || '',
             totalReturns: parseFloat((row[22] || '0').replace(/,/g, '')),
             grandTotalAfterReturns: parseFloat((row[23] || '0').replace(/,/g, '')) // Accountant's comparison total (after deducting returns)
+        
         }));
 
         // Apply filters
