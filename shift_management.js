@@ -695,6 +695,10 @@ async function closeCashierByAccountant() {
         window.closingCashierInProgress = false;
     }
 }
+
+
+
+
 /**
  * Finds the row index of a record by its ID
  * @param {string} sheetName - The sheet name
