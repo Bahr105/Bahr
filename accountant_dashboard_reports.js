@@ -1,19 +1,21 @@
 // --- Accountant Dashboard and Reports Functions ---
 
-/**
- * Shows the cashier page.
- */
-async function showCashierPage() {
-    document.getElementById('loginPage').classList.remove('active');
-    document.getElementById('accountantPage').classList.remove('active');
-    document.getElementById('cashierPage').classList.add('active');
-    const cashierNameDisplay = document.getElementById('cashierNameDisplay');
-    if (cashierNameDisplay) cashierNameDisplay.textContent = currentUserName;
-    const currentDateCashier = document.getElementById('currentDateCashier');
-    if (currentDateCashier) currentDateCashier.textContent = new Date().toLocaleDateString('ar-EG');
+       /**
+     * Shows the cashier page.
+     */
+    async function showCashierPage() {
+        document.getElementById('loginPage').classList.remove('active');
+        document.getElementById('accountantPage').classList.remove('active');
+        document.getElementById('cashierPage').classList.add('active');
+        const cashierNameDisplay = document.getElementById('cashierNameDisplay');
+        if (cashierNameDisplay) cashierNameDisplay.textContent = currentUserName;
+        const currentDateCashier = document.getElementById('currentDateCashier');
+        if (currentDateCashier) currentDateCashier.textContent = new Date().toLocaleDateString('ar-EG');
 
-    showTab('categoriesTabCashier');
-}
+        showTab('expensesTabCashier'); // تم التعديل هنا
+    }
+    
+    
 
 /**
  * Shows the accountant page.
