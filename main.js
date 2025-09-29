@@ -29,13 +29,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-// إضافة مستمع لحدث الضغط على لوحة المفاتيح لتشغيل الاختصارات
-        document.addEventListener('keydown', handleKeyboardShortcuts);
+    // إضافة مستمع لحدث الضغط على لوحة المفاتيح لتشغيل الاختصارات
+    document.addEventListener('keydown', handleKeyboardShortcuts);
+
+    // إضافة مستمع لحدث الضغط على لوحة المفاتيح لتحسين البحث
+    document.addEventListener('keydown', handleSearchNavigation);
 
     console.log('DOM loaded and initialized successfully.');
 });
 
-
+// متغير لتتبع ما إذا كانت نافذة المصروفات مثبتة
+let isAddExpenseModalPinned = false;
 
 /**
  * Handles keyboard shortcuts for the application.
@@ -50,18 +54,29 @@ function handleKeyboardShortcuts(event) {
 
     // 2. التحقق مما إذا كان هناك أي نافذة منبثقة (modal) مفتوحة حاليًا
     //    إذا كان هناك مودال مفتوح غير مودال إضافة المصروف، لا تفعل شيئًا
+    //    **تعديل: تجاهل هذا الشرط إذا كانت نافذة المصروفات مثبتة**
     const activeModals = document.querySelectorAll('.modal.active');
-    if (activeModals.length > 0 && activeModals[0].id !== 'addExpenseModal') {
+    if (activeModals.length > 0 && activeModals[0].id !== 'addExpenseModal' && !isAddExpenseModalPinned) {
         return;
     }
 
-    // 3. اختصار Ctrl + z: لفتح نافذة إضافة مصروف جديد
-    if (event.ctrlKey && event.key === 'z') {
+    // 3. اختصار Ctrl + Shift + z: لفتح نافذة إضافة مصروف جديد وتثبيتها
+    if (event.ctrlKey && event.shiftKey && event.key === 'Z') { // 'Z' for Shift + z
+        event.preventDefault(); // منع السلوك الافتراضي للمتصفح
+        showAddExpenseModal(); // استدعاء الدالة التي تفتح نافذة إضافة المصروف
+        isAddExpenseModalPinned = true; // تثبيت النافذة
+        console.log('Add Expense Modal Pinned: ', isAddExpenseModalPinned);
+        return; // لا تنفذ أي اختصارات أخرى بعد فتح وتثبيت النافذة
+    }
+
+    // 4. اختصار Ctrl + z: لفتح نافذة إضافة مصروف جديد (إذا لم تكن مثبتة)
+    //    **تعديل: هذا الاختصار سيعمل فقط إذا لم تكن النافذة مثبتة بالفعل**
+    if (event.ctrlKey && event.key === 'z' && !isAddExpenseModalPinned) {
         event.preventDefault(); // منع السلوك الافتراضي للمتصفح (مثل تحديد كل النص)
         showAddExpenseModal(); // استدعاء الدالة التي تفتح نافذة إضافة المصروف
     }
 
-    // 4. اختصار Ctrl + S: لحفظ المصروف (إذا كانت نافذة إضافة المصروف مفتوحة)
+    // 5. اختصار Ctrl + S: لحفظ المصروف (إذا كانت نافذة إضافة المصروف مفتوحة)
     if (event.ctrlKey && event.key === 's') {
         const addExpenseModal = document.getElementById('addExpenseModal');
         // التحقق مما إذا كانت نافذة إضافة المصروف مفتوحة ونشطة
@@ -71,6 +86,70 @@ function handleKeyboardShortcuts(event) {
             if (saveButton) {
                 saveButton.click(); // محاكاة النقر على زر الحفظ
             }
+        }
+    }
+}
+
+/**
+ * Handles keyboard navigation for search results (Arrow Up/Down, Enter).
+ * This function needs to be integrated with your specific search result display logic.
+ * @param {KeyboardEvent} event - The keyboard event object.
+ */
+function handleSearchNavigation(event) {
+    const activeElement = document.activeElement;
+
+    // Check if the active element is a search input field
+    // You might need to adjust the selector based on your actual input fields
+    if (activeElement && activeElement.classList.contains('search-input')) {
+        const searchResultsContainer = activeElement.nextElementSibling; // Assuming results are next to input
+        if (!searchResultsContainer || !searchResultsContainer.classList.contains('search-results-list')) {
+            return; // Not a search input with a results container
+        }
+
+        const resultItems = searchResultsContainer.querySelectorAll('.search-result-item');
+        if (resultItems.length === 0) {
+            return; // No results to navigate
+        }
+
+        let currentIndex = -1;
+        const activeResult = searchResultsContainer.querySelector('.search-result-item.active');
+        if (activeResult) {
+            currentIndex = Array.from(resultItems).indexOf(activeResult);
+        }
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            if (currentIndex < resultItems.length - 1) {
+                if (activeResult) activeResult.classList.remove('active');
+                resultItems[currentIndex + 1].classList.add('active');
+                resultItems[currentIndex + 1].scrollIntoView({ block: 'nearest' });
+            } else { // Wrap around to the first item
+                if (activeResult) activeResult.classList.remove('active');
+                resultItems[0].classList.add('active');
+                resultItems[0].scrollIntoView({ block: 'nearest' });
+            }
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            if (currentIndex > 0) {
+                if (activeResult) activeResult.classList.remove('active');
+                resultItems[currentIndex - 1].classList.add('active');
+                resultItems[currentIndex - 1].scrollIntoView({ block: 'nearest' });
+            } else { // Wrap around to the last item
+                if (activeResult) activeResult.classList.remove('active');
+                resultItems[resultItems.length - 1].classList.add('active');
+                resultItems[resultItems.length - 1].scrollIntoView({ block: 'nearest' });
+            }
+        } else if (event.key === 'Enter') {
+            event.preventDefault();
+            if (activeResult) {
+                // Simulate click on the active result
+                activeResult.click();
+            } else {
+                // If no result is active, select the first one
+                resultItems[0].click();
+            }
+            // Optionally, hide the search results after selection
+            searchResultsContainer.style.display = 'none';
         }
     }
 }
