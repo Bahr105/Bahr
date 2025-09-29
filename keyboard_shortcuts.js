@@ -839,62 +839,6 @@ function checkModalState() {
  
 
 
-/**
- * تشخيص مشكلة فتح النافذة
- */
-function diagnoseModalIssue() {
-    console.group('🔍 تشخيص مشكلة نافذة المصروف');
-    
-    // 1. التحقق من وجود النافذة
-    const modal = document.getElementById('addExpenseModal');
-    console.log('📋 النافذة موجودة:', !!modal);
-    
-    if (modal) {
-        const styles = window.getComputedStyle(modal);
-        console.log('🎨 ستايل النافذة:', {
-            display: styles.display,
-            visibility: styles.visibility,
-            opacity: styles.opacity,
-            position: styles.position,
-            zIndex: styles.zIndex
-        });
-        
-        console.log('🏷️ كلاسات النافذة:', modal.className);
-    }
-    
-    // 2. التحقق من وجود backdrop
-    const backdrop = document.querySelector('.modal-backdrop');
-    console.log('🎭 backdrop موجود:', !!backdrop);
-    
-    if (backdrop) {
-        console.log('🎭 حالة backdrop:', {
-            display: backdrop.style.display,
-            classes: backdrop.className
-        });
-    }
-    
-    // 3. التحقق من حالة body
-    console.log('👤 حالة body:', {
-        classes: document.body.className,
-        overflow: document.body.style.overflow
-    });
-    
-    // 4. التحقق من زر التثبيت
-    const pinToggle = document.getElementById('pinExpenseFormToggle');
-    console.log('📍 زر التثبيت موجود:', !!pinToggle);
-    if (pinToggle) {
-        console.log('📍 حالة زر التثبيت:', {
-            checked: pinToggle.checked,
-            type: pinToggle.type
-        });
-    }
-    
-    console.groupEnd();
-}
-
-
-
-
 
 
 
