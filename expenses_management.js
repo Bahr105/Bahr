@@ -122,6 +122,8 @@ async function showEditExpenseModal(expenseId) {
  * Searches for expense categories based on a search term.
  * @param {string} searchTerm - The term to search for.
  */
+// ... داخل expenses_management.js
+
 function searchExpenseCategories(searchTerm) {
     const suggestionsDiv = document.getElementById('expenseCategorySuggestions');
     if (!suggestionsDiv) return;
@@ -141,6 +143,7 @@ function searchExpenseCategories(searchTerm) {
     if (filtered.length === 0) {
         suggestionsDiv.innerHTML = '<div class="suggestion-item">لا توجد نتائج</div>';
         suggestionsDiv.style.display = 'block';
+        // لا حاجة لاستدعاء setupSuggestionNavigationForContainer هنا لأن enhanceSearchFunctions ستفعل ذلك
         return;
     }
 
@@ -158,7 +161,12 @@ function searchExpenseCategories(searchTerm) {
     });
 
     suggestionsDiv.style.display = 'block';
+    // تم نقل هذا الاستدعاء إلى enhanceSearchFunctions في keyboard_shortcuts.js
+    // setTimeout(() => setupSuggestionNavigationForContainer('expenseCategorySuggestions'), 0);
 }
+
+// ... وبالمثل لوظائف searchCustomersForExpense و searchEmployeesForExpense
+
 
 /**
  * Selects an expense category and populates the form.
