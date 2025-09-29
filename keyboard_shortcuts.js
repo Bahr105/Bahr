@@ -85,44 +85,98 @@ function handleKeyboardShortcuts(event) {
 /**
  * معالجة زر Escape بذكاء - النسخة المحسنة
  */
+/**
+ * معالجة زر Escape - الإصدار المحسّن
+ */
 function handleEscapeKey(event) {
     event.preventDefault();
     event.stopPropagation();
 
-    // 1. إزالة تأثير البلور أولاً
-    removeBlurEffects();
-
+    console.log('⎋ زر ESC - بدء الإغلاق الذكي...');
+    
+    // التشخيص أولاً
+    debugModalClosing();
+    
+    // 1. محاولة إغلاق النوافذ المحسّن
+    if (closeModalsEnhanced()) {
+        console.log('✅ تم إغلاق النوافذ بنجاح');
+        // إزالة البلور بعد الإغلاق
+        setTimeout(removeBlurEffects, 100);
+        return;
+    }
+    
     // 2. إغلاق القوائم المنسدلة
     if (closeSuggestions()) {
-        console.log('✓ تم إغلاق القوائم المنسدلة وإزالة البلور');
+        console.log('✅ تم إغلاق القوائم المنسدلة');
         return;
     }
 
-    // 3. إغلاق النوافذ المنبثقة
-    if (closeModals()) {
-        console.log('✓ تم إغلاق النوافذ المنبثقة وإزالة البلور');
-        return;
-    }
-
-    // 4. مسح محتوى حقل الإدخال النشط
+    // 3. مسح محتوى الحقول النشطة
     const activeInput = document.activeElement;
     if (isInputField(activeInput) && activeInput.value.trim() !== '') {
         activeInput.value = '';
-        console.log('✓ تم مسح محتوى الحقل');
+        console.log('✅ تم مسح محتوى الحقل');
         return;
     }
 
-    // 5. الخروج من حقل الإدخال
+    // 4. الخروج من الحقول النشطة
     if (isInputField(activeInput)) {
         activeInput.blur();
-        console.log('✓ تم الخروج من حقل الإدخال');
+        console.log('✅ تم الخروج من حقل الإدخال');
         return;
     }
 
-    // 6. الرجوع إلى الواجهة الرئيسية
-    navigateToMainInterface();
+    // 5. إذا لم يكن هناك شيء لإغلاقه، نفتح نافذة المساعدة
+    console.log('ℹ️ لا يوجد شيء لإغلاقه - عرض المساعدة');
+    openHelpModal();
+}
 
-    console.log('ℹ️ تمت معالجة زر ESC وإزالة البلور');
+/**
+ * إغلاق نافذة المصروف المثبت تحديداً
+ */
+function closeExpenseModalSpecific() {
+    console.log('🎯 البحث عن نافذة المصروف المثبت...');
+    
+    // كل الأسماء المحتملة لنوافذ المصروفات
+    const modalSelectors = [
+        '#addExpenseModal',
+        '#expenseModal', 
+        '.expense-modal',
+        '[id*="expense"][id*="modal"]',
+        '[class*="expense"][class*="modal"]',
+        '.modal:has([id*="expense"]), .modal:has([class*="expense"])'
+    ];
+    
+    let foundAndClosed = false;
+    
+    modalSelectors.forEach(selector => {
+        try {
+            const modals = document.querySelectorAll(selector);
+            modals.forEach(modal => {
+                const style = window.getComputedStyle(modal);
+                if (style.display === 'block' || modal.classList.contains('show')) {
+                    console.log('🎯 عثرت على نافذة مصروف:', modal.id || modal.className);
+                    
+                    // إغلاق النافذة
+                    modal.style.display = 'none';
+                    modal.classList.remove('show', 'active');
+                    
+                    // البحث عن زر إغلاق والنقر عليه
+                    const closeBtn = modal.querySelector('[data-dismiss="modal"], .close, .btn-close');
+                    if (closeBtn) {
+                        closeBtn.click();
+                        console.log('✅ تم النقر على زر الإغلاق المحدد');
+                    }
+                    
+                    foundAndClosed = true;
+                }
+            });
+        } catch (e) {
+            console.log('❌ خطأ في البحث عن:', selector, e);
+        }
+    });
+    
+    return foundAndClosed;
 }
 
 /**
@@ -1211,50 +1265,142 @@ function removeBlurEffectsForce() {
 /**
  * تحديث دالة handleEscapeKey
  */
-function handleEscapeKey(event) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    console.log('⎋ زر ESC مضغوط - بدء التشخيص...');
+/**
+ * تشخيص تفصيلي لإغلاق النوافذ
+ */
+function debugModalClosing() {
+    console.group('🔍 تشخيص إغلاق النوافذ');
     
-    // التشخيص أولاً
-    const hasBlur = diagnoseBlurIssue();
+    // 1. فحص جميع النوافذ
+    const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"]');
+    console.log('📊 عدد النوافذ المكتشفة:', modals.length);
     
-    if (hasBlur) {
-        console.log('⚠️ تم اكتشاف بلور - استخدام الإزالة القوية');
-        removeBlurEffectsForce();
-    } else {
-        // الإزالة العادية
-        removeBlurEffects();
-    }
-
-    // الاستمرار في المنطق العادي
-    if (closeSuggestions()) {
-        console.log('✓ تم إغلاق القوائم المنسدلة');
-        return;
-    }
-
-    if (closeModals()) {
-        console.log('✓ تم إغلاق النوافذ المنبثقة');
-        return;
-    }
-
-    const activeInput = document.activeElement;
-    if (isInputField(activeInput) && activeInput.value.trim() !== '') {
-        activeInput.value = '';
-        console.log('✓ تم مسح محتوى الحقل');
-        return;
-    }
-
-    if (isInputField(activeInput)) {
-        activeInput.blur();
-        console.log('✓ تم الخروج من حقل الإدخال');
-        return;
-    }
-
-    navigateToMainInterface();
-    console.log('ℹ️ تمت معالجة زر ESC');
+    modals.forEach((modal, index) => {
+        const style = window.getComputedStyle(modal);
+        const isVisible = style.display !== 'none' && style.visibility !== 'hidden';
+        
+        console.log(`🪟 نافذة ${index + 1}:`, {
+            tag: modal.tagName,
+            id: modal.id,
+            classes: modal.className,
+            display: style.display,
+            visibility: style.visibility,
+            isVisible: isVisible
+        });
+    });
+    
+    // 2. فحص النافذة النشطة
+    const activeModal = document.querySelector('.modal.show, .dialog.show, [style*="display: block"]');
+    console.log('🎯 النافذة النشطة:', activeModal);
+    
+    console.groupEnd();
+    return activeModal;
 }
+
+/**
+ * إغلاق النوافذ بشكل أقوى
+ */
+function closeModalsEnhanced() {
+    console.log('🔧 محاولة إغلاق النوافذ المحسّن...');
+    
+    // أولاً: محاولة إغلاق نافذة المصروف المثبت تحديداً
+    if (closeExpenseModalSpecific()) {
+        console.log('✅ تم إغلاق نافذة المصروف المثبت بنجاح');
+        return true;
+    }
+    
+    let closed = false;
+    
+    // الطريقة 1: إغلاق النوافذ المرئية
+    const visibleModals = document.querySelectorAll(`
+        .modal.show, .dialog.show,
+        .modal[style*="display: block"], .dialog[style*="display: block"],
+        .modal:not([style*="display: none"]), .dialog:not([style*="display: none"])
+    `);
+    
+    console.log(`🎯 عدد النوافذ المرئية: ${visibleModals.length}`);
+    
+    visibleModals.forEach(modal => {
+        console.log('🚪 محاولة إغلاق:', modal.id || modal.className);
+        
+        // الطريقة 1: إخفاء مباشر
+        modal.style.display = 'none';
+        modal.classList.remove('show', 'active', 'open');
+        
+        // الطريقة 2: إذا كان هناك Bootstrap modal
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            try {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) {
+                    bsModal.hide();
+                    console.log('✅ تم إغلاق نافذة Bootstrap');
+                }
+            } catch (e) {
+                console.log('❌ خطأ في إغلاق Bootstrap modal:', e);
+            }
+        }
+        
+        // الطريقة 3: تشغيل events الإغلاق
+        const events = ['close', 'hide', 'hidden', 'modalClose'];
+        events.forEach(eventName => {
+            try {
+                modal.dispatchEvent(new Event(eventName, { bubbles: true }));
+            } catch (e) {
+                // تجاهل الأخطاء في events
+            }
+        });
+        
+        // الطريقة 4: البحث عن زر إغلاق والنقر عليه
+        const closeButtons = modal.querySelectorAll(`
+            [data-dismiss="modal"], [data-bs-dismiss="modal"],
+            .close, .btn-close, [class*="close"], [class*="dismiss"]
+        `);
+        
+        closeButtons.forEach(btn => {
+            try {
+                btn.click();
+                console.log('✅ تم النقر على زر الإغلاق');
+            } catch (e) {
+                console.log('❌ خطأ في النقر على زر الإغلاق');
+            }
+        });
+        
+        closed = true;
+    });
+    
+    // الطريقة 5: إغلاق backdrop
+    const backdrops = document.querySelectorAll(`
+        .modal-backdrop, .backdrop, 
+        [class*="backdrop"], [class*="overlay"]
+    `);
+    
+    backdrops.forEach(backdrop => {
+        console.log('🗑️ إزالة backdrop:', backdrop.className);
+        backdrop.remove();
+        closed = true;
+    });
+    
+    // إزالة classes من body
+    const bodyClasses = ['modal-open', 'dialog-open', 'no-scroll'];
+    bodyClasses.forEach(className => {
+        if (document.body.classList.contains(className)) {
+            document.body.classList.remove(className);
+            closed = true;
+        }
+    });
+    
+    // إعادة ضبط overflow
+    if (document.body.style.overflow === 'hidden') {
+        document.body.style.overflow = '';
+        closed = true;
+    }
+    
+    console.log(closed ? '✅ تم إغلاق النوافذ' : 'ℹ️ لا توجد نوافذ مفتوحة');
+    return closed;
+} 
+
+
+
 // =====================================
 // 📤 تصدير الوظائف للاستخدام الخارجي
 // =====================================
