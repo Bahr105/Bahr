@@ -28,7 +28,8 @@ function handleKeyboardShortcuts(event) {
 
     // معالجة Escape بشكل خاص
     if (key === 'Escape') {
-        handleEscapeKey(event);
+        // استخدام النسخة المحسنة من معالج Escape
+        handleEscapeKeyEnhanced(event);
         return;
     }
 
@@ -91,8 +92,8 @@ function handleEscapeKeyEnhanced(event) {
     // التشخيص أولاً
     debugModalClosing();
 
-    // 1. محاولة إغلاق النوافذ الآمن
-    if (closeModalsSafe()) {
+    // 1. محاولة إغلاق النوافذ بشكل أقوى (Enhanced)
+    if (closeModalsEnhanced()) { // استخدام closeModalsEnhanced بدلاً من closeModalsSafe
         console.log('✅ تم إغلاق النوافذ بنجاح');
         return;
     }
@@ -124,15 +125,13 @@ function handleEscapeKeyEnhanced(event) {
 }
 
 /**
- * إغلاق نافذة المصروف المثبت تحديداً
+ * إغلاق نافذة المصروف المثبت تحديداً (تم تحسينها)
  */
-
 function closeExpenseModalSpecific() {
     console.log('🎯 البحث عن نافذة المصروف المثبت...');
 
-    // كل الأسماء المحتملة لنوافذ المصروفات
     const modalSelectors = [
-        '#addExpenseModal', // هذا هو ID نافذة إضافة المصروف
+        '#addExpenseModal',
         '#expenseModal',
         '.expense-modal',
         '[id*="expense"][id*="modal"]',
@@ -146,14 +145,15 @@ function closeExpenseModalSpecific() {
             const modals = document.querySelectorAll(selector);
             modals.forEach(modal => {
                 const style = window.getComputedStyle(modal);
-                // تحقق مما إذا كانت النافذة مرئية
-                if (style.display !== 'none' && 
-                    (style.display === 'block' || 
-                     style.display === 'flex' || 
-                     modal.classList.contains('show') || 
-                     modal.classList.contains('active'))) {
+                // تحقق مما إذا كانت النافذة مرئية أو تحمل كلاسات تدل على أنها مفتوحة
+                if (style.display !== 'none' &&
+                    (style.display === 'block' ||
+                     style.display === 'flex' ||
+                     modal.classList.contains('show') ||
+                     modal.classList.contains('active') ||
+                     modal.classList.contains('open'))) { // أضفنا 'open'
                     
-                    console.log('🎯 عثرت على نافذة مصروف مرئية:', modal.id || modal.className);
+                    console.log('🎯 عثرت على نافذة مصروف مرئية أو نشطة:', modal.id || modal.className);
 
                     // الطريقة الآمنة: استخدام Bootstrap إذا كان متاحاً
                     if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
@@ -163,10 +163,13 @@ function closeExpenseModalSpecific() {
                                 console.log('✅ استخدام Bootstrap لإغلاق النافذة');
                                 bsModal.hide();
                                 foundAndClosed = true;
+                                // تأكد من إزالة الكلاسات يدوياً أيضاً لضمان التناسق
+                                modal.classList.remove('show', 'active', 'open');
+                                modal.style.display = 'none'; // تأكيد الإخفاء
                                 return;
                             }
                         } catch (e) {
-                            console.log('❌ خطأ في Bootstrap modal:', e);
+                            console.log('❌ خطأ في Bootstrap modal instance:', e);
                         }
                     }
 
@@ -186,16 +189,22 @@ function closeExpenseModalSpecific() {
                         closeBtn.click();
                         foundAndClosed = true;
                     } else {
-                        console.log('⚠️ لم يتم العثور على زر إغلاق محدد. جاري إخفاء النافذة بلطف.');
+                        console.log('⚠️ لم يتم العثور على زر إغلاق محدد. جاري إخفاء النافذة بلطف وقوة.');
                         // إخفاء النافذة دون إزالة كاملة
                         modal.style.display = 'none';
-                        modal.classList.remove('show', 'active', 'open');
+                        modal.classList.remove('show', 'active', 'open'); // تأكيد إزالة الكلاسات
                         
                         // إطلاق event للإغلاق
                         modal.dispatchEvent(new Event('hidden.bs.modal', { bubbles: true }));
                         modal.dispatchEvent(new Event('close', { bubbles: true }));
                         
                         foundAndClosed = true;
+                    }
+                    // إزالة أي backdrop مرتبط بنافذة المصروف هذه
+                    const backdrop = document.querySelector('.modal-backdrop.show, .backdrop.show');
+                    if (backdrop) {
+                        console.log('🗑️ إزالة backdrop مرتبط بنافذة المصروف');
+                        backdrop.remove();
                     }
                 }
             });
@@ -204,12 +213,13 @@ function closeExpenseModalSpecific() {
         }
     });
 
+    // بعد محاولة إغلاق النافذة، تأكد من إزالة أي تأثيرات بلور
+    if (foundAndClosed) {
+        removeBlurEffectsForce(); // استخدام الإزالة القوية للبلور
+    }
+
     return foundAndClosed;
 }
-
-
-
-
 
 /**
  * إزالة تأثيرات البلور من الصفحة (النسخة الأصلية - تم استبدالها بـ removeBlurEffectsForce في handleEscapeKey)
@@ -238,10 +248,6 @@ function removeBlurEffectsSafe() {
 
     console.log('✅ تمت الإزالة الآمنة للبلور');
 }
-
-
-
-
 
 /**
  * إغلاق جميع النوافذ المنبثقة (النسخة الأصلية - تم استبدالها بـ closeModalsEnhanced في handleEscapeKey)
@@ -476,7 +482,7 @@ function handleFunctionKeys(event) {
         },
         'F4': () => {
             console.log('🎯 F4 - فتح مصروف مثبت');
-            openPinnedExpenseModal();
+            openPinnedExpenseModalEnhanced(); // تأكد من استدعاء النسخة المحسنة
         },
         'F5': () => refreshCurrentView(),
         'F9': () => toggleSidebar()
@@ -500,7 +506,7 @@ function handleCtrlShortcuts(event) {
     const key = event.key.toLowerCase();
     const actions = {
         'n': () => openRegularExpenseModal(),
-        'p': () => openPinnedExpenseModal(),
+        'p': () => openPinnedExpenseModalEnhanced(), // تأكد من استدعاء النسخة المحسنة
         'f': () => openQuickSearch(),
         's': () => saveCurrentData(),
         'r': () => {
@@ -723,28 +729,40 @@ function openRegularExpenseModal() {
 }
 
 /**
- * فتح نافذة المصروف المثبت - الإصدار المحسّن
+ * فتح نافذة المصروف المثبت - الإصدار المحسّن (تم تحسينها)
  */
 function openPinnedExpenseModalEnhanced() {
     if (!checkUserPermission()) return;
     
     console.log('🎯 محاولة فتح نافذة المصروف المثبت...');
     
-    // أولاً: التحقق مما إذا كانت النافذة مفتوحة بالفعل
     const existingModal = document.getElementById('addExpenseModal');
-    if (existingModal && (existingModal.style.display === 'flex' || 
-                         existingModal.style.display === 'block' ||
-                         existingModal.classList.contains('show') ||
-                         existingModal.classList.contains('active'))) {
+
+    // فحص أكثر دقة لحالة النافذة
+    const isModalVisuallyOpen = existingModal && (
+        existingModal.style.display === 'flex' || 
+        existingModal.style.display === 'block' ||
+        existingModal.classList.contains('show') ||
+        existingModal.classList.contains('active') ||
+        existingModal.classList.contains('open') // أضفنا 'open'
+    );
+
+    if (isModalVisuallyOpen) {
         console.log('ℹ️ النافذة مفتوحة بالفعل - جلب التركيز');
         existingModal.focus();
         return;
     }
     
-    // التأكد من إزالة أي إغلاق قسري سابق
+    // إذا كانت النافذة موجودة ولكنها ليست مفتوحة بصرياً، قم بإعادة تعيينها
     if (existingModal) {
-        existingModal.style.display = '';
-        existingModal.classList.remove('force-closed');
+        console.log('🔧 النافذة موجودة ولكنها ليست مرئية، جاري إعادة تعيين حالتها.');
+        existingModal.style.display = ''; // إزالة أي display:none قسري
+        existingModal.classList.remove('force-closed', 'broken', 'show', 'active', 'open'); // إزالة جميع كلاسات الحالة
+        // إزالة أي backdrop قد يكون عالقاً
+        const backdrop = document.querySelector('.modal-backdrop, .backdrop');
+        if (backdrop) backdrop.remove();
+        document.body.classList.remove('modal-open', 'overflow-hidden', 'no-scroll');
+        document.body.style.overflow = '';
     }
     
     // إعادة تعيين النموذج أولاً
@@ -775,8 +793,6 @@ function openPinnedExpenseModalEnhanced() {
         showMessage('وظيفة إضافة المصروفات غير متوفرة', 'error');
     }
 }
-
-
 
 /**
  * فحص حالة نافذة المصروف
@@ -810,7 +826,7 @@ function repairExpenseModal() {
     
     // إعادة تعيين الأنماط
     modal.style.cssText = '';
-    modal.classList.remove('force-closed', 'broken');
+    modal.classList.remove('force-closed', 'broken', 'show', 'active', 'open'); // أضفنا 'show', 'active', 'open'
     
     // إعادة إرفاق الأحداث إذا أمكن
     if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
@@ -830,7 +846,7 @@ function repairExpenseModal() {
  */
 function isExpenseModalOpen() {
     const modal = document.getElementById('addExpenseModal');
-    return modal && (modal.style.display === 'flex' || modal.classList.contains('active'));
+    return modal && (modal.style.display === 'flex' || modal.classList.contains('active') || modal.classList.contains('show') || modal.classList.contains('open'));
 }
 
 /**
@@ -840,7 +856,7 @@ function closeExpenseModalSafely() {
     const modal = document.getElementById('addExpenseModal');
     if (modal) {
         modal.style.display = 'none';
-        modal.classList.remove('active', 'show');
+        modal.classList.remove('active', 'show', 'open'); // أضفنا 'open'
         
         // إزالة أي backdrop مرتبط
         const backdrop = document.querySelector('.modal-backdrop, .backdrop');
@@ -849,7 +865,7 @@ function closeExpenseModalSafely() {
         }
         
         // إعادة ضبط حالة body
-        document.body.classList.remove('modal-open');
+        document.body.classList.remove('modal-open', 'overflow-hidden', 'no-scroll'); // أضفنا 'overflow-hidden', 'no-scroll'
         document.body.style.overflow = '';
         
         console.log('✅ تم إغلاق نافذة المصروف بشكل آمن');
@@ -1401,7 +1417,7 @@ function debugModalClosing() {
 }
 
 /**
- * إغلاق النوافذ بشكل أقوى
+ * إغلاق النوافذ بشكل أقوى (تم تحسينها)
  */
 function closeModalsEnhanced() {
     console.log('🔧 محاولة إغلاق النوافذ المحسّن...');
@@ -1418,10 +1434,11 @@ function closeModalsEnhanced() {
     const visibleModals = document.querySelectorAll(`
         .modal.show, .dialog.show,
         .modal[style*="display: block"], .dialog[style*="display: block"],
-        .modal:not([style*="display: none"]), .dialog:not([style*="display: none"])
-    `);
+        .modal:not([style*="display: none"]), .dialog:not([style*="display: none"]),
+        .modal.active, .dialog.active, .modal.open, .dialog.open
+    `); // أضفنا .active و .open للفحص
 
-    console.log(`🎯 عدد النوافذ المرئية: ${visibleModals.length}`);
+    console.log(`🎯 عدد النوافذ المرئية أو النشطة: ${visibleModals.length}`);
 
     visibleModals.forEach(modal => {
         console.log('🚪 محاولة إغلاق:', modal.id || modal.className);
@@ -1444,7 +1461,7 @@ function closeModalsEnhanced() {
         }
 
         // الطريقة 3: تشغيل events الإغلاق
-        const events = ['close', 'hide', 'hidden', 'modalClose'];
+        const events = ['close', 'hide', 'hidden', 'modalClose', 'hidden.bs.modal']; // أضفنا hidden.bs.modal
         events.forEach(eventName => {
             try {
                 modal.dispatchEvent(new Event(eventName, { bubbles: true }));
@@ -1484,7 +1501,7 @@ function closeModalsEnhanced() {
     });
 
     // إزالة classes من body
-    const bodyClasses = ['modal-open', 'dialog-open', 'no-scroll'];
+    const bodyClasses = ['modal-open', 'dialog-open', 'no-scroll', 'overflow-hidden']; // أضفنا overflow-hidden
     bodyClasses.forEach(className => {
         if (document.body.classList.contains(className)) {
             document.body.classList.remove(className);
@@ -1561,7 +1578,7 @@ window.KeyboardShortcuts = {
     openHelp: openHelpModal,
     openSearch: openQuickSearch,
     openExpense: openRegularExpenseModal,
-    openPinnedExpense: openPinnedExpenseModal,
+    openPinnedExpense: openPinnedExpenseModalEnhanced, // تأكد من تصدير النسخة المحسنة
     refresh: refreshCurrentView,
     toggleSidebar: toggleSidebar,
     save: saveCurrentData,
@@ -1571,5 +1588,8 @@ window.KeyboardShortcuts = {
 // للتوافق مع الكود القديم
 window.initializeKeyboardShortcuts = initializeKeyboardShortcuts;
 window.handleKeyboardShortcuts = handleKeyboardShortcuts;
+// تأكد من أن openPinnedExpenseModal تشير إلى النسخة المحسنة
+window.openPinnedExpenseModal = openPinnedExpenseModalEnhanced;
+
 
 console.log('✨ نظام اختصارات الكيبورد المحسن - جاهز!');
