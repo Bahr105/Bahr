@@ -128,12 +128,13 @@ function handleEscapeKey(event) {
 /**
  * إغلاق نافذة المصروف المثبت تحديداً
  */
+
 function closeExpenseModalSpecific() {
     console.log('🎯 البحث عن نافذة المصروف المثبت...');
 
     // كل الأسماء المحتملة لنوافذ المصروفات
     const modalSelectors = [
-        '#addExpenseModal',
+        '#addExpenseModal', // هذا هو ID نافذة إضافة المصروف
         '#expenseModal',
         '.expense-modal',
         '[id*="expense"][id*="modal"]',
@@ -148,30 +149,59 @@ function closeExpenseModalSpecific() {
             const modals = document.querySelectorAll(selector);
             modals.forEach(modal => {
                 const style = window.getComputedStyle(modal);
-                if (style.display === 'block' || modal.classList.contains('show')) {
-                    console.log('🎯 عثرت على نافذة مصروف:', modal.id || modal.className);
+                // تحقق مما إذا كانت النافذة مرئية
+                if (style.display === 'block' || modal.classList.contains('show') || modal.classList.contains('active')) {
+                    console.log('🎯 عثرت على نافذة مصروف مرئية:', modal.id || modal.className);
 
-                    // إغلاق النافذة
-                    modal.style.display = 'none';
-                    modal.classList.remove('show', 'active');
+                    // 1. البحث عن زر إغلاق والنقر عليه
+                    // محددات أكثر شمولاً لأزرار الإغلاق
+                    const closeBtn = modal.querySelector(
+                        '[data-dismiss="modal"], ' + // Bootstrap 3/4
+                        '[data-bs-dismiss="modal"], ' + // Bootstrap 5
+                        '.close, ' + // فئة عامة لزر الإغلاق
+                        '.btn-close, ' + // فئة Bootstrap 5 لزر الإغلاق
+                        'button[aria-label="Close"], ' + // زر إغلاق شائع مع aria-label
+                        '.modal-header button' // أي زر في رأس المودال
+                    );
 
-                    // البحث عن زر إغلاق والنقر عليه
-                    const closeBtn = modal.querySelector('[data-dismiss="modal"], .close, .btn-close');
                     if (closeBtn) {
+                        console.log('✅ تم العثور على زر الإغلاق. جاري النقر عليه:', closeBtn);
                         closeBtn.click();
-                        console.log('✅ تم النقر على زر الإغلاق المحدد');
+                        foundAndClosed = true;
+                    } else {
+                        console.log('⚠️ لم يتم العثور على زر إغلاق محدد. جاري إغلاق النافذة مباشرة.');
+                        // إذا لم يتم العثور على زر إغلاق، قم بإغلاق النافذة مباشرة
+                        modal.style.display = 'none';
+                        modal.classList.remove('show', 'active');
+                        foundAndClosed = true;
                     }
 
-                    foundAndClosed = true;
+                    // 2. إزالة أي backdrop قد يكون موجودًا
+                    const backdrop = document.querySelector('.modal-backdrop, .backdrop, [class*="backdrop"]');
+                    if (backdrop) {
+                        console.log('🗑️ إزالة backdrop.');
+                        backdrop.remove();
+                    }
+
+                    // 3. إزالة فئات الجسم التي تمنع التمرير أو تسبب البلور
+                    document.body.classList.remove('modal-open', 'dialog-open', 'no-scroll', 'overflow-hidden');
+                    document.body.style.overflow = ''; // إعادة ضبط overflow
+
+                    // بمجرد إغلاق نافذة واحدة، يمكننا التوقف
+                    if (foundAndClosed) return;
                 }
             });
         } catch (e) {
             console.log('❌ خطأ في البحث عن:', selector, e);
         }
+        if (foundAndClosed) return; // إذا تم الإغلاق، لا داعي للمتابعة في المحددات الأخرى
     });
 
     return foundAndClosed;
 }
+
+
+
 
 /**
  * إزالة تأثيرات البلور من الصفحة (النسخة الأصلية - تم استبدالها بـ removeBlurEffectsForce في handleEscapeKey)
