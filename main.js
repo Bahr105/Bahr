@@ -150,3 +150,19 @@ window.searchInvoiceAccountant = searchInvoiceAccountant;
 window.populateReportFilters = populateReportFilters;
 window.generateAccountantReport = generateAccountantReport;
 
+function testShortcuts() {
+    console.log('Testing shortcuts...');
+    console.log('showAddExpenseModal exists:', typeof showAddExpenseModal);
+    console.log('addExpenseModal element:', document.getElementById('addExpenseModal'));
+    console.log('save button element:', document.getElementById('addExpenseModalSaveBtn'));
+    
+    // محاكاة الضغط على Ctrl+Z
+    const ctrlZEvent = new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true
+    });
+    document.dispatchEvent(ctrlZEvent);
+}
+
+// استدعاء بعد تحميل الصفحة
+setTimeout(testShortcuts, 2000);
