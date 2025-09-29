@@ -1,4 +1,5 @@
 
+
 // --- Keyboard Shortcuts Functions ---
 
 /**
@@ -42,8 +43,6 @@ function preventChromeDefaultShortcuts(event) {
         { ctrl: true, key: 'n', prevent: true },
         // F1 (Chrome Help) - we use for app help
         { key: 'f1', prevent: true },
-        // F5 (Refresh) - we use for refresh data
-        { key: 'f5', prevent: true },
         // F3 (Search) - we use for new expense
         { key: 'f3', prevent: true },
         // F4 (Address bar) - we use for pinned expense
@@ -54,8 +53,7 @@ function preventChromeDefaultShortcuts(event) {
         { alt: true, key: '1', prevent: true },
         { alt: true, key: '2', prevent: true },
         { alt: true, key: '3', prevent: true },
-        { alt: true, key: '4', prevent: true },
-        { alt: true, key: '5', prevent: true }
+        { alt: true, key: '4', prevent: true }
     ];
 
     conflicts.forEach(conflict => {
@@ -79,6 +77,12 @@ function preventChromeDefaultShortcuts(event) {
 function handleGlobalShortcuts(event) {
     const key = event.key.toLowerCase();
     
+    // Handle Escape key first - only close modals if any are open
+    if (event.key === 'Escape') {
+        handleEscapeKey();
+        return;
+    }
+
     // Function key shortcuts (F1-F12)
     if (key.startsWith('f') && !isNaN(key.substring(1))) {
         handleFunctionKeyShortcuts(event);
@@ -99,6 +103,49 @@ function handleGlobalShortcuts(event) {
 
     // Single key shortcuts
     handleSingleKeyShortcuts(event);
+}
+
+/**
+ * Handles Escape key - only closes modals if any are open
+ */
+function handleEscapeKey() {
+    if (areAnyModalsOpen()) {
+        closeAllModals();
+        console.log('إغلاق النوافذ المفتوحة باستخدام Esc');
+    } else {
+        console.log('لا توجد نوافذ مفتوحة لإغلاقها');
+        // لا تفعل anything إذا لم تكن هناك نوافذ مفتوحة
+    }
+}
+
+/**
+ * Checks if any modals or dialogs are currently open
+ * @returns {boolean} True if any modal is open
+ */
+function areAnyModalsOpen() {
+    const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"]');
+    const dropdowns = document.querySelectorAll('.dropdown-menu, .suggestions');
+    
+    // Check if any modal is visible
+    const hasVisibleModal = Array.from(modals).some(modal => {
+        return modal.style.display === 'block' || 
+               modal.classList.contains('show') ||
+               modal.offsetParent !== null ||
+               getComputedStyle(modal).display !== 'none';
+    });
+    
+    // Check if any dropdown is visible
+    const hasVisibleDropdown = Array.from(dropdowns).some(dropdown => {
+        return dropdown.style.display !== 'none' &&
+               dropdown.offsetParent !== null;
+    });
+    
+    // Check if any suggestions are visible
+    const hasVisibleSuggestions = Array.from(document.querySelectorAll('.suggestions')).some(suggestion => {
+        return suggestion.style.display !== 'none';
+    });
+    
+    return hasVisibleModal || hasVisibleDropdown || hasVisibleSuggestions;
 }
 
 /**
@@ -201,10 +248,6 @@ function handleAltShortcuts(event) {
  */
 function handleSingleKeyShortcuts(event) {
     switch (event.key) {
-        case 'Escape':
-            event.preventDefault();
-            closeAllModals();
-            break;
         case ' ':
             if (!event.ctrlKey && !event.altKey && !event.shiftKey) {
                 event.preventDefault();
@@ -231,12 +274,23 @@ function handleInputFieldShortcuts(event) {
     
     // Handle Escape key to close suggestions or clear field
     if (event.key === 'Escape') {
-        if (target.value.trim() === '') {
-            target.blur();
-        } else {
-            target.value = '';
+        // First, check if there are any open suggestions
+        const hasOpenSuggestions = areAnySuggestionsOpen();
+        
+        if (hasOpenSuggestions) {
+            // Close suggestions only
             closeAllSuggestions();
+            console.log('إغلاق قوائم الاقتراحات باستخدام Esc');
+        } else if (target.value.trim() !== '') {
+            // Clear field if it has content
+            target.value = '';
+            console.log('مسح محتوى الحقل باستخدام Esc');
+        } else {
+            // If field is empty and no suggestions, blur the field
+            target.blur();
+            console.log('الخروج من الحقل باستخدام Esc');
         }
+        
         event.preventDefault();
         return;
     }
@@ -267,6 +321,18 @@ function handleInputFieldShortcuts(event) {
         openHelpModal();
         return;
     }
+}
+
+/**
+ * Checks if any suggestion dropdowns are open
+ * @returns {boolean} True if any suggestions are visible
+ */
+function areAnySuggestionsOpen() {
+    const suggestions = document.querySelectorAll('.suggestions');
+    return Array.from(suggestions).some(suggestion => 
+        suggestion.style.display !== 'none' && 
+        suggestion.offsetParent !== null
+    );
 }
 
 /**
@@ -368,7 +434,7 @@ function openHelpModal() {
             <strong>اختصارات أخرى:</strong><br>
             / - بحث سريع<br>
             ? - مساعدة<br>
-            Esc - إغلاق النوافذ<br>
+            Esc - إغلاق النوافذ المفتوحة فقط<br>
             Space - إجراء سريع<br>
         </div>
     `;
@@ -415,20 +481,37 @@ function toggleSidebar() {
  */
 function closeAllModals() {
     console.log('إغلاق جميع النوافذ');
+    
+    // Close modals
     const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"]');
+    let closedCount = 0;
+    
     modals.forEach(modal => {
-        modal.style.display = 'none';
-        modal.classList.remove('show');
+        if (modal.style.display === 'block' || 
+            modal.classList.contains('show') ||
+            getComputedStyle(modal).display !== 'none') {
+            
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+            closedCount++;
+        }
     });
     
+    // Close dropdowns
     const dropdowns = document.querySelectorAll('.dropdown-menu, .suggestions');
     dropdowns.forEach(dropdown => {
-        dropdown.style.display = 'none';
+        if (dropdown.style.display !== 'none') {
+            dropdown.style.display = 'none';
+            closedCount++;
+        }
     });
     
+    // Clear any active selections
     document.querySelectorAll('.active').forEach(item => {
         item.classList.remove('active');
     });
+    
+    console.log(`تم إغلاق ${closedCount} نافذة/قائمة`);
 }
 
 /**
