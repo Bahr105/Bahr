@@ -29,8 +29,52 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
+// إضافة مستمع لحدث الضغط على لوحة المفاتيح لتشغيل الاختصارات
+        document.addEventListener('keydown', handleKeyboardShortcuts);
+
     console.log('DOM loaded and initialized successfully.');
 });
+
+
+
+/**
+ * Handles keyboard shortcuts for the application.
+ * @param {KeyboardEvent} event - The keyboard event object.
+ */
+function handleKeyboardShortcuts(event) {
+    // 1. التحقق مما إذا كانت صفحة الكاشير هي النشطة حاليًا
+    const cashierPage = document.getElementById('cashierPage');
+    if (!cashierPage || !cashierPage.classList.contains('active')) {
+        return; // إذا لم تكن صفحة الكاشير نشطة، لا تفعل شيئًا
+    }
+
+    // 2. التحقق مما إذا كان هناك أي نافذة منبثقة (modal) مفتوحة حاليًا
+    //    إذا كان هناك مودال مفتوح غير مودال إضافة المصروف، لا تفعل شيئًا
+    const activeModals = document.querySelectorAll('.modal.active');
+    if (activeModals.length > 0 && activeModals[0].id !== 'addExpenseModal') {
+        return;
+    }
+
+    // 3. اختصار Ctrl + A: لفتح نافذة إضافة مصروف جديد
+    if (event.ctrlKey && event.key === 'a') {
+        event.preventDefault(); // منع السلوك الافتراضي للمتصفح (مثل تحديد كل النص)
+        showAddExpenseModal(); // استدعاء الدالة التي تفتح نافذة إضافة المصروف
+    }
+
+    // 4. اختصار Ctrl + S: لحفظ المصروف (إذا كانت نافذة إضافة المصروف مفتوحة)
+    if (event.ctrlKey && event.key === 's') {
+        const addExpenseModal = document.getElementById('addExpenseModal');
+        // التحقق مما إذا كانت نافذة إضافة المصروف مفتوحة ونشطة
+        if (addExpenseModal && addExpenseModal.classList.contains('active')) {
+            event.preventDefault(); // منع السلوك الافتراضي للمتصفح (مثل حفظ الصفحة)
+            const saveButton = document.getElementById('addExpenseModalSaveBtn');
+            if (saveButton) {
+                saveButton.click(); // محاكاة النقر على زر الحفظ
+            }
+        }
+    }
+}
+
 
 // --- Global Error Handling ---
 window.addEventListener('unhandledrejection', (event) => {
@@ -92,6 +136,8 @@ window.showEditEmployeeModal = showEditEmployeeModal;
 window.addEmployee = addEmployee;
 window.updateEmployee = updateEmployee;
 window.deleteEmployee = deleteEmployee;
+window.deleteUser = deleteUser;
+window.handleKeyboardShortcuts = handleKeyboardShortcuts;
 window.calculateCashierShift = calculateCashierShift;
 window.finalizeCashierShiftCloseout = finalizeCashierShiftCloseout;
 window.loadCashierPreviousClosures = loadCashierPreviousClosures;
