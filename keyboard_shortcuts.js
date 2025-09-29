@@ -750,7 +750,6 @@ function openPinnedExpenseModal() {
         showMessage('نافذة المصروف غير متاحة', 'error');
     }
 }
-
 /**
  * التحقق مما إذا كانت نافذة المصروف مفتوحة
  */
