@@ -1,555 +1,674 @@
-// --- Keyboard Shortcuts Functions ---
+// =====================================
+// 🎯 نظام اختصارات الكيبورد المحسن
+// =====================================
 
 /**
- * Initializes keyboard shortcuts for the application
+ * تهيئة نظام اختصارات الكيبورد
  */
 function initializeKeyboardShortcuts() {
-    document.addEventListener('keydown', handleKeyboardShortcuts);
+    // إزالة المستمع القديم إن وجد
+    document.removeEventListener('keydown', handleKeyboardShortcuts);
+    
+    // إضافة المستمع الجديد
+    document.addEventListener('keydown', handleKeyboardShortcuts, true);
+    
+    // إعداد التنقل في القوائم المنسدلة
     setupSearchSuggestionNavigation();
+    
+    console.log('✅ نظام اختصارات الكيبورد جاهز');
 }
 
 /**
- * Handles all keyboard shortcuts in the application
- * @param {KeyboardEvent} event - The keyboard event
+ * معالج رئيسي لجميع اختصارات الكيبورد
  */
 function handleKeyboardShortcuts(event) {
-    // Prevent Chrome default shortcuts that conflict with our app
-    preventChromeDefaultShortcuts(event);
-    
-    // Ignore shortcuts when user is typing in input fields
-    if (isInputField(event.target)) {
-        handleInputFieldShortcuts(event);
-        return;
-    }
-
-    // Global shortcuts (when not in input fields)
-    handleGlobalShortcuts(event);
-}
-
-/**
- * Prevents Chrome default shortcuts that conflict with our application
- * @param {KeyboardEvent} event - The keyboard event
- */
-function preventChromeDefaultShortcuts(event) {
-    const key = event.key.toLowerCase();
-    
-    // Prevent Chrome shortcuts that we want to use in our app
-    const conflicts = [
-        // Ctrl+P (Print) - we use for pinned expense
-        { ctrl: true, key: 'p', prevent: true },
-        // Ctrl+N (New Window) - we use for new expense
-        { ctrl: true, key: 'n', prevent: true },
-        // F1 (Chrome Help) - we use for app help
-        { key: 'f1', prevent: true },
-        // F3 (Search) - we use for new expense
-        { key: 'f3', prevent: true },
-        // F4 (Address bar) - we use for pinned expense
-        { key: 'f4', prevent: true },
-        // Alt+D (Address bar) - we use for navigation
-        { alt: true, key: 'd', prevent: true },
-        // Alt+1-9 (Tab switching) - we use for section navigation
-        { alt: true, key: '1', prevent: true },
-        { alt: true, key: '2', prevent: true },
-        { alt: true, key: '3', prevent: true },
-        { alt: true, key: '4', prevent: true },
-        // Ctrl+S (Save Page) - we use for saving data
-        { ctrl: true, key: 's', prevent: true },
-        // Ctrl+R (Reload) - we use for refreshing view
-        { ctrl: true, key: 'r', prevent: true },
-        // Ctrl+F (Find) - we use for quick search
-        { ctrl: true, key: 'f', prevent: true },
-        // Ctrl+H (History) - we use for help
-        { ctrl: true, key: 'h', prevent: true },
-        // Space (Scroll down) - we use for quick action
-        { key: ' ', prevent: true, checkModifiers: false } // Prevent default space behavior globally
-    ];
-
-    conflicts.forEach(conflict => {
-        const ctrlMatch = !('ctrl' in conflict) || (conflict.ctrl === (event.ctrlKey || event.metaKey));
-        const altMatch = !('alt' in conflict) || (conflict.alt === event.altKey);
-        const shiftMatch = !('shift' in conflict) || (conflict.shift === event.shiftKey);
-        const keyMatch = conflict.key === key || conflict.key === event.key;
-        
-        // Special handling for space key to prevent default scroll only if no modifiers
-        if (conflict.key === ' ' && conflict.checkModifiers === false) {
-            if (!event.ctrlKey && !event.altKey && !event.shiftKey && keyMatch && conflict.prevent) {
-                event.preventDefault();
-                event.stopPropagation();
-                return false;
-            }
-        } else if (ctrlMatch && altMatch && shiftMatch && keyMatch && conflict.prevent) {
-            event.preventDefault();
-            event.stopPropagation();
-            return false;
-        }
-    });
-}
-
-/**
- * Handles global keyboard shortcuts
- * @param {KeyboardEvent} event - The keyboard event
- */
-function handleGlobalShortcuts(event) {
-    const key = event.key.toLowerCase();
-    
-    // Handle Escape key first - only close modals if any are open
-    if (event.key === 'Escape') {
-        handleEscapeKey();
-        return;
-    }
-
-    // Function key shortcuts (F1-F12)
-    if (key.startsWith('f') && !isNaN(key.substring(1))) {
-        handleFunctionKeyShortcuts(event);
-        return;
-    }
-
-    // Ctrl/Cmd based shortcuts
-    if (event.ctrlKey || event.metaKey) {
-        handleCtrlShortcuts(event);
-        return;
-    }
-
-    // Alt based shortcuts
-    if (event.altKey) {
-        handleAltShortcuts(event);
-        return;
-    }
-
-    // Single key shortcuts
-    handleSingleKeyShortcuts(event);
-}
-
-/**
- * Handles Escape key - only closes modals if any are open
- */
-function handleEscapeKey() {
-    if (areAnyModalsOpen()) {
-        closeAllModals();
-        console.log('إغلاق النوافذ المفتوحة باستخدام Esc');
-    } else {
-        console.log('لا توجد نوافذ مفتوحة لإغلاقها');
-        // لا تفعل anything إذا لم تكن هناك نوافذ مفتوحة
-    }
-}
-
-/**
- * Checks if any modals or dialogs are currently open
- * @returns {boolean} True if any modal is open
- */
-function areAnyModalsOpen() {
-    const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"]');
-    const dropdowns = document.querySelectorAll('.dropdown-menu, .suggestions');
-    
-    // Check if any modal is visible
-    const hasVisibleModal = Array.from(modals).some(modal => {
-        return modal.style.display === 'block' || 
-               modal.classList.contains('show') ||
-               modal.offsetParent !== null ||
-               getComputedStyle(modal).display !== 'none';
-    });
-    
-    // Check if any dropdown is visible
-    const hasVisibleDropdown = Array.from(dropdowns).some(dropdown => {
-        return dropdown.style.display !== 'none' &&
-               dropdown.offsetParent !== null;
-    });
-    
-    // Check if any suggestions are visible
-    const hasVisibleSuggestions = Array.from(document.querySelectorAll('.suggestions')).some(suggestion => {
-        return suggestion.style.display !== 'none';
-    });
-    
-    return hasVisibleModal || hasVisibleDropdown || hasVisibleSuggestions;
-}
-
-/**
- * Handles function key shortcuts (F1-F12)
- * @param {KeyboardEvent} event - The keyboard event
- */
-function handleFunctionKeyShortcuts(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    switch (event.key) {
-        case 'F1':
-            openHelpModal();
-            break;
-        case 'F2':
-            openQuickSearch();
-            break;
-        case 'F3':
-            openRegularExpenseModal();
-            break;
-        case 'F4':
-            openPinnedExpenseModal();
-            break;
-        case 'F5':
-            refreshCurrentView();
-            break;
-        case 'F9':
-            toggleSidebar();
-            break;
-        case 'F12':
-            // Leave F12 for developer tools
-            break;
-    }
-}
-
-/**
- * Handles Ctrl/Cmd based shortcuts
- * @param {KeyboardEvent} event - The keyboard event
- */
-function handleCtrlShortcuts(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    switch (event.key.toLowerCase()) {
-        case 'n':
-            openRegularExpenseModal();
-            break;
-        case 'p':
-            openPinnedExpenseModal();
-            break;
-        case 'f':
-            openQuickSearch();
-            break;
-        case 's':
-            saveCurrentData();
-            break;
-        case 'r':
-            refreshCurrentView();
-            break;
-        case 'h':
-            openHelpModal();
-            break;
-        case 'q':
-            quickLogout();
-            break;
-    }
-}
-
-/**
- * Handles Alt based shortcuts
- * @param {KeyboardEvent} event - The keyboard event
- */
-function handleAltShortcuts(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    switch (event.key) {
-        case '1':
-        case '١': // Arabic 1
-            navigateToSection('dashboard');
-            break;
-        case '2':
-        case '٢': // Arabic 2
-            navigateToSection('expenses');
-            break;
-        case '3':
-        case '٣': // Arabic 3
-            navigateToSection('reports');
-            break;
-        case '4':
-        case '٤': // Arabic 4
-            navigateToSection('settings');
-            break;
-    }
-}
-
-/**
- * Handles single key shortcuts
- * @param {KeyboardEvent} event - The keyboard event
- */
-function handleSingleKeyShortcuts(event) {
-    switch (event.key) {
-        case ' ':
-            if (!event.ctrlKey && !event.altKey && !event.shiftKey) {
-                event.preventDefault(); // Prevent default scroll behavior
-                executeQuickAction();
-            }
-            break;
-        case '/':
-            event.preventDefault();
-            openQuickSearch();
-            break;
-        case '?':
-            event.preventDefault();
-            openHelpModal();
-            break;
-    }
-}
-
-/**
- * Handles keyboard shortcuts when in input fields
- * @param {KeyboardEvent} event - The keyboard event
- */
-function handleInputFieldShortcuts(event) {
+    const key = event.key;
     const target = event.target;
+    const isInput = isInputField(target);
     
-    // Handle Escape key to close suggestions or clear field
-    if (event.key === 'Escape') {
-        // First, check if there are any open suggestions
-        const hasOpenSuggestions = areAnySuggestionsOpen();
-        
-        if (hasOpenSuggestions) {
-            // Close suggestions only
-            closeAllSuggestions();
-            console.log('إغلاق قوائم الاقتراحات باستخدام Esc');
-        } else if (target.value.trim() !== '') {
-            // Clear field if it has content
-            target.value = '';
-            console.log('مسح محتوى الحقل باستخدام Esc');
-        } else {
-            // If field is empty and no suggestions, blur the field
-            target.blur();
-            console.log('الخروج من الحقل باستخدام Esc');
-        }
-        
-        event.preventDefault();
+    // معالجة Escape بشكل خاص
+    if (key === 'Escape') {
+        handleEscapeKey(event);
         return;
     }
     
-    // Handle Enter key in search fields
-    if (event.key === 'Enter') {
-        handleEnterKeyInSearch(target);
-        event.preventDefault(); // Prevent form submission if handled
+    // معالجة Enter في حقول الإدخال
+    if (key === 'Enter' && isInput) {
+        handleEnterInInput(event);
         return;
     }
     
-    // Handle arrow keys in search suggestion lists
-    if (['ArrowUp', 'ArrowDown'].includes(event.key)) {
+    // معالجة الأسهم في حقول البحث
+    if ((key === 'ArrowUp' || key === 'ArrowDown') && isInput) {
         handleArrowKeysInSearch(target, event);
         return;
     }
     
-    // Ctrl+Enter to submit forms from any input
-    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+    // تجاهل الاختصارات إذا كان المستخدم يكتب
+    if (isInput && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        return;
+    }
+    
+    // منع اختصارات المتصفح المتعارضة
+    if (shouldPreventDefault(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    
+    // معالجة Function Keys
+    if (key.startsWith('F') && key.length <= 3) {
+        handleFunctionKeys(event);
+        return;
+    }
+    
+    // معالجة Ctrl/Cmd + مفتاح
+    if (event.ctrlKey || event.metaKey) {
+        handleCtrlShortcuts(event);
+        return;
+    }
+    
+    // معالجة Alt + مفتاح
+    if (event.altKey) {
+        handleAltShortcuts(event);
+        return;
+    }
+    
+    // معالجة مفاتيح منفردة
+    if (!isInput) {
+        handleSingleKeyShortcuts(event);
+    }
+}
+
+/**
+ * معالجة زر Escape بذكاء
+ */
+function handleEscapeKey(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // 1. إغلاق القوائم المنسدلة أولاً
+    if (closeSuggestions()) {
+        console.log('✓ تم إغلاق القوائم المنسدلة');
+        return;
+    }
+    
+    // 2. إغلاق النوافذ المنبثقة
+    if (closeModals()) {
+        console.log('✓ تم إغلاق النوافذ المنبثقة');
+        return;
+    }
+    
+    // 3. مسح محتوى حقل الإدخال النشط
+    const activeInput = document.activeElement;
+    if (isInputField(activeInput) && activeInput.value.trim() !== '') {
+        activeInput.value = '';
+        console.log('✓ تم مسح محتوى الحقل');
+        return;
+    }
+    
+    // 4. الخروج من حقل الإدخال
+    if (isInputField(activeInput)) {
+        activeInput.blur();
+        console.log('✓ تم الخروج من حقل الإدخال');
+        return;
+    }
+    
+    console.log('ℹ️ لا يوجد شيء لإغلاقه');
+}
+
+/**
+ * معالجة زر Enter في حقول الإدخال
+ */
+function handleEnterInInput(event) {
+    const target = event.target;
+    const searchId = target.id;
+    
+    // البحث في القوائم المنسدلة
+    const searchFields = {
+        'expenseCategorySearch': 'expenseCategorySuggestions',
+        'customerSearch': 'customerSuggestions',
+        'employeeSearch': 'employeeSuggestions',
+        'supplierSearch': 'supplierSuggestions',
+        'productSearch': 'productSuggestions'
+    };
+    
+    if (searchFields[searchId]) {
+        event.preventDefault();
+        selectActiveOrFirstSuggestion(searchFields[searchId]);
+        return;
+    }
+    
+    // حقول البحث العامة
+    if (target.type === 'search' || target.classList.contains('search-input')) {
+        event.preventDefault();
+        performSearch(target.value);
+        return;
+    }
+    
+    // Ctrl/Cmd + Enter لإرسال النماذج
+    if (event.ctrlKey || event.metaKey) {
         event.preventDefault();
         submitParentForm(target);
         return;
     }
     
-    // Ctrl+/ for quick help while in input fields
-    if (event.key === '/' && (event.ctrlKey || event.metaKey)) {
-        event.preventDefault();
-        openHelpModal();
-        return;
+    // Enter عادي في textarea يبقى سطر جديد
+    if (target.tagName.toLowerCase() === 'textarea') {
+        return; // اسمح بالسلوك الافتراضي
+    }
+    
+    // Enter عادي في input ينتقل للحقل التالي أو يرسل النموذج
+    event.preventDefault();
+    const form = target.closest('form');
+    if (form) {
+        const inputs = Array.from(form.querySelectorAll('input, select, textarea, button'));
+        const currentIndex = inputs.indexOf(target);
+        const nextInput = inputs[currentIndex + 1];
+        
+        if (nextInput && nextInput.type !== 'submit' && nextInput.tagName !== 'BUTTON') {
+            nextInput.focus();
+        } else {
+            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
     }
 }
 
 /**
- * Checks if any suggestion dropdowns are open
- * @returns {boolean} True if any suggestions are visible
+ * التحقق من ضرورة منع السلوك الافتراضي
  */
-function areAnySuggestionsOpen() {
-    const suggestions = document.querySelectorAll('.suggestions');
-    return Array.from(suggestions).some(suggestion => 
-        suggestion.style.display !== 'none' && 
-        suggestion.offsetParent !== null
-    );
-}
-
-/**
- * Checks if the target element is an input field
- * @param {Element} target - The target element
- * @returns {boolean} True if it's an input field
- */
-function isInputField(target) {
-    const inputTypes = ['input', 'textarea', 'select'];
-    const isInput = inputTypes.includes(target.tagName.toLowerCase());
-    const isContentEditable = target.isContentEditable;
-    const isSearchField = target.type === 'search';
+function shouldPreventDefault(event) {
+    const key = event.key.toLowerCase();
     
-    return isInput || isContentEditable || isSearchField;
+    const conflicts = [
+        { ctrl: true, key: 'p' },      // طباعة
+        { ctrl: true, key: 'n' },      // نافذة جديدة
+        { ctrl: true, key: 's' },      // حفظ
+        { ctrl: true, key: 'f' },      // بحث
+        { ctrl: true, key: 'h' },      // سجل
+        { key: 'f1' },                 // مساعدة
+        { key: 'f3' },                 // بحث
+        { key: 'f4' },                 // عنوان URL
+        { key: 'f5' },                 // تحديث (نريد التحكم به)
+        { alt: true, key: '1' },
+        { alt: true, key: '2' },
+        { alt: true, key: '3' },
+        { alt: true, key: '4' }
+    ];
+    
+    return conflicts.some(conflict => {
+        const ctrlMatch = !conflict.ctrl || (event.ctrlKey || event.metaKey);
+        const altMatch = !conflict.alt || event.altKey;
+        const keyMatch = conflict.key === key;
+        return ctrlMatch && altMatch && keyMatch;
+    });
 }
 
-// --- Application Functions ---
+/**
+ * معالجة Function Keys
+ */
+function handleFunctionKeys(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const actions = {
+        'F1': () => openHelpModal(),
+        'F2': () => openQuickSearch(),
+        'F3': () => openRegularExpenseModal(),
+        'F4': () => openPinnedExpenseModal(),
+        'F5': () => refreshCurrentView(),
+        'F9': () => toggleSidebar()
+    };
+    
+    const action = actions[event.key];
+    if (action) {
+        action();
+    }
+}
 
 /**
- * Opens the regular expense modal (F3 or Ctrl+N)
+ * معالجة اختصارات Ctrl/Cmd
+ */
+function handleCtrlShortcuts(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const key = event.key.toLowerCase();
+    const actions = {
+        'n': () => openRegularExpenseModal(),
+        'p': () => openPinnedExpenseModal(),
+        'f': () => openQuickSearch(),
+        's': () => saveCurrentData(),
+        'r': () => refreshCurrentView(),
+        'h': () => openHelpModal(),
+        'q': () => quickLogout(),
+        '/': () => openHelpModal() // مساعدة بديلة
+    };
+    
+    const action = actions[key];
+    if (action) {
+        action();
+    }
+}
+
+/**
+ * معالجة اختصارات Alt
+ */
+function handleAltShortcuts(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const key = event.key;
+    const sections = {
+        '1': 'dashboard',
+        '٧': 'dashboard',
+        '2': 'expenses',
+        '٢': 'expenses',
+        '3': 'reports',
+        '٣': 'reports',
+        '4': 'settings',
+        '٤': 'settings'
+    };
+    
+    const section = sections[key];
+    if (section) {
+        navigateToSection(section);
+    }
+}
+
+/**
+ * معالجة المفاتيح المنفردة
+ */
+function handleSingleKeyShortcuts(event) {
+    const key = event.key;
+    
+    const actions = {
+        '/': () => {
+            event.preventDefault();
+            openQuickSearch();
+        },
+        '?': () => {
+            event.preventDefault();
+            openHelpModal();
+        },
+        ' ': () => {
+            if (!event.ctrlKey && !event.altKey && !event.shiftKey) {
+                event.preventDefault();
+                executeQuickAction();
+            }
+        }
+    };
+    
+    const action = actions[key];
+    if (action) {
+        action();
+    }
+}
+
+// =====================================
+// 🔍 دوال البحث والاقتراحات
+// =====================================
+
+/**
+ * التنقل في الاقتراحات بالأسهم
+ */
+function handleArrowKeysInSearch(target, event) {
+    const searchId = target.id;
+    const suggestionsMap = {
+        'expenseCategorySearch': 'expenseCategorySuggestions',
+        'customerSearch': 'customerSuggestions',
+        'employeeSearch': 'employeeSuggestions',
+        'supplierSearch': 'supplierSuggestions',
+        'productSearch': 'productSuggestions'
+    };
+    
+    const suggestionsId = suggestionsMap[searchId];
+    if (!suggestionsId) return;
+    
+    const suggestions = document.getElementById(suggestionsId);
+    if (!suggestions || suggestions.style.display === 'none') return;
+    
+    event.preventDefault();
+    navigateSuggestions(suggestions, event.key);
+}
+
+/**
+ * التنقل في قائمة الاقتراحات
+ */
+function navigateSuggestions(container, direction) {
+    const items = Array.from(container.querySelectorAll('.suggestion-item:not([style*="display: none"])'));
+    if (items.length === 0) return;
+    
+    const current = container.querySelector('.suggestion-item.active');
+    let index = current ? items.indexOf(current) : -1;
+    
+    if (direction === 'ArrowDown') {
+        index = (index + 1) % items.length;
+    } else if (direction === 'ArrowUp') {
+        index = index <= 0 ? items.length - 1 : index - 1;
+    }
+    
+    items.forEach(item => item.classList.remove('active'));
+    items[index].classList.add('active');
+    items[index].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+/**
+ * اختيار الاقتراح النشط أو الأول
+ */
+function selectActiveOrFirstSuggestion(suggestionsId) {
+    const suggestions = document.getElementById(suggestionsId);
+    if (!suggestions || suggestions.style.display === 'none') return false;
+    
+    const active = suggestions.querySelector('.suggestion-item.active');
+    const target = active || suggestions.querySelector('.suggestion-item');
+    
+    if (target) {
+        target.click();
+        return true;
+    }
+    return false;
+}
+
+/**
+ * إعداد التنقل في الاقتراحات
+ */
+function setupSearchSuggestionNavigation() {
+    // إضافة active عند hover
+    document.addEventListener('mouseover', (e) => {
+        if (e.target.classList.contains('suggestion-item')) {
+            const siblings = e.target.parentElement.querySelectorAll('.suggestion-item');
+            siblings.forEach(s => s.classList.remove('active'));
+            e.target.classList.add('active');
+        }
+    });
+}
+
+/**
+ * إغلاق جميع القوائم المنسدلة
+ */
+function closeSuggestions() {
+    const suggestions = document.querySelectorAll('.suggestions, .dropdown-menu, [class*="suggestion"]');
+    let closed = false;
+    
+    suggestions.forEach(s => {
+        if (s.style.display !== 'none' && s.offsetParent !== null) {
+            s.style.display = 'none';
+            s.querySelectorAll('.active').forEach(item => item.classList.remove('active'));
+            closed = true;
+        }
+    });
+    
+    return closed;
+}
+
+/**
+ * إغلاق جميع النوافذ المنبثقة
+ */
+function closeModals() {
+    const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"], [class*="modal"]');
+    let closed = false;
+    
+    modals.forEach(modal => {
+        const isVisible = modal.style.display === 'block' || 
+                         modal.classList.contains('show') ||
+                         (modal.offsetParent !== null && getComputedStyle(modal).display !== 'none');
+        
+        if (isVisible) {
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+            closed = true;
+        }
+    });
+    
+    return closed;
+}
+
+// =====================================
+// 🛠️ دوال التطبيق
+// =====================================
+
+/**
+ * فتح نافذة المصروف العادي
  */
 function openRegularExpenseModal() {
-    if (typeof currentUserRole === 'undefined' || currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
-        if (typeof showAddExpenseModal === 'function') {
-            showAddExpenseModal();
-            console.log('فتح modal المصروف العادي');
-        } else {
-            showMessage('وظيفة إضافة المصروفات غير متاحة.', 'error');
-        }
+    if (!checkUserPermission()) return;
+    
+    if (typeof showAddExpenseModal === 'function') {
+        showAddExpenseModal();
+        console.log('✓ فتح نافذة المصروف العادي');
     } else {
-        showMessage('ليس لديك الصلاحية لإضافة مصروفات.', 'error');
+        showMessage('وظيفة إضافة المصروفات غير متوفرة', 'error');
     }
 }
 
 /**
- * Opens the pinned expense modal (F4 or Ctrl+P)
+ * فتح نافذة المصروف المثبت
  */
 function openPinnedExpenseModal() {
-    if (typeof currentUserRole === 'undefined' || currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
-        if (typeof showAddExpenseModal === 'function') {
-            showAddExpenseModal();
-            console.log('فتح modal المصروف المثبت');
-            // Auto-check the pin toggle
-            setTimeout(() => {
-                const pinToggle = document.getElementById('pinExpenseFormToggle');
-                if (pinToggle) {
-                    pinToggle.checked = true;
-                    const event = new Event('change', { bubbles: true });
-                    pinToggle.dispatchEvent(event);
-                }
-            }, 100);
-        } else {
-            showMessage('وظيفة إضافة المصروفات غير متاحة.', 'error');
-        }
+    if (!checkUserPermission()) return;
+    
+    if (typeof showAddExpenseModal === 'function') {
+        showAddExpenseModal();
+        console.log('✓ فتح نافذة المصروف المثبت');
+        
+        // تفعيل خيار التثبيت تلقائياً
+        setTimeout(() => {
+            const pinToggle = document.getElementById('pinExpenseFormToggle');
+            if (pinToggle && !pinToggle.checked) {
+                pinToggle.checked = true;
+                pinToggle.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 150);
     } else {
-        showMessage('ليس لديك الصلاحية لإضافة مصروفات.', 'error');
+        showMessage('وظيفة إضافة المصروفات غير متوفرة', 'error');
     }
 }
 
 /**
- * Opens quick search modal (F2 or Ctrl+F or /)
+ * فتح البحث السريع
  */
 function openQuickSearch() {
-    console.log('فتح البحث السريع');
     const searchModal = document.getElementById('quickSearchModal');
+    const searchInput = document.querySelector('input[type="search"], .search-input');
+    
     if (searchModal) {
         searchModal.style.display = 'block';
-        const searchInput = searchModal.querySelector('input[type="search"]');
-        if (searchInput) {
-            searchInput.focus();
+        const input = searchModal.querySelector('input');
+        if (input) {
+            setTimeout(() => input.focus(), 100);
         }
+    } else if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
     } else {
-        const existingSearch = document.querySelector('input[type="search"]');
-        if (existingSearch) {
-            existingSearch.focus();
-        } else {
-            showMessage('خيار البحث غير متاح حالياً.', 'info');
-        }
+        showMessage('حقل البحث غير متوفر حالياً', 'info');
     }
+    
+    console.log('✓ فتح البحث السريع');
 }
 
 /**
- * Opens help modal (F1 or Ctrl+H or ?)
+ * فتح نافذة المساعدة
  */
 function openHelpModal() {
-    const shortcutsList = `
-        <div style="text-align: right; line-height: 1.8;">
-            <h3>🎯 اختصارات الكيبورد</h3>
-            <br>
-            <strong>الأزرار الوظيفية:</strong><br>
-            F1 - عرض هذه المساعدة<br>
-            F2 - بحث سريع<br>
-            F3 - إضافة مصروف جديد<br>
-            F4 - إضافة مصروف مثبت<br>
-            F5 - تحديث البيانات<br>
-            F9 - إظهار/إخفاء القائمة الجانبية<br>
-            <br>
-            <strong>اختصارات التحكم:</strong><br>
-            Ctrl + N - مصروف جديد<br>
-            Ctrl + P - مصروف مثبت<br>
-            Ctrl + F - بحث سريع<br>
-            Ctrl + S - حفظ<br>
-            Ctrl + R - تحديث<br>
-            Ctrl + H - مساعدة<br>
-            Ctrl + Q - خروج سريع<br>
-            <br>
-            <strong>اختصارات Alt للتنقل:</strong><br>
-            Alt + 1 (أو Alt + ١) - لوحة التحكم<br>
-            Alt + 2 (أو Alt + ٢) - المصروفات<br>
-            Alt + 3 (أو Alt + ٣) - التقارير<br>
-            Alt + 4 (أو Alt + ٤) - الإعدادات<br>
-            <br>
-            <strong>اختصارات أخرى:</strong><br>
-            / - بحث سريع<br>
-            ? - مساعدة<br>
-            Esc - إغلاق النوافذ المفتوحة أو مسح حقل الإدخال<br>
-            Space - إجراء سريع (إضافة مصروف/تحديث/بحث)<br>
-            Ctrl + Enter - إرسال النموذج الحالي (داخل حقول الإدخال)<br>
+    const helpContent = `
+        <div style="text-align: right; line-height: 2; padding: 20px; direction: rtl;">
+            <h2 style="color: #007bff; margin-bottom: 20px;">🎯 اختصارات الكيبورد</h2>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #28a745;">⚡ الأزرار الوظيفية</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td><strong>F1</strong></td><td>عرض هذه المساعدة</td></tr>
+                    <tr><td><strong>F2</strong></td><td>بحث سريع</td></tr>
+                    <tr><td><strong>F3</strong></td><td>مصروف جديد</td></tr>
+                    <tr><td><strong>F4</strong></td><td>مصروف مثبت</td></tr>
+                    <tr><td><strong>F5</strong></td><td>تحديث البيانات</td></tr>
+                    <tr><td><strong>F9</strong></td><td>إظهار/إخفاء القائمة</td></tr>
+                </table>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #28a745;">⌨️ اختصارات Ctrl</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td><strong>Ctrl + N</strong></td><td>مصروف جديد</td></tr>
+                    <tr><td><strong>Ctrl + P</strong></td><td>مصروف مثبت</td></tr>
+                    <tr><td><strong>Ctrl + F</strong></td><td>بحث سريع</td></tr>
+                    <tr><td><strong>Ctrl + S</strong></td><td>حفظ</td></tr>
+                    <tr><td><strong>Ctrl + R</strong></td><td>تحديث</td></tr>
+                    <tr><td><strong>Ctrl + H</strong></td><td>مساعدة</td></tr>
+                    <tr><td><strong>Ctrl + Q</strong></td><td>تسجيل خروج</td></tr>
+                    <tr><td><strong>Ctrl + Enter</strong></td><td>إرسال النموذج</td></tr>
+                </table>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #28a745;">🔢 اختصارات Alt</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td><strong>Alt + 1</strong></td><td>الصفحة الرئيسية</td></tr>
+                    <tr><td><strong>Alt + 2</strong></td><td>المصروفات</td></tr>
+                    <tr><td><strong>Alt + 3</strong></td><td>التقارير</td></tr>
+                    <tr><td><strong>Alt + 4</strong></td><td>الإعدادات</td></tr>
+                </table>
+            </div>
+            
+            <div>
+                <h3 style="color: #28a745;">🎮 مفاتيح أخرى</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td><strong>/</strong></td><td>بحث سريع</td></tr>
+                    <tr><td><strong>?</strong></td><td>مساعدة</td></tr>
+                    <tr><td><strong>Esc</strong></td><td>إغلاق/مسح</td></tr>
+                    <tr><td><strong>Space</strong></td><td>إجراء سريع</td></tr>
+                    <tr><td><strong>Enter</strong></td><td>اختيار/انتقال</td></tr>
+                    <tr><td><strong>↑ ↓</strong></td><td>التنقل في القوائم</td></tr>
+                </table>
+            </div>
         </div>
     `;
     
-    showMessage(shortcutsList, 'info', 15000); // Increased display time for help
+    showMessage(helpContent, 'info', 15000);
 }
 
 /**
- * Refreshes current view (F5 or Ctrl+R)
+ * تحديث البيانات الحالية
  */
 function refreshCurrentView() {
-    console.log('تحديث البيانات');
+    console.log('🔄 جاري تحديث البيانات...');
+    
     if (typeof refreshExpenses === 'function') {
         refreshExpenses();
     } else if (typeof loadDashboard === 'function') {
         loadDashboard();
+    } else if (typeof location !== 'undefined') {
+        location.reload();
     } else {
         showMessage('تم تحديث البيانات', 'success');
     }
 }
 
 /**
- * Toggles sidebar visibility (F9)
+ * تبديل ظهور القائمة الجانبية
  */
 function toggleSidebar() {
-    const sidebar = document.querySelector('.sidebar, .side-nav, nav, [class*="sidebar"], [class*="side"]');
+    const sidebar = document.querySelector('.sidebar, .side-nav, nav, [class*="sidebar"]');
+    
     if (sidebar) {
         const isHidden = sidebar.style.display === 'none' || 
-                        sidebar.classList.contains('hidden') ||
-                        sidebar.offsetParent === null;
+                        sidebar.classList.contains('hidden');
         
-        sidebar.style.display = isHidden ? 'block' : 'none';
-        if (sidebar.classList) {
-            sidebar.classList.toggle('hidden', !isHidden);
+        if (isHidden) {
+            sidebar.style.display = '';
+            sidebar.classList.remove('hidden');
+        } else {
+            sidebar.style.display = 'none';
+            sidebar.classList.add('hidden');
         }
-        console.log('تبديل القائمة الجانبية: ' + (isHidden ? 'إظهار' : 'إخفاء'));
+        
+        console.log(`✓ القائمة الجانبية: ${isHidden ? 'مرئية' : 'مخفية'}`);
     } else {
         showMessage('القائمة الجانبية غير موجودة', 'info');
     }
 }
 
 /**
- * Closes all modals and dropdowns (Escape)
+ * حفظ البيانات الحالية
  */
-function closeAllModals() {
-    console.log('إغلاق جميع النوافذ');
+function saveCurrentData() {
+    const activeForm = document.querySelector('form:focus-within');
     
-    // Close modals
-    const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"]');
-    let closedCount = 0;
-    
-    modals.forEach(modal => {
-        if (modal.style.display === 'block' || 
-            modal.classList.contains('show') ||
-            getComputedStyle(modal).display !== 'none') {
-            
-            modal.style.display = 'none';
-            modal.classList.remove('show');
-            closedCount++;
+    if (activeForm) {
+        const submitBtn = activeForm.querySelector('button[type="submit"], input[type="submit"]');
+        if (submitBtn) {
+            submitBtn.click();
+        } else {
+            activeForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
         }
-    });
-    
-    // Close dropdowns
-    const dropdowns = document.querySelectorAll('.dropdown-menu, .suggestions');
-    dropdowns.forEach(dropdown => {
-        if (dropdown.style.display !== 'none') {
-            dropdown.style.display = 'none';
-            closedCount++;
-        }
-    });
-    
-    // Clear any active selections
-    document.querySelectorAll('.active').forEach(item => {
-        item.classList.remove('active');
-    });
-    
-    console.log(`تم إغلاق ${closedCount} نافذة/قائمة`);
+        console.log('💾 تم حفظ البيانات');
+    } else {
+        showMessage('لا يوجد نموذج نشط للحفظ', 'info');
+    }
 }
 
 /**
- * Executes quick action based on context (Space)
+ * تسجيل خروج سريع
+ */
+function quickLogout() {
+    if (confirm('هل تريد تسجيل الخروج؟')) {
+        console.log('👋 تسجيل خروج...');
+        
+        if (typeof logout === 'function') {
+            logout();
+        } else {
+            window.location.href = 'logout.php';
+        }
+    }
+}
+
+/**
+ * التنقل إلى قسم معين
+ */
+function navigateToSection(section) {
+    const sections = {
+        'dashboard': () => {
+            if (typeof loadDashboard === 'function') {
+                loadDashboard();
+            } else {
+                window.location.href = 'index.php';
+            }
+        },
+        'expenses': () => {
+            if (typeof loadExpenses === 'function') {
+                loadExpenses();
+            } else {
+                window.location.href = 'expenses.php';
+            }
+        },
+        'reports': () => {
+            if (typeof loadReports === 'function') {
+                loadReports();
+            } else {
+                window.location.href = 'reports.php';
+            }
+        },
+        'settings': () => {
+            if (typeof loadSettings === 'function') {
+                loadSettings();
+            } else {
+                window.location.href = 'settings.php';
+            }
+        }
+    };
+    
+    if (sections[section]) {
+        sections[section]();
+        console.log(`✓ الانتقال إلى: ${section}`);
+    }
+}
+
+/**
+ * تنفيذ إجراء سريع حسب السياق
  */
 function executeQuickAction() {
-    console.log('إجراء سريع');
-    if (document.querySelector('.expense-list')) {
+    if (document.querySelector('.expense-list, [class*="expense"]')) {
         openRegularExpenseModal();
     } else if (document.querySelector('.dashboard')) {
         refreshCurrentView();
@@ -559,381 +678,238 @@ function executeQuickAction() {
 }
 
 /**
- * Navigates to specific section (Alt+1-4)
- */
-function navigateToSection(section) {
-    console.log('التنقل إلى: ' + section);
-    const sections = {
-        'dashboard': () => { 
-            if (typeof loadDashboard === 'function') loadDashboard();
-            else showMessage('شاشة الرئيسية', 'info');
-        },
-        'expenses': () => { 
-            if (typeof loadExpenses === 'function') loadExpenses();
-            else showMessage('شاشة المصروفات', 'info');
-        },
-        'reports': () => { 
-            if (typeof loadReports === 'function') loadReports();
-            else showMessage('شاشة التقارير', 'info');
-        },
-        'settings': () => { 
-            if (typeof loadSettings === 'function') loadSettings();
-            else showMessage('شاشة الإعدادات', 'info');
-        }
-    };
-    
-    if (sections[section]) {
-        sections[section]();
-    }
-}
-
-/**
- * Saves current data (Ctrl+S)
- */
-function saveCurrentData() {
-    console.log('حفظ البيانات');
-    const activeForm = document.querySelector('form:focus-within');
-    if (activeForm) {
-        activeForm.dispatchEvent(new Event('submit', { cancelable: true }));
-        showMessage('تم محاولة حفظ البيانات.', 'success');
-    } else {
-        showMessage('لا يوجد بيانات للحفظ في الوقت الحالي.', 'info');
-    }
-}
-
-/**
- * Quick logout (Ctrl+Q)
- */
-function quickLogout() {
-    if (confirm('هل تريد تسجيل الخروج؟')) {
-        console.log('خروج سريع');
-        if (typeof logout === 'function') {
-            logout();
-        } else {
-            window.location.href = 'logout.html';
-        }
-    }
-}
-
-/**
- * Submits parent form of an input element
+ * إرسال النموذج الأب
  */
 function submitParentForm(element) {
-    let form = element.closest('form');
+    const form = element.closest('form');
     if (form) {
-        form.dispatchEvent(new Event('submit', { cancelable: true }));
-        console.log('تم إرسال النموذج الأبوي.');
-    } else {
-        console.log('لم يتم العثور على نموذج أبوي لإرساله.');
-    }
-}
-
-// --- Search and Suggestion Functions ---
-
-/**
- * Handles Enter key press in search fields
- */
-function handleEnterKeyInSearch(target) {
-    const searchId = target.id;
-    
-    switch (searchId) {
-        case 'expenseCategorySearch':
-            selectActiveOrFirstSuggestion('expenseCategorySuggestions', target);
-            break;
-        case 'customerSearch':
-            selectActiveOrFirstSuggestion('customerSuggestions', target);
-            break;
-        case 'employeeSearch':
-            selectActiveOrFirstSuggestion('employeeSuggestions', target);
-            break;
-        default:
-            if (target.type === 'search') {
-                performSearch(target.value);
-            }
-            target.blur(); // Remove focus after action
-            break;
-    }
-}
-
-/**
- * Handles arrow key navigation in search fields
- */
-function handleArrowKeysInSearch(target, event) {
-    const searchId = target.id;
-    let suggestionsId;
-    
-    switch (searchId) {
-        case 'expenseCategorySearch':
-            suggestionsId = 'expenseCategorySuggestions';
-            break;
-        case 'customerSearch':
-            suggestionsId = 'customerSuggestions';
-            break;
-        case 'employeeSearch':
-            suggestionsId = 'employeeSuggestions';
-            break;
-        default:
-            return;
-    }
-    
-    const suggestions = document.getElementById(suggestionsId);
-    if (!suggestions || suggestions.style.display === 'none') return;
-    
-    navigateSuggestions(suggestions, event);
-}
-
-/**
- * Navigates through search suggestions using arrow keys
- */
-function navigateSuggestions(suggestions, event) {
-    event.preventDefault();
-
-    const items = Array.from(suggestions.querySelectorAll('.suggestion-item'));
-    if (items.length === 0) return;
-
-    const currentActive = suggestions.querySelector('.suggestion-item.active');
-    let currentIndex = currentActive ? items.indexOf(currentActive) : -1;
-
-    if (event.key === 'ArrowDown') {
-        currentIndex = (currentIndex + 1) % items.length;
-    } else if (event.key === 'ArrowUp') {
-        currentIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
-    }
-
-    items.forEach(item => item.classList.remove('active'));
-    if (currentIndex >= 0) {
-        items[currentIndex].classList.add('active');
-        items[currentIndex].scrollIntoView({ block: 'nearest' });
-    }
-}
-
-/**
- * Selects the currently active suggestion or the first one if none is active.
- * @param {string} suggestionsId - The ID of the suggestions container.
- * @param {HTMLElement} inputTarget - The input element associated with the suggestions.
- */
-function selectActiveOrFirstSuggestion(suggestionsId, inputTarget) {
-    const suggestions = document.getElementById(suggestionsId);
-    if (!suggestions || suggestions.style.display === 'none') return;
-    
-    const activeSuggestion = suggestions.querySelector('.suggestion-item.active');
-    if (activeSuggestion) {
-        activeSuggestion.click();
-    } else {
-        const firstSuggestion = suggestions.querySelector('.suggestion-item');
-        if (firstSuggestion) {
-            firstSuggestion.click();
+        const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+        if (submitBtn) {
+            submitBtn.click();
+        } else {
+            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
         }
     }
-    // After selection, close suggestions and blur the input
-    closeAllSuggestions();
-    if (inputTarget) {
-        inputTarget.blur();
-    }
 }
 
 /**
- * Sets up navigation for search suggestions
- */
-function setupSearchSuggestionNavigation() {
-    document.addEventListener('click', (event) => {
-        if (event.target.classList.contains('suggestion-item')) {
-            // When a suggestion is clicked, remove active class and close suggestions
-            event.target.classList.remove('active');
-            closeAllSuggestions();
-        }
-    });
-    
-    document.addEventListener('mouseover', (event) => {
-        if (event.target.classList.contains('suggestion-item')) {
-            const siblings = Array.from(event.target.parentElement.children);
-            siblings.forEach(sibling => sibling.classList.remove('active'));
-            event.target.classList.add('active');
-        }
-    });
-}
-
-/**
- * Closes all suggestion dropdowns
- */
-function closeAllSuggestions() {
-    const allSuggestions = document.querySelectorAll('.suggestions');
-    allSuggestions.forEach(suggestion => {
-        suggestion.style.display = 'none';
-        const items = suggestion.querySelectorAll('.suggestion-item');
-        items.forEach(item => item.classList.remove('active'));
-    });
-}
-
-/**
- * Performs a general search
+ * تنفيذ البحث
  */
 function performSearch(query) {
+    if (!query || query.trim() === '') return;
+    
+    console.log(`🔍 البحث عن: ${query}`);
+    
     if (typeof window.globalSearch === 'function') {
         window.globalSearch(query);
-        showMessage(`البحث عن: "${query}"`, 'info');
+    } else if (typeof searchExpenses === 'function') {
+        searchExpenses(query);
     } else {
-        showMessage(`بحث عن: ${query}`, 'info');
+        showMessage(`جاري البحث عن: ${query}`, 'info');
     }
 }
 
-// Placeholder for showMessage function if not defined elsewhere
-if (typeof showMessage !== 'function') {
-    window.showMessage = function(message, type = 'info', duration = 3000) {
-        console.log(`[Message - ${type.toUpperCase()}]: ${message}`);
-        // You can implement a visual message display here (e.g., a toast notification)
-        const msgDiv = document.createElement('div');
-        msgDiv.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: ${type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#17a2b8'};
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            z-index: 9999;
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
-            direction: rtl;
-            text-align: right;
-        `;
-        msgDiv.innerHTML = message;
-        document.body.appendChild(msgDiv);
-
-        setTimeout(() => {
-            msgDiv.style.opacity = '1';
-        }, 10);
-
-        setTimeout(() => {
-            msgDiv.style.opacity = '0';
-            msgDiv.addEventListener('transitionend', () => msgDiv.remove());
-        }, duration);
-    };
-}
-
-// Placeholder for showAddExpenseModal function if not defined elsewhere
-if (typeof showAddExpenseModal !== 'function') {
-    window.showAddExpenseModal = function() {
-        showMessage('فتح نافذة إضافة المصروفات (وظيفة وهمية)', 'info');
-        // Simulate opening a modal
-        const modal = document.createElement('div');
-        modal.id = 'tempExpenseModal';
-        modal.classList.add('modal');
-        modal.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: white;
-            padding: 20px;
-            border: 1px solid #ccc;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            z-index: 10000;
-            display: block;
-            direction: rtl;
-            text-align: right;
-        `;
-        modal.innerHTML = `
-            <h3>إضافة مصروف جديد</h3>
-            <p>هذه نافذة وهمية للمصروفات.</p>
-            <label for="pinExpenseFormToggle">تثبيت المصروف:</label>
-            <input type="checkbox" id="pinExpenseFormToggle">
-            <button onclick="document.getElementById('tempExpenseModal').style.display='none';">إغلاق</button>
-        `;
-        document.body.appendChild(modal);
-    };
-}
-
-// Placeholder for globalSearch function if not defined elsewhere
-if (typeof window.globalSearch !== 'function') {
-    window.globalSearch = function(query) {
-        console.log(`Executing global search for: ${query}`);
-        // Implement your actual global search logic here
-        showMessage(`البحث العام عن: "${query}"`, 'info');
-    };
-}
-
-// Placeholder for loadDashboard, loadExpenses, loadReports, loadSettings, logout
-// These functions should be defined in your main application logic
-if (typeof loadDashboard !== 'function') window.loadDashboard = () => showMessage('تحميل لوحة التحكم', 'info');
-if (typeof loadExpenses !== 'function') window.loadExpenses = () => showMessage('تحميل صفحة المصروفات', 'info');
-if (typeof loadReports !== 'function') window.loadReports = () => showMessage('تحميل صفحة التقارير', 'info');
-if (typeof loadSettings !== 'function') window.loadSettings = () => showMessage('تحميل صفحة الإعدادات', 'info');
-if (typeof logout !== 'function') window.logout = () => {
-    showMessage('تسجيل الخروج...', 'info');
-    window.location.href = 'logout.html'; // Redirect to logout page
-};
-
-
-// Initialize keyboard shortcuts when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    initializeKeyboardShortcuts();
-    addSuggestionStyles();
-    
-    // Show available shortcuts on first load
-    setTimeout(() => {
-        if (!localStorage.getItem('shortcutsShown')) {
-            showMessage('💡 يمكنك استخدام اختصارات الكيبورد - اضغط F1 للمساعدة', 'info', 5000);
-            localStorage.setItem('shortcutsShown', 'true');
-        }
-    }, 3000);
-});
+// =====================================
+// 🔧 دوال مساعدة
+// =====================================
 
 /**
- * Adds CSS styles for active suggestion items
+ * التحقق من أن العنصر هو حقل إدخال
  */
-function addSuggestionStyles() {
+function isInputField(element) {
+    if (!element) return false;
+    
+    const tag = element.tagName.toLowerCase();
+    const isInput = ['input', 'textarea', 'select'].includes(tag);
+    const isEditable = element.isContentEditable;
+    
+    return isInput || isEditable;
+}
+
+/**
+ * التحقق من صلاحيات المستخدم
+ */
+function checkUserPermission() {
+    const allowedRoles = ['كاشير', 'محاسب', 'admin', 'cashier', 'accountant'];
+    
+    if (typeof currentUserRole !== 'undefined') {
+        if (!allowedRoles.includes(currentUserRole)) {
+            showMessage('ليس لديك صلاحية لهذا الإجراء', 'error');
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * عرض رسالة للمستخدم
+ */
+function showMessage(message, type = 'info', duration = 3000) {
+    if (typeof window.showMessage === 'function') {
+        window.showMessage(message, type, duration);
+        return;
+    }
+    
+    // إنشاء رسالة مخصصة إذا لم تكن الدالة موجودة
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        background: ${type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#17a2b8'};
+        color: white;
+        border-radius: 5px;
+        z-index: 9999;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        animation: slideIn 0.3s ease-out;
+        max-width: 400px;
+        direction: rtl;
+    `;
+    toast.innerHTML = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+/**
+ * إضافة أنماط CSS
+ */
+function addKeyboardShortcutsStyles() {
     if (document.querySelector('#keyboardShortcutsStyles')) return;
     
     const style = document.createElement('style');
     style.id = 'keyboardShortcutsStyles';
     style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+        
         .suggestion-item.active {
             background-color: #007bff !important;
             color: white !important;
         }
+        
+        .suggestion-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
         .suggestion-item:hover {
             background-color: #e9ecef;
         }
+        
         .suggestions {
-            max-height: 200px;
+            max-height: 300px;
             overflow-y: auto;
             border: 1px solid #ddd;
             border-radius: 4px;
             background: white;
             z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            position: absolute; /* Ensure suggestions appear over other content */
-            width: 100%; /* Adjust as needed */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            margin-top: 2px;
         }
-        /* Basic modal styles for demonstration */
-        .modal {
-            display: none; /* Hidden by default */
-            position: fixed; /* Stay in place */
-            z-index: 10000; /* Sit on top */
-            left: 0;
-            top: 0;
-            width: 100%; /* Full width */
-            height: 100%; /* Full height */
-            overflow: auto; /* Enable scroll if needed */
-            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        
+        .suggestions::-webkit-scrollbar {
+            width: 8px;
         }
-        .modal > div {
-            background-color: #fefefe;
-            margin: 15% auto; /* 15% from the top and centered */
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%; /* Could be more or less, depending on screen size */
-            max-width: 500px;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        
+        .suggestions::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        .suggestions::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        
+        .suggestions::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
     `;
     document.head.appendChild(style);
 }
 
-// Expose functions globally
+// =====================================
+// 🚀 التهيئة التلقائية
+// =====================================
+
+/**
+ * تهيئة النظام عند تحميل الصفحة
+ */
+function initSystem() {
+    console.log('🚀 بدء تهيئة نظام اختصارات الكيبورد...');
+    
+    // إضافة الأنماط
+    addKeyboardShortcutsStyles();
+    
+    // تهيئة الاختصارات
+    initializeKeyboardShortcuts();
+    
+    // عرض رسالة ترحيبية (مرة واحدة فقط)
+    setTimeout(() => {
+        const storageKey = 'keyboard_shortcuts_welcome_shown';
+        try {
+            if (!localStorage.getItem(storageKey)) {
+                showMessage('💡 اضغط F1 لعرض جميع اختصارات الكيبورد', 'info', 5000);
+                localStorage.setItem(storageKey, 'true');
+            }
+        } catch (e) {
+            // تجاهل أخطاء localStorage
+        }
+    }, 2000);
+    
+    console.log('✅ نظام اختصارات الكيبورد جاهز للاستخدام!');
+}
+
+// تشغيل التهيئة عند تحميل DOM
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSystem);
+} else {
+    initSystem();
+}
+
+// =====================================
+// 📤 تصدير الوظائف للاستخدام الخارجي
+// =====================================
+
+window.KeyboardShortcuts = {
+    init: initializeKeyboardShortcuts,
+    openHelp: openHelpModal,
+    openSearch: openQuickSearch,
+    openExpense: openRegularExpenseModal,
+    openPinnedExpense: openPinnedExpenseModal,
+    refresh: refreshCurrentView,
+    toggleSidebar: toggleSidebar,
+    save: saveCurrentData,
+    logout: quickLogout
+};
+
+// للتوافق مع الكود القديم
 window.initializeKeyboardShortcuts = initializeKeyboardShortcuts;
 window.handleKeyboardShortcuts = handleKeyboardShortcuts;
 
-console.log('✅ اختصارات الكيبورد جاهزة للاستخدام!');
+console.log('✨ نظام اختصارات الكيبورد المحسن - جاهز!');
