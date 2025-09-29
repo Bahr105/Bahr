@@ -1,5 +1,3 @@
-
-
 // --- Keyboard Shortcuts Functions ---
 
 /**
@@ -53,7 +51,17 @@ function preventChromeDefaultShortcuts(event) {
         { alt: true, key: '1', prevent: true },
         { alt: true, key: '2', prevent: true },
         { alt: true, key: '3', prevent: true },
-        { alt: true, key: '4', prevent: true }
+        { alt: true, key: '4', prevent: true },
+        // Ctrl+S (Save Page) - we use for saving data
+        { ctrl: true, key: 's', prevent: true },
+        // Ctrl+R (Reload) - we use for refreshing view
+        { ctrl: true, key: 'r', prevent: true },
+        // Ctrl+F (Find) - we use for quick search
+        { ctrl: true, key: 'f', prevent: true },
+        // Ctrl+H (History) - we use for help
+        { ctrl: true, key: 'h', prevent: true },
+        // Space (Scroll down) - we use for quick action
+        { key: ' ', prevent: true, checkModifiers: false } // Prevent default space behavior globally
     ];
 
     conflicts.forEach(conflict => {
@@ -62,7 +70,14 @@ function preventChromeDefaultShortcuts(event) {
         const shiftMatch = !('shift' in conflict) || (conflict.shift === event.shiftKey);
         const keyMatch = conflict.key === key || conflict.key === event.key;
         
-        if (ctrlMatch && altMatch && shiftMatch && keyMatch && conflict.prevent) {
+        // Special handling for space key to prevent default scroll only if no modifiers
+        if (conflict.key === ' ' && conflict.checkModifiers === false) {
+            if (!event.ctrlKey && !event.altKey && !event.shiftKey && keyMatch && conflict.prevent) {
+                event.preventDefault();
+                event.stopPropagation();
+                return false;
+            }
+        } else if (ctrlMatch && altMatch && shiftMatch && keyMatch && conflict.prevent) {
             event.preventDefault();
             event.stopPropagation();
             return false;
@@ -250,7 +265,7 @@ function handleSingleKeyShortcuts(event) {
     switch (event.key) {
         case ' ':
             if (!event.ctrlKey && !event.altKey && !event.shiftKey) {
-                event.preventDefault();
+                event.preventDefault(); // Prevent default scroll behavior
                 executeQuickAction();
             }
             break;
@@ -298,7 +313,7 @@ function handleInputFieldShortcuts(event) {
     // Handle Enter key in search fields
     if (event.key === 'Enter') {
         handleEnterKeyInSearch(target);
-        event.preventDefault();
+        event.preventDefault(); // Prevent form submission if handled
         return;
     }
     
@@ -355,9 +370,13 @@ function isInputField(target) {
  * Opens the regular expense modal (F3 or Ctrl+N)
  */
 function openRegularExpenseModal() {
-    if (currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
-        showAddExpenseModal();
-        console.log('فتح modal المصروف العادي');
+    if (typeof currentUserRole === 'undefined' || currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
+        if (typeof showAddExpenseModal === 'function') {
+            showAddExpenseModal();
+            console.log('فتح modal المصروف العادي');
+        } else {
+            showMessage('وظيفة إضافة المصروفات غير متاحة.', 'error');
+        }
     } else {
         showMessage('ليس لديك الصلاحية لإضافة مصروفات.', 'error');
     }
@@ -367,18 +386,22 @@ function openRegularExpenseModal() {
  * Opens the pinned expense modal (F4 or Ctrl+P)
  */
 function openPinnedExpenseModal() {
-    if (currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
-        showAddExpenseModal();
-        console.log('فتح modal المصروف المثبت');
-        // Auto-check the pin toggle
-        setTimeout(() => {
-            const pinToggle = document.getElementById('pinExpenseFormToggle');
-            if (pinToggle) {
-                pinToggle.checked = true;
-                const event = new Event('change', { bubbles: true });
-                pinToggle.dispatchEvent(event);
-            }
-        }, 100);
+    if (typeof currentUserRole === 'undefined' || currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
+        if (typeof showAddExpenseModal === 'function') {
+            showAddExpenseModal();
+            console.log('فتح modal المصروف المثبت');
+            // Auto-check the pin toggle
+            setTimeout(() => {
+                const pinToggle = document.getElementById('pinExpenseFormToggle');
+                if (pinToggle) {
+                    pinToggle.checked = true;
+                    const event = new Event('change', { bubbles: true });
+                    pinToggle.dispatchEvent(event);
+                }
+            }, 100);
+        } else {
+            showMessage('وظيفة إضافة المصروفات غير متاحة.', 'error');
+        }
     } else {
         showMessage('ليس لديك الصلاحية لإضافة مصروفات.', 'error');
     }
@@ -431,15 +454,22 @@ function openHelpModal() {
             Ctrl + H - مساعدة<br>
             Ctrl + Q - خروج سريع<br>
             <br>
+            <strong>اختصارات Alt للتنقل:</strong><br>
+            Alt + 1 (أو Alt + ١) - لوحة التحكم<br>
+            Alt + 2 (أو Alt + ٢) - المصروفات<br>
+            Alt + 3 (أو Alt + ٣) - التقارير<br>
+            Alt + 4 (أو Alt + ٤) - الإعدادات<br>
+            <br>
             <strong>اختصارات أخرى:</strong><br>
             / - بحث سريع<br>
             ? - مساعدة<br>
-            Esc - إغلاق النوافذ المفتوحة فقط<br>
-            Space - إجراء سريع<br>
+            Esc - إغلاق النوافذ المفتوحة أو مسح حقل الإدخال<br>
+            Space - إجراء سريع (إضافة مصروف/تحديث/بحث)<br>
+            Ctrl + Enter - إرسال النموذج الحالي (داخل حقول الإدخال)<br>
         </div>
     `;
     
-    showMessage(shortcutsList, 'info', 10000);
+    showMessage(shortcutsList, 'info', 15000); // Increased display time for help
 }
 
 /**
@@ -565,6 +595,7 @@ function saveCurrentData() {
     const activeForm = document.querySelector('form:focus-within');
     if (activeForm) {
         activeForm.dispatchEvent(new Event('submit', { cancelable: true }));
+        showMessage('تم محاولة حفظ البيانات.', 'success');
     } else {
         showMessage('لا يوجد بيانات للحفظ في الوقت الحالي.', 'info');
     }
@@ -591,6 +622,9 @@ function submitParentForm(element) {
     let form = element.closest('form');
     if (form) {
         form.dispatchEvent(new Event('submit', { cancelable: true }));
+        console.log('تم إرسال النموذج الأبوي.');
+    } else {
+        console.log('لم يتم العثور على نموذج أبوي لإرساله.');
     }
 }
 
@@ -604,19 +638,19 @@ function handleEnterKeyInSearch(target) {
     
     switch (searchId) {
         case 'expenseCategorySearch':
-            selectActiveOrFirstSuggestion('expenseCategorySuggestions');
+            selectActiveOrFirstSuggestion('expenseCategorySuggestions', target);
             break;
         case 'customerSearch':
-            selectActiveOrFirstSuggestion('customerSuggestions');
+            selectActiveOrFirstSuggestion('customerSuggestions', target);
             break;
         case 'employeeSearch':
-            selectActiveOrFirstSuggestion('employeeSuggestions');
+            selectActiveOrFirstSuggestion('employeeSuggestions', target);
             break;
         default:
             if (target.type === 'search') {
                 performSearch(target.value);
             }
-            target.blur();
+            target.blur(); // Remove focus after action
             break;
     }
 }
@@ -675,8 +709,10 @@ function navigateSuggestions(suggestions, event) {
 
 /**
  * Selects the currently active suggestion or the first one if none is active.
+ * @param {string} suggestionsId - The ID of the suggestions container.
+ * @param {HTMLElement} inputTarget - The input element associated with the suggestions.
  */
-function selectActiveOrFirstSuggestion(suggestionsId) {
+function selectActiveOrFirstSuggestion(suggestionsId, inputTarget) {
     const suggestions = document.getElementById(suggestionsId);
     if (!suggestions || suggestions.style.display === 'none') return;
     
@@ -689,6 +725,11 @@ function selectActiveOrFirstSuggestion(suggestionsId) {
             firstSuggestion.click();
         }
     }
+    // After selection, close suggestions and blur the input
+    closeAllSuggestions();
+    if (inputTarget) {
+        inputTarget.blur();
+    }
 }
 
 /**
@@ -697,7 +738,9 @@ function selectActiveOrFirstSuggestion(suggestionsId) {
 function setupSearchSuggestionNavigation() {
     document.addEventListener('click', (event) => {
         if (event.target.classList.contains('suggestion-item')) {
+            // When a suggestion is clicked, remove active class and close suggestions
             event.target.classList.remove('active');
+            closeAllSuggestions();
         }
     });
     
@@ -728,10 +771,99 @@ function closeAllSuggestions() {
 function performSearch(query) {
     if (typeof window.globalSearch === 'function') {
         window.globalSearch(query);
+        showMessage(`البحث عن: "${query}"`, 'info');
     } else {
         showMessage(`بحث عن: ${query}`, 'info');
     }
 }
+
+// Placeholder for showMessage function if not defined elsewhere
+if (typeof showMessage !== 'function') {
+    window.showMessage = function(message, type = 'info', duration = 3000) {
+        console.log(`[Message - ${type.toUpperCase()}]: ${message}`);
+        // You can implement a visual message display here (e.g., a toast notification)
+        const msgDiv = document.createElement('div');
+        msgDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: ${type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#17a2b8'};
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            direction: rtl;
+            text-align: right;
+        `;
+        msgDiv.innerHTML = message;
+        document.body.appendChild(msgDiv);
+
+        setTimeout(() => {
+            msgDiv.style.opacity = '1';
+        }, 10);
+
+        setTimeout(() => {
+            msgDiv.style.opacity = '0';
+            msgDiv.addEventListener('transitionend', () => msgDiv.remove());
+        }, duration);
+    };
+}
+
+// Placeholder for showAddExpenseModal function if not defined elsewhere
+if (typeof showAddExpenseModal !== 'function') {
+    window.showAddExpenseModal = function() {
+        showMessage('فتح نافذة إضافة المصروفات (وظيفة وهمية)', 'info');
+        // Simulate opening a modal
+        const modal = document.createElement('div');
+        modal.id = 'tempExpenseModal';
+        modal.classList.add('modal');
+        modal.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            z-index: 10000;
+            display: block;
+            direction: rtl;
+            text-align: right;
+        `;
+        modal.innerHTML = `
+            <h3>إضافة مصروف جديد</h3>
+            <p>هذه نافذة وهمية للمصروفات.</p>
+            <label for="pinExpenseFormToggle">تثبيت المصروف:</label>
+            <input type="checkbox" id="pinExpenseFormToggle">
+            <button onclick="document.getElementById('tempExpenseModal').style.display='none';">إغلاق</button>
+        `;
+        document.body.appendChild(modal);
+    };
+}
+
+// Placeholder for globalSearch function if not defined elsewhere
+if (typeof window.globalSearch !== 'function') {
+    window.globalSearch = function(query) {
+        console.log(`Executing global search for: ${query}`);
+        // Implement your actual global search logic here
+        showMessage(`البحث العام عن: "${query}"`, 'info');
+    };
+}
+
+// Placeholder for loadDashboard, loadExpenses, loadReports, loadSettings, logout
+// These functions should be defined in your main application logic
+if (typeof loadDashboard !== 'function') window.loadDashboard = () => showMessage('تحميل لوحة التحكم', 'info');
+if (typeof loadExpenses !== 'function') window.loadExpenses = () => showMessage('تحميل صفحة المصروفات', 'info');
+if (typeof loadReports !== 'function') window.loadReports = () => showMessage('تحميل صفحة التقارير', 'info');
+if (typeof loadSettings !== 'function') window.loadSettings = () => showMessage('تحميل صفحة الإعدادات', 'info');
+if (typeof logout !== 'function') window.logout = () => {
+    showMessage('تسجيل الخروج...', 'info');
+    window.location.href = 'logout.html'; // Redirect to logout page
+};
+
 
 // Initialize keyboard shortcuts when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -771,6 +903,30 @@ function addSuggestionStyles() {
             background: white;
             z-index: 1000;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: absolute; /* Ensure suggestions appear over other content */
+            width: 100%; /* Adjust as needed */
+        }
+        /* Basic modal styles for demonstration */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 10000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        }
+        .modal > div {
+            background-color: #fefefe;
+            margin: 15% auto; /* 15% from the top and centered */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* Could be more or less, depending on screen size */
+            max-width: 500px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
     `;
     document.head.appendChild(style);
