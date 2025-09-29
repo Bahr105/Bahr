@@ -113,7 +113,35 @@ function handleEscapeKey(event) {
         return;
     }
 
-    console.log('ℹ️ لا يوجد شيء لإغلاقه');
+    // 5. إضافة: الرجوع إلى الواجهة الرئيسية (صفحة الكاشير أو المحاسب)
+    // مثال: إذا كانت صفحة تسجيل الدخول غير مفعلة، نعيد المستخدم إلى صفحته
+    const loginPage = document.getElementById('loginPage');
+    const cashierPage = document.getElementById('cashierPage');
+    const accountantPage = document.getElementById('accountantPage');
+
+    if (loginPage && !loginPage.classList.contains('active')) {
+        if (cashierPage && cashierPage.classList.contains('active')) {
+            // يمكن تنفيذ أي وظيفة تحديث أو إعادة تحميل هنا إذا لزم الأمر
+            console.log('✓ ESC: أنت بالفعل في صفحة الكاشير');
+        } else if (accountantPage && accountantPage.classList.contains('active')) {
+            console.log('✓ ESC: أنت بالفعل في صفحة المحاسب');
+        } else {
+            // إذا لم تكن في أي صفحة، يمكن إعادة توجيه أو إظهار صفحة الكاشير بشكل افتراضي
+            if (cashierPage) {
+                cashierPage.classList.add('active');
+            }
+            if (accountantPage) {
+                accountantPage.classList.remove('active');
+            }
+            if (loginPage) {
+                loginPage.classList.remove('active');
+            }
+            console.log('✓ ESC: تم الرجوع إلى صفحة الكاشير');
+        }
+        return;
+    }
+
+    console.log('ℹ️ لا يوجد شيء لإغلاقه أو الرجوع إليه');
 }
 
 /**
