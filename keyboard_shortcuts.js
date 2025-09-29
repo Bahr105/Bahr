@@ -951,35 +951,20 @@ function checkUserPermission() {
 /**
  * عرض رسالة للمستخدم
  */
-function showMessage(message, type = 'info', duration = 3000) {
-    if (typeof window.showMessage === 'function') {
-        window.showMessage(message, type, duration);
-        return;
-    }
-    
-    // إنشاء رسالة مخصصة إذا لم تكن الدالة موجودة
-    const toast = document.createElement('div');
-    toast.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 15px 25px;
-        background: ${type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#17a2b8'};
-        color: white;
-        border-radius: 5px;
-        z-index: 9999;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        animation: slideIn 0.3s ease-out;
-        max-width: 400px;
-        direction: rtl;
-    `;
-    toast.innerHTML = message;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease-in';
-        setTimeout(() => toast.remove(), 300);
-    }, duration);
+/**
+ * حل مشكلة handleLoginShortcuts المفقودة
+ */
+if (typeof handleLoginShortcuts === 'undefined') {
+    window.handleLoginShortcuts = function(event) {
+        // دالة بديلة بسيطة
+        if (event.key === 'Enter') {
+            const loginBtn = document.querySelector('#loginButton, .login-btn, [type="submit"]');
+            if (loginBtn) {
+                loginBtn.click();
+            }
+        }
+    };
+    console.log('✅ تم إنشاء handleLoginShortcuts بديلة');
 }
 
 /**
@@ -1068,29 +1053,34 @@ function addKeyboardShortcutsStyles() {
 /**
  * تهيئة النظام عند تحميل الصفحة
  */
+/**
+ * تهيئة النظام عند تحميل الصفحة - الإصدار الآمن
+ */
 function initSystem() {
     console.log('🚀 بدء تهيئة نظام اختصارات الكيبورد...');
 
-    // إضافة الأنماط
-    addKeyboardShortcutsStyles();
-
-    // تهيئة الاختصارات
-    initializeKeyboardShortcuts();
-
-    // عرض رسالة ترحيبية (مرة واحدة فقط)
-    setTimeout(() => {
-        const storageKey = 'keyboard_shortcuts_welcome_shown';
-        try {
-            if (!localStorage.getItem(storageKey)) {
-                showMessage('💡 اضغط F1 لعرض جميع اختصارات الكيبورد', 'info', 5000);
-                localStorage.setItem(storageKey, 'true');
-            }
-        } catch (e) {
-            // تجاهل أخطاء localStorage
+    try {
+        // 1. إعداد الحماية من التكرار أولاً
+        window._showingMessage = false;
+        
+        // 2. حفظ الدالة الأصلية إذا كانت موجودة
+        if (typeof window.showMessage === 'function' && window.showMessage !== showMessage) {
+            window._originalShowMessage = window.showMessage;
         }
-    }, 2000);
-
-    console.log('✅ نظام اختصارات الكيبورد جاهز للاستخدام!');
+        
+        // 3. إضافة الأنماط
+        addKeyboardShortcutsStyles();
+        addEnhancedBlurStyles();
+        addSafeToastStyles();
+        
+        // 4. تهيئة الاختصارات
+        initializeKeyboardShortcuts();
+        
+        console.log('✅ نظام اختصارات الكيبورد جاهز للاستخدام!');
+        
+    } catch (error) {
+        console.error('❌ خطأ في تهيئة النظام:', error);
+    }
 }
 
 // تشغيل التهيئة عند تحميل DOM
