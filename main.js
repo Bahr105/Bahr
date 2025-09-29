@@ -28,7 +28,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             closeModal(modalId);
         });
     });
-  initializeKeyboardShortcuts();
+
+    // Initialize keyboard shortcuts after DOM is fully loaded
+    // This is already handled by the DOMContentLoaded listener in keyboard_shortcuts.js
+    // but ensuring it's here for clarity if needed.
+    // initializeKeyboardShortcuts(); // This line is redundant if already in keyboard_shortcuts.js DOMContentLoaded
+
     console.log('DOM loaded and initialized successfully.');
 });
 
@@ -102,5 +107,13 @@ window.updateAccountantCashierOverview = updateAccountantCashierOverview;
 window.searchInvoiceAccountant = searchInvoiceAccountant;
 window.populateReportFilters = populateReportFilters;
 window.generateAccountantReport = generateAccountantReport;
+window.printReport = printReport; // Make sure printReport is exposed
+window.showWhatsAppModal = showWhatsAppModal; // Expose for WhatsApp functionality
+window.sendReportViaWhatsApp = sendReportViaWhatsApp; // Expose for WhatsApp functionality
 
-
+// Expose keyboard shortcut functions globally
+window.initializeKeyboardShortcuts = initializeKeyboardShortcuts;
+window.handleKeyboardShortcuts = handleKeyboardShortcuts;
+window.handleLoginShortcuts = handleLoginShortcuts; // Ensure this is exposed
+window.openRegularExpenseModal = openRegularExpenseModal;
+window.openPinnedExpenseModal = openPinnedExpenseModal;
