@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             closeModal(modalId);
         });
     });
-
+  initializeKeyboardShortcuts();
     console.log('DOM loaded and initialized successfully.');
 });
 
@@ -102,4 +102,5 @@ window.updateAccountantCashierOverview = updateAccountantCashierOverview;
 window.searchInvoiceAccountant = searchInvoiceAccountant;
 window.populateReportFilters = populateReportFilters;
 window.generateAccountantReport = generateAccountantReport;
-window.print
+
+
