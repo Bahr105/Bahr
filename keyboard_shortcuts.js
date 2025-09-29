@@ -228,36 +228,28 @@ function handleArrowKeysInSearch(target, event) {
  */
 function navigateSuggestions(suggestions, event) {
     event.preventDefault();
-    
+
     const items = Array.from(suggestions.querySelectorAll('.suggestion-item'));
     if (items.length === 0) return;
-    
+
     const currentActive = suggestions.querySelector('.suggestion-item.active');
     let currentIndex = currentActive ? items.indexOf(currentActive) : -1;
-    
-    switch (event.key) {
-        case 'ArrowDown':
-            currentIndex = (currentIndex + 1) % items.length;
-            break;
-            
-        case 'ArrowUp':
-            currentIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
-            break;
-            
-        case 'ArrowRight':
-        case 'ArrowLeft':
-            // For left/right, we might want to handle differently
-            // Currently just prevent default and return
-            return;
+
+    if (event.key === 'ArrowDown') {
+        currentIndex = (currentIndex + 1) % items.length;
+    } else if (event.key === 'ArrowUp') {
+        currentIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
+    } else {
+        return;
     }
-    
-    // Update active item
+
     items.forEach(item => item.classList.remove('active'));
     items[currentIndex].classList.add('active');
-    
-    // Scroll into view if needed
-    items[currentIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); // Added smooth behavior
+    items[currentIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+    console.log(`Suggestion navigation: active index ${currentIndex}`);
 }
+
 
 /**
  * Sets up navigation for search suggestions
@@ -333,18 +325,17 @@ function enhanceSearchFunctions() {
 function setupSuggestionNavigationForContainer(suggestionsId) {
     const suggestions = document.getElementById(suggestionsId);
     if (!suggestions) return;
-    
+
     const items = suggestions.querySelectorAll('.suggestion-item');
     if (items.length === 0) return;
-    
-    // Remove any existing active classes
+
+    // إزالة أي صنف active موجود
     items.forEach(item => item.classList.remove('active'));
-    
-    // Add active class to first item by default
-    if (items.length > 0) {
-        items[0].classList.add('active');
-    }
+
+    // تعيين الصنف active للعنصر الأول
+    items[0].classList.add('active');
 }
+
 
 // Initialize keyboard shortcuts when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
