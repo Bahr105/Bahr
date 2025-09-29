@@ -79,56 +79,141 @@ function handleKeyboardShortcuts(event) {
     }
 }
 
+
 /**
- * معالجة زر Escape - الإصدار المحسّن
+ * إغلاق نافذة المصروف بشكل كامل
  */
-function handleEscapeKey(event) {
-    event.preventDefault();
-    event.stopPropagation();
+function closeExpenseModalCompletely() {
+    console.log('🔧 تنظيف نافذة المصروف السابقة...');
+    
+    const modal = document.getElementById('addExpenseModal');
+    if (modal) {
+        // إغلاق النافذة
+        modal.style.display = 'none';
+        modal.classList.remove('active', 'show');
+        
+        // إزالة أي backdrop مرتبط
+        const backdrops = document.querySelectorAll('.modal-backdrop, .backdrop');
+        backdrops.forEach(backdrop => {
+            backdrop.remove();
+        });
+        
+        // إعادة ضبط حالة body
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        
+        // إعادة تعيين النموذج
+        const form = document.getElementById('addExpenseForm');
+        if (form) {
+            form.reset();
+        }
+        
+        console.log('✅ تم تنظيف النافذة السابقة');
+    }
+}
 
-    console.log('⎋ زر ESC - بدء الإغلاق الذكي...');
+/**
+ * تفعيل خيار التثبيت - الإصدار المحسّن
+ */
+function activatePinning() {
+    console.log('📍 محاولة تفعيل التثبيت...');
+    
+    // محاولات متعددة للعثور على زر التثبيت
+    const maxAttempts = 5;
+    let attempts = 0;
+    
+    const tryActivatePinning = () => {
+        attempts++;
+        const pinToggle = document.getElementById('pinExpenseFormToggle');
+        
+        if (pinToggle) {
+            pinToggle.checked = true;
+            console.log('✅ تم تفعيل خيار التثبيت');
+            
+            // تشغيل events للتأكد من التفاعل
+            const events = ['change', 'click', 'input'];
+            events.forEach(eventType => {
+                pinToggle.dispatchEvent(new Event(eventType, { bubbles: true }));
+            });
+            
+            return true;
+        } else if (attempts < maxAttempts) {
+            console.log(`🔄 محاولة ${attempts}/${maxAttempts} للعثور على زر التثبيت...`);
+            setTimeout(tryActivatePinning, 200);
+            return false;
+        } else {
+            console.error('❌ فشل العثور على زر التثبيت بعد جميع المحاولات');
+            
+            // محاولة بديلة: البحث بأسماء أخرى
+            const alternativeSelectors = [
+                '[name="pinExpense"]',
+                '[id*="pin"]',
+                '[class*="pin"]',
+                '.pin-toggle',
+                'input[type="checkbox"][id*="expense"]'
+            ];
+            
+            alternativeSelectors.forEach(selector => {
+                const altToggle = document.querySelector(selector);
+                if (altToggle && altToggle.type === 'checkbox') {
+                    altToggle.checked = true;
+                    console.log(`✅ تم تفعيل التثبيت باستخدام: ${selector}`);
+                    return true;
+                }
+            });
+            
+            return false;
+        }
+    };
+    
+    // بدء المحاولات
+    setTimeout(tryActivatePinning, 300);
+}
 
-    // 1. محاولة إغلاق نافذة المصروف المثبت أولاً
-    if (closeExpenseModalSpecific()) {
-        console.log('✅ تم إغلاق نافذة المصروف بنجاح');
-        removeBlurEffectsForce();
+/**
+ * فتح النافذة يدوياً
+ */
+function openExpenseModalManually() {
+    console.log('🔧 فتح النافذة يدوياً...');
+    
+    const modal = document.getElementById('addExpenseModal');
+    if (!modal) {
+        console.error('❌ نافذة addExpenseModal غير موجودة في DOM');
+        showMessage('نافذة المصروف غير متاحة', 'error');
         return;
     }
-    // التشخيص أولاً
-    debugModalClosing();
-
-    // 1. محاولة إغلاق النوافذ المحسّن
-    if (closeModalsEnhanced()) {
-        console.log('✅ تم إغلاق النوافذ بنجاح');
-        // إزالة البلور بعد الإغلاق
-        removeBlurEffectsForce(); // استخدام الإزالة القوية
-        return;
+    
+    // إظهار النافذة
+    modal.style.display = 'flex';
+    modal.style.opacity = '1';
+    modal.style.visibility = 'visible';
+    modal.classList.add('active', 'show');
+    
+    // إضافة backdrop
+    let backdrop = document.querySelector('.modal-backdrop');
+    if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade show';
+        document.body.appendChild(backdrop);
     }
-
-    // 2. إغلاق القوائم المنسدلة
-    if (closeSuggestions()) {
-        console.log('✅ تم إغلاق القوائم المنسدلة');
-        return;
-    }
-
-    // 3. مسح محتوى الحقول النشطة
-    const activeInput = document.activeElement;
-    if (isInputField(activeInput) && activeInput.value.trim() !== '') {
-        activeInput.value = '';
-        console.log('✅ تم مسح محتوى الحقل');
-        return;
-    }
-
-    // 4. الخروج من الحقول النشطة
-    if (isInputField(activeInput)) {
-        activeInput.blur();
-        console.log('✅ تم الخروج من حقل الإدخال');
-        return;
-    }
-
-    // 5. إذا لم يكن هناك شيء لإغلاقه، نفتح نافذة المساعدة
-    console.log('ℹ️ لا يوجد شيء لإغلاقه - عرض المساعدة');
-    openHelpModal();
+    backdrop.style.display = 'block';
+    
+    // منع التمرير
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    document.body.style.paddingRight = '0px';
+    
+    // إعادة تعيين النموذج
+    const form = document.getElementById('addExpenseForm');
+    if (form) form.reset();
+    
+    // تفعيل التثبيت بعد فتح النافذة
+    setTimeout(() => {
+        activatePinning();
+    }, 200);
+    
+    console.log('✅ تم فتح النافذة يدوياً بنجاح');
 }
 
 /**
@@ -714,12 +799,171 @@ function openRegularExpenseModal() {
 /**
  * فتح نافذة المصروف المثبت - الإصدار المحسّن
  */
+function openPinnedExpenseModal() {
+    console.log('🎯 فتح نافذة المصروف المثبت - البدء...');
+    
+    // أولاً: التأكد من إغلاق أي نافذة سابقة بشكل كامل
+    closeExpenseModalCompletely();
+    
+    // ثانياً: الانتظار قليلاً قبل إعادة الفتح
+    setTimeout(() => {
+        // الطريقة 1: استخدام الدالة الأصلية إذا كانت تعمل
+        if (typeof showAddExpenseModal === 'function') {
+            try {
+                showAddExpenseModal();
+                console.log('✅ تم استدعاء showAddExpenseModal()');
+                
+                // تأخير تفعيل التثبيت لضمان تحميل النافذة
+                setTimeout(() => {
+                    activatePinning();
+                }, 500);
+                
+                return;
+            } catch (error) {
+                console.error('❌ خطأ في showAddExpenseModal:', error);
+            }
+        }
+        
+        // الطريقة 2: فتح النافذة يدوياً إذا فشلت الطريقة الأولى
+        openExpenseModalManually();
+    }, 100);
+}
+
 /**
- * فتح نافذة المصروف المثبت - الإصدار المبسط
+ * إغلاق نافذة المصروف بشكل كامل
  */
+function closeExpenseModalCompletely() {
+    console.log('🔧 تنظيف نافذة المصروف السابقة...');
+    
+    const modal = document.getElementById('addExpenseModal');
+    if (modal) {
+        // إغلاق النافذة
+        modal.style.display = 'none';
+        modal.classList.remove('active', 'show');
+        
+        // إزالة أي backdrop مرتبط
+        const backdrops = document.querySelectorAll('.modal-backdrop, .backdrop');
+        backdrops.forEach(backdrop => {
+            backdrop.remove();
+        });
+        
+        // إعادة ضبط حالة body
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        
+        // إعادة تعيين النموذج
+        const form = document.getElementById('addExpenseForm');
+        if (form) {
+            form.reset();
+        }
+        
+        console.log('✅ تم تنظيف النافذة السابقة');
+    }
+}
+
 /**
- * فتح نافذة المصروف المثبت - الإصدار العملي
+ * تفعيل خيار التثبيت - الإصدار المحسّن
  */
+function activatePinning() {
+    console.log('📍 محاولة تفعيل التثبيت...');
+    
+    // محاولات متعددة للعثور على زر التثبيت
+    const maxAttempts = 5;
+    let attempts = 0;
+    
+    const tryActivatePinning = () => {
+        attempts++;
+        const pinToggle = document.getElementById('pinExpenseFormToggle');
+        
+        if (pinToggle) {
+            pinToggle.checked = true;
+            console.log('✅ تم تفعيل خيار التثبيت');
+            
+            // تشغيل events للتأكد من التفاعل
+            const events = ['change', 'click', 'input'];
+            events.forEach(eventType => {
+                pinToggle.dispatchEvent(new Event(eventType, { bubbles: true }));
+            });
+            
+            return true;
+        } else if (attempts < maxAttempts) {
+            console.log(`🔄 محاولة ${attempts}/${maxAttempts} للعثور على زر التثبيت...`);
+            setTimeout(tryActivatePinning, 200);
+            return false;
+        } else {
+            console.error('❌ فشل العثور على زر التثبيت بعد جميع المحاولات');
+            
+            // محاولة بديلة: البحث بأسماء أخرى
+            const alternativeSelectors = [
+                '[name="pinExpense"]',
+                '[id*="pin"]',
+                '[class*="pin"]',
+                '.pin-toggle',
+                'input[type="checkbox"][id*="expense"]'
+            ];
+            
+            alternativeSelectors.forEach(selector => {
+                const altToggle = document.querySelector(selector);
+                if (altToggle && altToggle.type === 'checkbox') {
+                    altToggle.checked = true;
+                    console.log(`✅ تم تفعيل التثبيت باستخدام: ${selector}`);
+                    return true;
+                }
+            });
+            
+            return false;
+        }
+    };
+    
+    // بدء المحاولات
+    setTimeout(tryActivatePinning, 300);
+}
+
+/**
+ * فتح النافذة يدوياً
+ */
+function openExpenseModalManually() {
+    console.log('🔧 فتح النافذة يدوياً...');
+    
+    const modal = document.getElementById('addExpenseModal');
+    if (!modal) {
+        console.error('❌ نافذة addExpenseModal غير موجودة في DOM');
+        showMessage('نافذة المصروف غير متاحة', 'error');
+        return;
+    }
+    
+    // إظهار النافذة
+    modal.style.display = 'flex';
+    modal.style.opacity = '1';
+    modal.style.visibility = 'visible';
+    modal.classList.add('active', 'show');
+    
+    // إضافة backdrop
+    let backdrop = document.querySelector('.modal-backdrop');
+    if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade show';
+        document.body.appendChild(backdrop);
+    }
+    backdrop.style.display = 'block';
+    
+    // منع التمرير
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    document.body.style.paddingRight = '0px';
+    
+    // إعادة تعيين النموذج
+    const form = document.getElementById('addExpenseForm');
+    if (form) form.reset();
+    
+    // تفعيل التثبيت بعد فتح النافذة
+    setTimeout(() => {
+        activatePinning();
+    }, 200);
+    
+    console.log('✅ تم فتح النافذة يدوياً بنجاح');
+}
 /**
  * إغلاق نافذة المصروف المثبت تحديداً - الإصدار المحسّن
  */
