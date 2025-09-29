@@ -708,45 +708,46 @@ function openRegularExpenseModal() {
 /**
  * فتح نافذة المصروف المثبت - الإصدار المحسّن
  */
+/**
+ * فتح نافذة المصروف المثبت - الإصدار المبسط
+ */
 function openPinnedExpenseModal() {
-    if (!checkUserPermission()) return;
+    console.log('🎯 فتح نافذة المصروف المثبت مباشرة...');
     
-    console.log('🎯 محاولة فتح نافذة المصروف المثبت...');
+    // أولاً تأكد من إغلاق أي نافذة مفتوحة
+    closeExpenseModalSafely();
     
-    // أولاً: التحقق مما إذا كانت النافذة مفتوحة بالفعل
-    const existingModal = document.getElementById('addExpenseModal');
-    if (existingModal && (existingModal.style.display === 'flex' || existingModal.classList.contains('active'))) {
-        console.log('ℹ️ النافذة مفتوحة بالفعل - جلب التركيز');
-        existingModal.focus();
-        return;
-    }
-    
-    // إعادة تعيين النموذج أولاً
-    if (typeof showAddExpenseModal === 'function') {
-        showAddExpenseModal();
-        console.log('✅ تم فتح نافذة المصروف الأساسية');
+    // فتح النافذة مباشرة
+    const modal = document.getElementById('addExpenseModal');
+    if (modal) {
+        // إظهار النافذة
+        modal.style.display = 'flex';
+        modal.classList.add('active', 'show');
         
-        // تفعيل خيار التثبيت بعد فتح النافذة
+        // إضافة backdrop إذا لزم الأمر
+        if (!document.querySelector('.modal-backdrop')) {
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop';
+            document.body.appendChild(backdrop);
+        }
+        
+        // منع التمرير خلف النافذة
+        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
+        
+        // تفعيل التثبيت
         setTimeout(() => {
             const pinToggle = document.getElementById('pinExpenseFormToggle');
             if (pinToggle) {
                 pinToggle.checked = true;
-                console.log('✅ تم تفعيل خيار التثبيت');
-                
-                // تشغيل event التغيير إذا كان موجوداً
-                if (typeof pinToggle.onchange === 'function') {
-                    pinToggle.onchange(new Event('change'));
-                } else {
-                    pinToggle.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            } else {
-                console.log('⚠️ لم يتم العثور على زر التثبيت');
+                pinToggle.dispatchEvent(new Event('change', { bubbles: true }));
             }
-        }, 200);
+        }, 100);
         
+        console.log('✅ تم فتح نافذة المصروف المثبت مباشرة');
     } else {
-        console.error('❌ دالة showAddExpenseModal غير موجودة');
-        showMessage('وظيفة إضافة المصروفات غير متوفرة', 'error');
+        console.error('❌ لم يتم العثور على نافذة المصروف');
+        showMessage('نافذة المصروف غير متاحة', 'error');
     }
 }
 
