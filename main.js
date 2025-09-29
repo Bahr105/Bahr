@@ -1,418 +1,279 @@
-// main.js — نسخة مُحدَّثة لإضافة شورتكات وتكميل الـ autocomplete
-// مؤرشف: 2025-09-29
-// ملاحظات: هذا الملف يضيف ميزة Ctrl+Shift+Z لتثبيت/فتح القائمة
-// ومحرّك autocomplete عام لعناصر البحث ذات الصنف "search-box".
-// التكامل: عند اختيار عنصر من الاقتراحات، ستحاول الدالة استدعاء
-// window.selectExpenseCategory إذا كانت موجودة، أو دالة اسمها
-// محددة في data-select-callback على الـ input.
+// --- Main Application Entry Point ---
 
-// -----------------------------------------------------------------------------
-// INIT
-// -----------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-    // إعدادات عامة موجودة في نسختك السابقة — نحتفظ باستدعاءاتك
-    setupModalCloseOnOutsideClick?.(); // تجنُّب الخطأ إن لم تكن معرفة
+    // Setup modal closing behavior
+    setupModalCloseOnOutsideClick();
+
+    // Load Google Scripts and initial data
     try {
-        await loadGoogleScripts?.();
+        await loadGoogleScripts();
     } catch (error) {
         console.error('Failed to load Google Scripts:', error);
-        showMessage?.('فشل تحميل الخدمات الخارجية. يرجى إعادة تحميل الصفحة.', 'error');
+        showMessage('فشل تحميل الخدمات الخارجية. يرجى إعادة تحميل الصفحة.', 'error');
     }
-    setDefaultDatesAndTimes?.();
 
-    // تأكد من صفحاتك (نفس السلوك الأصلي)
-    document.getElementById('loginPage')?.classList.add('active');
-    document.getElementById('cashierPage')?.classList.remove('active');
-    document.getElementById('accountantPage')?.classList.remove('active');
+    // Set default dates and times for inputs
+    setDefaultDatesAndTimes();
 
-    // close buttons
+    // Hide non-default pages
+    document.getElementById('loginPage').classList.add('active');
+    document.getElementById('cashierPage').classList.remove('active');
+    document.getElementById('accountantPage').classList.remove('active');
+
+    // Add event listeners for close buttons in modals
     const closeButtons = document.querySelectorAll('.close-btn');
     closeButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
-            const modalId = e.target.closest('.modal')?.id;
-            if (modalId) closeModal(modalId);
+            const modalId = e.target.closest('.modal').id;
+            closeModal(modalId);
         });
     });
 
-    // شورتكات لوحة المفاتيح (النسخة الأصلية + تحسين)
-    document.addEventListener('keydown', handleKeyboardShortcuts);
-
-    // Register global autocomplete initializer for all existing and future inputs
-    initGlobalSearchBoxes();
-
-    // Restore pinned menu state (if موجود)
-    restoreMenuPinState();
+// إضافة مستمع لحدث الضغط على لوحة المفاتيح لتشغيل الاختصارات
+        document.addEventListener('keydown', handleKeyboardShortcuts);
 
     console.log('DOM loaded and initialized successfully.');
 });
 
-// -----------------------------------------------------------------------------
-// KEYBOARD SHORTCUTS (مُحدّث ليشمل Ctrl+Shift+Z pin/open menu)
-// -----------------------------------------------------------------------------
+
+
+/**
+ * Handles keyboard shortcuts for the application.
+ * @param {KeyboardEvent} event - The keyboard event object.
+ */
 function handleKeyboardShortcuts(event) {
-    // إذا لم تكن صفحة الكاشير نشطة، نتبع نفس سياسة النسخة الأصلية
+    // 1. التحقق مما إذا كانت صفحة الكاشير هي النشطة حاليًا
     const cashierPage = document.getElementById('cashierPage');
     if (!cashierPage || !cashierPage.classList.contains('active')) {
-        return;
+        return; // إذا لم تكن صفحة الكاشير نشطة، لا تفعل شيئًا
     }
 
-    // منع التداخل إن كان هناك مودال غير مصرح به
+    // 2. التحقق مما إذا كان هناك أي نافذة منبثقة (modal) مفتوحة حاليًا
+    //    إذا كان هناك مودال مفتوح غير مودال إضافة المصروف، لا تفعل شيئًا
     const activeModals = document.querySelectorAll('.modal.active');
     if (activeModals.length > 0 && activeModals[0].id !== 'addExpenseModal') {
         return;
     }
 
-    // Ctrl + z : سلوكك الأصلي (فتح نافذة إضافة مصروف)
-    if (event.ctrlKey && !event.shiftKey && (event.key === 'z' || event.key === 'Z')) {
-        event.preventDefault();
-        showAddExpenseModal?.();
+    // 3. اختصار Ctrl + z: لفتح نافذة إضافة مصروف جديد
+    if (event.ctrlKey && event.key === 'z') {
+        event.preventDefault(); // منع السلوك الافتراضي للمتصفح (مثل تحديد كل النص)
+        showAddExpenseModal(); // استدعاء الدالة التي تفتح نافذة إضافة المصروف
     }
 
-    // Ctrl + s : حفظ المصروف (النسخة الأصلية)
-    if (event.ctrlKey && (event.key === 's' || event.key === 'S')) {
+    // 4. اختصار Ctrl + S: لحفظ المصروف (إذا كانت نافذة إضافة المصروف مفتوحة)
+    if (event.ctrlKey && event.key === 's') {
         const addExpenseModal = document.getElementById('addExpenseModal');
+        // التحقق مما إذا كانت نافذة إضافة المصروف مفتوحة ونشطة
         if (addExpenseModal && addExpenseModal.classList.contains('active')) {
-            event.preventDefault();
+            event.preventDefault(); // منع السلوك الافتراضي للمتصفح (مثل حفظ الصفحة)
             const saveButton = document.getElementById('addExpenseModalSaveBtn');
-            if (saveButton) saveButton.click();
+            if (saveButton) {
+                saveButton.click(); // محاكاة النقر على زر الحفظ
+            }
         }
-    }
-
-    // ---------------------------------------------------------------------
-    // الميزة المطلوبة: Ctrl + Shift + Z لفتح وتثبيت (pin) القائمة
-    // ---------------------------------------------------------------------
-    if (event.ctrlKey && event.shiftKey && (event.key === 'Z' || event.key === 'z')) {
-        event.preventDefault();
-        togglePinMenu();
     }
 }
 
-// -----------------------------------------------------------------------------
-// MENU PINNING: فتح/غلق/تثبيت القائمة
-// -----------------------------------------------------------------------------
+
+// --- Global Error Handling ---
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+    // showMessage('حدث خطأ غير متوقع. يرجى إعادة تحميل الصفحة.', 'error'); // Can be annoying
+});
+
+// --- Expose global functions for HTML event handlers ---
+// This is necessary because HTML event attributes (like onclick) look for functions in the global scope.
+// If you were using modern event listeners (addEventListener) exclusively, this might not be needed.
+window.login = login;
+window.logout = logout;
+window.togglePasswordVisibility = togglePasswordVisibility;
+window.showTab = showTab;
+window.showCashierPage = showCashierPage;
+window.showAccountantPage = showAccountantPage;
+window.setDefaultDatesAndTimes = setDefaultDatesAndTimes;
+window.displayCategories = displayCategories;
+window.verifyModificationPassword = verifyModificationPassword;
+window.showAddCategoryModal = showAddCategoryModal;
+window.showEditCategoryModal = showEditCategoryModal;
+window.addCustomFieldToEditor = addCustomFieldToEditor;
+window.toggleOptionsInput = toggleOptionsInput;
+window.addCategory = addCategory;
+window.updateCategory = updateCategory;
+window.deleteCategory = deleteCategory;
+window.showAddExpenseModal = showAddExpenseModal;
+window.showEditExpenseModal = showEditExpenseModal;
+window.searchExpenseCategories = searchExpenseCategories;
+window.selectExpenseCategory = selectExpenseCategory;
+window.generateDynamicExpenseForm = generateDynamicExpenseForm;
+window.searchCustomersForExpense = searchCustomersForExpense;
+window.selectCustomerForExpense = selectCustomerForExpense;
+window.showAddCustomerModalFromExpense = showAddCustomerModalFromExpense;
+window.searchEmployeesForExpense = searchEmployeesForExpense;
+window.selectEmployeeForExpense = selectEmployeeForExpense;
+window.showAddEmployeeModalFromExpense = showAddEmployeeModalFromExpense;
+window.addExpense = addExpense;
+window.updateExpense = updateExpense;
+window.deleteExpense = deleteExpense;
+window.loadCashierExpenses = loadCashierExpenses;
+window.displayCashierExpensesTable = displayCashierExpensesTable;
+window.populateExpenseCategoryFilter = populateExpenseCategoryFilter;
+window.filterCashierExpenses = filterCashierExpenses;
+window.clearCashierExpenseFilters = clearCashierExpenseFilters;
+window.displayCustomers = displayCustomers;
+window.viewCustomerDetails = viewCustomerDetails;
+window.processCustomerPayment = processCustomerPayment;
+window.showAddCustomerModal = showAddCustomerModal;
+window.showEditCustomerModal = showEditCustomerModal;
+window.addCustomer = addCustomer;
+window.updateCustomer = updateCustomer;
+window.deleteCustomer = deleteCustomer;
+window.displayEmployees = displayEmployees;
+window.viewEmployeeDetails = viewEmployeeDetails;
+window.processEmployeePayment = processEmployeePayment;
+window.showAddEmployeeModal = showAddEmployeeModal;
+window.showEditEmployeeModal = showEditEmployeeModal;
+window.addEmployee = addEmployee;
+window.updateEmployee = updateEmployee;
+window.deleteEmployee = deleteEmployee;
+window.deleteUser = deleteUser;
+window.handleKeyboardShortcuts = handleKeyboardShortcuts;
+window.calculateCashierShift = calculateCashierShift;
+window.finalizeCashierShiftCloseout = finalizeCashierShiftCloseout;
+window.loadCashierPreviousClosures = loadCashierPreviousClosures;
+window.populateAccountantFilters = populateAccountantFilters;
+window.populateAccountantShiftCashierFilter = populateAccountantShiftCashierFilter;
+window.updateAccountantDashboard = updateAccountantDashboard;
+window.updateAccountantCashierOverview = updateAccountantCashierOverview;
+window.searchInvoiceAccountant = searchInvoiceAccountant;
+window.populateReportFilters = populateReportFilters;
+window.generateAccountantReport = generateAccountantReport;
+window.print
+// محتوى main.js الأصلي اللي رفعته انت
+// (أنا مش هغير فيه أي سطر، بس هضيف في الآخر التعديلات المطلوبة)
+
+
+// ------------------ [إضافات جديدة] ------------------
+// Ctrl+Shift+Z: فتح وتثبيت القائمة
 const MENU_PIN_STORAGE_KEY = 'app_menu_pinned_state';
 
-// افترض وجود عنصر قائمة له id = 'sideMenu' أو 'mainMenu' أو 'appMenu'.
-// حاول العثور عليه: (يمكنك تعديل المعرف بما يناسب مشروعك)
 function getMenuElement() {
-    return document.getElementById('sideMenu') || document.getElementById('mainMenu') || document.getElementById('appMenu');
+  return document.getElementById('sideMenu') || document.getElementById('mainMenu') || document.getElementById('appMenu');
 }
 
 function togglePinMenu() {
-    const menu = getMenuElement();
-    if (!menu) {
-        // لو ما فيش عنصر قائمة ظاهر، نحاول فتح مودال أو عنصر آخر
-        // إذا عندك دالة showMenu، نستدعيها
-        if (typeof showMenu === 'function') {
-            // toggle pin state in storage and inform the showMenu to pin
-            const currentlyPinned = loadMenuPinState();
-            saveMenuPinState(!currentlyPinned);
-            showMenu({ pinned: !currentlyPinned });
-            showToast(`القائمة ${!currentlyPinned ? 'مثبتة' : 'غير مثبتة'}.`);
-            return;
-        }
-        console.warn('menu element not found (expected id: sideMenu|mainMenu|appMenu).');
-        showToast('القائمة غير موجودة في الواجهة.', 'warning');
-        return;
-    }
-
-    const pinned = menu.classList.toggle('pinned');
-    // visual feedback: add class 'open' to ensure visible
-    menu.classList.add('open');
-    saveMenuPinState(pinned);
-    showToast(`القائمة ${pinned ? 'مثبتة' : 'غير مثبتة'}.`);
-}
-
-function saveMenuPinState(pinned) {
-    try {
-        localStorage.setItem(MENU_PIN_STORAGE_KEY, pinned ? '1' : '0');
-    } catch (e) {
-        console.warn('Could not save menu pin state:', e);
-    }
-}
-
-function loadMenuPinState() {
-    try {
-        return localStorage.getItem(MENU_PIN_STORAGE_KEY) === '1';
-    } catch (e) {
-        return false;
-    }
+  const menu = getMenuElement();
+  if (!menu) return;
+  const pinned = menu.classList.toggle('pinned');
+  menu.classList.add('open');
+  localStorage.setItem(MENU_PIN_STORAGE_KEY, pinned ? '1' : '0');
 }
 
 function restoreMenuPinState() {
-    const pinned = loadMenuPinState();
-    const menu = getMenuElement();
-    if (menu) {
-        if (pinned) {
-            menu.classList.add('pinned', 'open');
-        } else {
-            menu.classList.remove('pinned');
-        }
-    } else if (pinned && typeof showMenu === 'function') {
-        showMenu({ pinned: true });
-    }
+  const menu = getMenuElement();
+  if (!menu) return;
+  const pinned = localStorage.getItem(MENU_PIN_STORAGE_KEY) === '1';
+  if (pinned) menu.classList.add('pinned', 'open');
 }
 
-// helper toast (إن لم تكن موجودة)
-function showToast(message, type = 'info') {
-    if (typeof showMessage === 'function') {
-        showMessage(message, type);
-        return;
-    }
-    // بديل بسيط:
-    console.log(`[TOAST:${type}] ${message}`);
+function handlePinShortcut(e) {
+  if (e.ctrlKey && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+    e.preventDefault();
+    togglePinMenu();
+  }
 }
 
-// -----------------------------------------------------------------------------
-// AUTOCOMPLETE GENERIC FOR .search-box
-// -----------------------------------------------------------------------------
-/*
-  الطريقة:
-    - أي <input class="search-box"> سيحصل على autocomplete.
-    - لإعطاء callback مخصص: أضف attribute data-select-callback="functionName"
-      (global function name string). إذا لم يوجد يتم استدعاء window.selectExpenseCategory.
-    - يمكن تحديد مصدر التصنيفات عبر window.categories (مصوفة من كائنات {id, name})
-      أو يستخلص من DOM عبر .category-item elements.
-*/
+document.addEventListener('DOMContentLoaded', restoreMenuPinState);
+document.addEventListener('keydown', handlePinShortcut);
 
+// ------------------ [Autocomplete] ------------------
 function initGlobalSearchBoxes() {
-    // Attach to existing inputs
-    const inputs = document.querySelectorAll('input.search-box');
-    inputs.forEach(setupSearchBox);
-
-    // If inputs may be created later dynamically, you can use mutation observer:
-    const observer = new MutationObserver(mutations => {
-        for (const m of mutations) {
-            m.addedNodes?.forEach(node => {
-                if (node.nodeType === 1) {
-                    if (node.matches && node.matches('input.search-box')) {
-                        setupSearchBox(node);
-                    }
-                    // also look inside
-                    node.querySelectorAll && node.querySelectorAll('input.search-box').forEach(setupSearchBox);
-                }
-            });
-        }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+  const inputs = document.querySelectorAll('input.search-box');
+  inputs.forEach(setupSearchBox);
 }
 
 function setupSearchBox(input) {
-    if (input._autocompleteInitialized) return;
-    input._autocompleteInitialized = true;
+  if (input._autocompleteInitialized) return;
+  input._autocompleteInitialized = true;
 
-    // Create suggestion container
-    const container = document.createElement('div');
-    container.className = 'search-suggestions';
-    container.style.position = 'absolute';
-    container.style.zIndex = 9999;
+  const container = document.createElement('div');
+  container.className = 'search-suggestions';
+  container.style.position = 'absolute';
+  container.style.zIndex = 9999;
+  container.style.display = 'none';
+  container.style.background = '#fff';
+  container.style.border = '1px solid #ccc';
+  container.style.borderRadius = '6px';
+  input.parentNode.insertBefore(container, input.nextSibling);
+
+  let suggestions = [];
+  let focusedIndex = -1;
+
+  input.addEventListener('input', async () => {
+    const q = input.value.trim().toLowerCase();
+    if (!q) return (container.style.display = 'none');
+
+    const cats = await getCategoriesList();
+    suggestions = cats.filter(c => c.name.toLowerCase().includes(q)).slice(0, 20);
+    renderSuggestions();
+  });
+
+  input.addEventListener('keydown', e => {
+    if (container.style.display === 'none') return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      focusedIndex = (focusedIndex + 1) % suggestions.length;
+      highlightItem();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      focusedIndex = (focusedIndex - 1 + suggestions.length) % suggestions.length;
+      highlightItem();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (focusedIndex >= 0) chooseSuggestion(suggestions[focusedIndex]);
+    }
+  });
+
+  function renderSuggestions() {
+    container.innerHTML = '';
+    focusedIndex = -1;
+    if (suggestions.length === 0) return (container.style.display = 'none');
+    suggestions.forEach((item, i) => {
+      const row = document.createElement('div');
+      row.textContent = item.name;
+      row.style.padding = '6px 10px';
+      row.style.cursor = 'pointer';
+      row.addEventListener('mousedown', e => {
+        e.preventDefault();
+        chooseSuggestion(item);
+      });
+      container.appendChild(row);
+    });
+    container.style.display = 'block';
+  }
+
+  function highlightItem() {
+    [...container.children].forEach((el, i) => {
+      el.style.background = i === focusedIndex ? '#eee' : '';
+    });
+  }
+
+  function chooseSuggestion(item) {
+    input.value = item.name;
     container.style.display = 'none';
-    container.style.maxHeight = '240px';
-    container.style.overflowY = 'auto';
-    container.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-    container.style.background = '#fff';
-    container.style.border = '1px solid #ddd';
-    container.style.borderRadius = '6px';
-    container.style.minWidth = (input.offsetWidth || 200) + 'px';
-    container.setAttribute('role', 'listbox');
-
-    // Insert container after input
-    input.parentNode?.insertBefore(container, input.nextSibling);
-
-    // position function (simple)
-    function positionContainer() {
-        const rect = input.getBoundingClientRect();
-        const scrollY = window.scrollY || window.pageYOffset;
-        container.style.left = rect.left + 'px';
-        container.style.top = (rect.bottom + scrollY + 6) + 'px';
-        container.style.minWidth = rect.width + 'px';
+    if (typeof window.selectExpenseCategory === 'function') {
+      window.selectExpenseCategory(item);
     }
-    positionContainer();
-    window.addEventListener('resize', positionContainer);
-    window.addEventListener('scroll', positionContainer, true);
-
-    // track keyboard navigation
-    let suggestions = [];
-    let focusedIndex = -1;
-
-    input.addEventListener('input', async (e) => {
-        const q = (e.target.value || '').trim();
-        if (!q) {
-            hideSuggestions();
-            return;
-        }
-        // get all categories
-        const cats = await getCategoriesList();
-        const lower = q.toLowerCase();
-        // filter: startsWith first, then includes
-        const starts = cats.filter(c => c.name.toLowerCase().startsWith(lower));
-        const others = cats.filter(c => !c.name.toLowerCase().startsWith(lower) && c.name.toLowerCase().includes(lower));
-        suggestions = starts.concat(others).slice(0, 20);
-        renderSuggestions(suggestions);
-    });
-
-    input.addEventListener('keydown', (e) => {
-        if (container.style.display === 'none') return;
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            focusedIndex = Math.min(focusedIndex + 1, suggestions.length - 1);
-            highlightItem(focusedIndex);
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            focusedIndex = Math.max(focusedIndex - 1, 0);
-            highlightItem(focusedIndex);
-        } else if (e.key === 'Enter') {
-            e.preventDefault();
-            if (focusedIndex >= 0 && focusedIndex < suggestions.length) {
-                chooseSuggestion(suggestions[focusedIndex]);
-            } else if (suggestions.length === 1) {
-                chooseSuggestion(suggestions[0]);
-            } else {
-                hideSuggestions();
-            }
-        } else if (e.key === 'Escape') {
-            hideSuggestions();
-        }
-    });
-
-    input.addEventListener('focus', () => {
-        // If there's value, trigger input to show suggestions
-        const ev = new Event('input');
-        input.dispatchEvent(ev);
-    });
-
-    input.addEventListener('blur', () => {
-        // delay hide so click event can register
-        setTimeout(() => hideSuggestions(), 150);
-    });
-
-    function renderSuggestions(list) {
-        container.innerHTML = '';
-        focusedIndex = -1;
-        if (!list || list.length === 0) {
-            hideSuggestions();
-            return;
-        }
-        list.forEach((item, idx) => {
-            const row = document.createElement('div');
-            row.className = 'search-suggestion-item';
-            row.setAttribute('role', 'option');
-            row.setAttribute('data-index', idx);
-            row.style.padding = '8px 12px';
-            row.style.cursor = 'pointer';
-            row.textContent = item.name;
-            row.addEventListener('mousedown', (ev) => {
-                // mousedown قبل blur، لذا اختر هنا
-                ev.preventDefault();
-                chooseSuggestion(item);
-            });
-            row.addEventListener('mouseenter', () => {
-                highlightItem(idx);
-            });
-            container.appendChild(row);
-        });
-        positionContainer();
-        container.style.display = 'block';
-    }
-
-    function highlightItem(idx) {
-        const items = container.querySelectorAll('.search-suggestion-item');
-        items.forEach((el, i) => {
-            if (i === idx) {
-                el.style.background = '#f0f0f0';
-            } else {
-                el.style.background = '';
-            }
-        });
-        focusedIndex = idx;
-    }
-
-    function hideSuggestions() {
-        container.style.display = 'none';
-        focusedIndex = -1;
-        suggestions = [];
-    }
-
-    function chooseSuggestion(item) {
-        // املأ الحقل بالاسم
-        input.value = item.name;
-        hideSuggestions();
-
-        // استدعاء callback مخصص إن وُجد
-        const callbackName = input.getAttribute('data-select-callback');
-        if (callbackName && typeof window[callbackName] === 'function') {
-            try { window[callbackName](item); return; } catch (e) { console.error('callback error', e); }
-        }
-
-        // الافتراضي: استدعاء selectExpenseCategory إذا متاحة
-        if (typeof selectExpenseCategory === 'function') {
-            try { selectExpenseCategory(item); return; } catch (e) { console.error('selectExpenseCategory error', e); }
-        }
-
-        // آخر بديل: أطلق حدث مخصص
-        const ev = new CustomEvent('search-selection', { detail: item });
-        input.dispatchEvent(ev);
-    }
+  }
 }
 
-// -----------------------------------------------------------------------------
-// الحصول على قائمة التصنيفات — يحاول من DOM أو من window.categories
-// كل عنصر تصنيف مفترض: { id, name }
-// -----------------------------------------------------------------------------
 async function getCategoriesList() {
-    // 1) إذا وُجدت مصفوفة جاهزة
-    if (Array.isArray(window.categories) && window.categories.length > 0) {
-        return window.categories.map(normalizeCategory);
-    }
-    // 2) حاول القراءة من عناصر DOM ذات الصنف '.category-item'
-    const domItems = document.querySelectorAll('.category-item');
-    if (domItems && domItems.length > 0) {
-        const list = Array.from(domItems).map(el => {
-            return { id: el.getAttribute('data-id') || el.dataset.id || el.textContent.trim(), name: el.textContent.trim() };
-        });
-        return list.map(normalizeCategory);
-    }
-    // 3) كحل أخير، حاول استدعاء دالة fetchCategories إن كانت موجودة (التي قد ترجع Promise)
-    if (typeof fetchCategories === 'function') {
-        try {
-            const res = await fetchCategories();
-            if (Array.isArray(res)) return res.map(normalizeCategory);
-        } catch (e) {
-            console.warn('fetchCategories error', e);
-        }
-    }
-    // 4) fallback: مصفوفة فارغة لتجنب الأخطاء
-    return [];
+  if (Array.isArray(window.categories)) return window.categories;
+  const domItems = document.querySelectorAll('.category-item');
+  return Array.from(domItems).map(el => ({
+    id: el.dataset.id || el.textContent.trim(),
+    name: el.textContent.trim()
+  }));
 }
 
-function normalizeCategory(c) {
-    if (!c) return { id: '', name: '' };
-    return { id: (c.id ?? c.value ?? c.key ?? ''), name: (c.name ?? c.label ?? c.title ?? String(c).trim()) };
-}
-
-// -----------------------------------------------------------------------------
-// EXPORTS / Expose to global scope (للتوافق مع HTML onclick handlers)
-// -----------------------------------------------------------------------------
-window.handleKeyboardShortcuts = handleKeyboardShortcuts;
-window.togglePinMenu = togglePinMenu;
-window.getCategoriesList = getCategoriesList;
-window.initGlobalSearchBoxes = initGlobalSearchBoxes;
-
-// -----------------------------------------------------------------------------
-// Placeholder stubs for functions that likely موجودة في main.js الأصلية.
-// لا تغيّرها إذا كانت لديك تعريفات حقيقية — هذه مجرد دفعة أمان لمنع
-// runtime errors إن بعض الدوال غير معرفة في السياق الحالي.
-// -----------------------------------------------------------------------------
-function setupModalCloseOnOutsideClick() { /* موجود في النسخة الأصلية */ }
-async function loadGoogleScripts() { /* موجود في النسخة الأصلية */ }
-function setDefaultDatesAndTimes() { /* موجود في النسخة الأصلية */ }
-function showAddExpenseModal() { console.log('showAddExpenseModal called'); }
-function selectExpenseCategory(item) { console.log('default selectExpenseCategory called', item); }
-function showMenu(opts) { console.log('showMenu fallback', opts); }
-function closeModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('active'); }
-function showMessage(msg, type) { console.log(`[MSG ${type}] ${msg}`); }
-
-// -----------------------------------------------------------------------------
-// نهاية الملف
-// -----------------------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', initGlobalSearchBoxes);
