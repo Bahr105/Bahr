@@ -140,12 +140,12 @@ async function finalizeCashierShiftCloseout() {
             onlineCount,
             grandTotalWithDrawerCash.toFixed(2),
             drawerCash.toFixed(2),
-            0,
-            0,
-            'مغلق',
+            0, // NewMindTotal (initially 0 for cashier closure)
+            0, // Difference (initially 0 for cashier closure)
+            'مغلق', // Status
             now.toISOString().split('T')[0],
             now.toTimeString().split(' ')[0],
-            '',
+            '', // Accountant username (empty for cashier closure)
             totalReturns.toFixed(2),
             grandTotalAfterReturns.toFixed(2)
         ];
@@ -511,7 +511,7 @@ async function searchCashierClosuresAccountant() {
             normalCount: normalCount,
             totalVisa: totalVisa,
             visaCount: visaCount,
-            totalInsta: totalInsta,
+            totalInsta: instaCount,
             instaCount: instaCount,
             totalOnline: totalOnline,
             onlineCount: onlineCount,
@@ -609,38 +609,52 @@ async function closeCashierByAccountant() {
 
     showLoading(true);
     try {
-        // فلاتر البحث المرنة للتقفيلة الأصلية
+        // فلاتر البحث المرنة للتقفيلة الأصلية التي أنشأها الكاشير
         const searchFilters = {
             cashier: window.currentClosureData.cashier,
             dateFrom: window.currentClosureData.dateFrom,
             timeFrom: window.currentClosureData.timeFrom,
             dateTo: window.currentClosureData.dateTo,
-            timeTo: window.currentClosureData.timeTo
+            timeTo: window.currentClosureData.timeTo,
+            status: 'مغلق' // نبحث عن التقفيلة الأصلية التي حالتها 'مغلق'
         };
 
         // البحث عن التقفيلة الأصلية باستخدام findRowIndex المحسن
         const rowIndex = await findRowIndex(SHEETS.SHIFT_CLOSURES, 0, null, searchFilters); // لا نحتاج ID، نبحث بالفلاتر
 
-        const allClosures = await loadShiftClosures({});
         let originalClosure = null;
         if (rowIndex !== -1) {
-            // استرجاع السجل من data
-            const data = await readSheet(SHEETS.SHIFT_CLOSURES);
-            const rowData = data[rowIndex - 1]; // 0-based
-            originalClosure = {
-                id: rowData[0],
-                // ... باقي الحقول من rowData
-                // (يمكنك تعبئتها كاملة هنا، أو استخدام loadShiftClosures مع فلاتر)
-            };
-            // أو ابحث في allClosures باستخدام الفلاتر المرنة
-            originalClosure = allClosures.find(c => 
-                c.cashier === searchFilters.cashier &&
-                c.dateFrom === searchFilters.dateFrom &&
-                flexibleTimeMatch(c.timeFrom, searchFilters.timeFrom) &&
-                c.dateTo === searchFilters.dateTo &&
-                flexibleTimeMatch(c.timeTo, searchFilters.timeTo) &&
-                c.status === 'مغلق'
-            );
+            // إذا تم العثور على صف، قم بتحميل بياناته
+            const data = await readSheet(SHEETS.SHIFT_CLOSURES, `A${rowIndex}:X${rowIndex}`);
+            if (data && data.length > 0) {
+                const rowData = data[0];
+                originalClosure = {
+                    id: rowData[0],
+                    cashier: rowData[1],
+                    dateFrom: rowData[2],
+                    timeFrom: rowData[3],
+                    dateTo: rowData[4],
+                    timeTo: rowData[5],
+                    totalExpenses: parseFloat(rowData[6] || 0),
+                    expenseCount: parseInt(rowData[7] || 0),
+                    totalInsta: parseFloat(rowData[8] || 0),
+                    instaCount: parseInt(rowData[9] || 0),
+                    totalVisa: parseFloat(rowData[10] || 0),
+                    visaCount: parseInt(rowData[11] || 0),
+                    totalOnline: parseFloat(rowData[12] || 0),
+                    onlineCount: parseInt(rowData[13] || 0),
+                    grandTotal: parseFloat(rowData[14] || 0),
+                    drawerCash: parseFloat(rowData[15] || 0),
+                    newMindTotal: parseFloat(rowData[16] || 0),
+                    difference: parseFloat(rowData[17] || 0),
+                    status: rowData[18],
+                    closureDate: rowData[19],
+                    closureTime: rowData[20],
+                    accountant: rowData[21],
+                    totalReturns: parseFloat(rowData[22] || 0),
+                    grandTotalAfterReturns: parseFloat(rowData[23] || 0)
+                };
+            }
         }
 
         const addReturns = document.getElementById('deductReturnsAccountant')?.checked || false;
@@ -947,10 +961,19 @@ async function saveAccountantClosure() {
         const difference = grandTotalForComparison - newMindTotal;
         const now = new Date();
 
-        const shiftId = 'SHIFT_ACC_' + now.getTime();
+        // البحث عن التقفيلة الأصلية التي أنشأها الكاشير
+        const searchFilters = {
+            cashier: closure.cashier,
+            dateFrom: closure.dateFrom,
+            timeFrom: closure.timeFrom,
+            dateTo: closure.dateTo,
+            timeTo: closure.timeTo,
+            status: 'مغلق' // نبحث عن التقفيلة الأصلية التي حالتها 'مغلق'
+        };
+        const rowIndex = await findRowIndex(SHEETS.SHIFT_CLOSURES, 0, null, searchFilters);
 
         const updatedData = [
-            shiftId,
+            closure.id, // استخدم ID التقفيلة الأصلية
             closure.cashier,
             closure.dateFrom,
             closure.timeFrom,
@@ -968,7 +991,7 @@ async function saveAccountantClosure() {
             closure.drawerCash.toFixed(2),
             newMindTotal.toFixed(2),
             difference.toFixed(2),
-            'مغلق بواسطة المحاسب',
+            'مغلق بواسطة المحاسب', // تحديث الحالة
             now.toISOString().split('T')[0],
             now.toTimeString().split(' ')[0],
             currentUser.username,
@@ -976,10 +999,21 @@ async function saveAccountantClosure() {
             grandTotalAfterReturnsValue.toFixed(2)
         ];
 
-        const result = await appendToSheet(SHEETS.SHIFT_CLOSURES, updatedData);
+        let result;
+        if (rowIndex !== -1) {
+            // تحديث السجل القديم
+            result = await updateSheet(SHEETS.SHIFT_CLOSURES, `A${rowIndex}:X${rowIndex}`, [updatedData]);
+            showMessage('تم تحديث التقفيلة الأصلية بنجاح بواسطة المحاسب.', 'success');
+        } else {
+            // هذا السيناريو يجب أن لا يحدث إذا كان الكاشير قد قفل شيفت بالفعل
+            // ولكن كإجراء احتياطي، يمكن إضافته كسجل جديد
+            const newShiftId = 'SHIFT_ACC_' + now.getTime();
+            updatedData[0] = newShiftId; // تعيين ID جديد إذا لم يتم العثور على ID أصلي
+            result = await appendToSheet(SHEETS.SHIFT_CLOSURES, updatedData);
+            showMessage('لم يتم العثور على تقفيلة الكاشير الأصلية، تم إنشاء تقفيلة جديدة بواسطة المحاسب.', 'warning');
+        }
 
         if (result.success) {
-            showMessage('تم تقفيل الشيفت بنجاح بواسطة المحاسب.', 'success');
             closeModal('accountantClosureDetailsModal');
             loadAccountantShiftClosuresHistory();
         } else {
