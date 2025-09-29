@@ -148,4 +148,5 @@ window.updateAccountantCashierOverview = updateAccountantCashierOverview;
 window.searchInvoiceAccountant = searchInvoiceAccountant;
 window.populateReportFilters = populateReportFilters;
 window.generateAccountantReport = generateAccountantReport;
-window.print
+
+
