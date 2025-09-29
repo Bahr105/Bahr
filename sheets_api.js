@@ -150,29 +150,52 @@ async function getSheetId(sheetName) {
  * Finds the 1-based row index of a value in a specific column of a sheet.
  * @param {string} sheetName - The name of the sheet.
  * @param {number} columnIndex - The 0-based index of the column to search.
- * @param {string} searchValue - The value to search for.
+ * @param {string} searchValue - The value to search for (ID).
+ * @param {object} [closureFilters] - Filters for shift closures (cashier, dateFrom, etc.).
  * @returns {Promise<number>} The 1-based row index, or -1 if not found.
  */
-async function findRowIndex(sheetName, columnIndex, searchValue) {
+async function findRowIndex(sheetName, columnIndex, searchValue, closureFilters = null) {
     const data = await readSheet(sheetName);
-    // Start from the second row (index 1) to ignore headers
+    console.log(`Searching in ${sheetName} with searchValue: ${searchValue}, filters:`, closureFilters); // Debug log
+
     for (let i = 1; i < data.length; i++) {
-        // Special handling for categories - flexible ID comparison
-        if (sheetName === SHEETS.CATEGORIES) {
-            const cellValue = data[i][columnIndex] || '';
-            const normalizedCellValue = normalizeCategoryId(cellValue);
-            const normalizedSearchValue = normalizeCategoryId(searchValue);
+        let match = false;
+
+        if (sheetName === SHEETS.SHIFT_CLOSURES && closureFilters) {
+            // Search by filters for shift closures (independent of ID)
+            const rowCashier = data[i][1]; // Column B: cashier
+            const rowDateFrom = data[i][2]; // Column C: dateFrom
+            const rowTimeFrom = data[i][3]; // Column D: timeFrom
+            const rowDateTo = data[i][4];   // Column E: dateTo
+            const rowTimeTo = data[i][5];   // Column F: timeTo
+            const rowStatus = data[i][18];  // Column S: status
+
+            match = rowCashier === closureFilters.cashier &&
+                    rowDateFrom === closureFilters.dateFrom &&
+                    flexibleTimeMatch(rowTimeFrom, closureFilters.timeFrom) &&
+                    rowDateTo === closureFilters.dateTo &&
+                    flexibleTimeMatch(rowTimeTo, closureFilters.timeTo) &&
+                    rowStatus === 'مغلق';
             
-            if (normalizedCellValue === normalizedSearchValue) {
-                return i + 1; // +1 because Google Sheets API uses 1-based index for rows
-            }
-        } else {
-            // Original behavior for other tables
-            if (data[i][columnIndex] === searchValue) {
-                return i + 1;
+            console.log(`Row ${i+1} match for filters:`, match, { rowCashier, rowDateFrom, rowTimeFrom, rowDateTo, rowTimeTo, rowStatus }); // Debug
+        } else if (searchValue !== null && searchValue !== undefined) {
+            // Standard search by value (ID)
+            if (sheetName === SHEETS.CATEGORIES) {
+                const cellValue = data[i][columnIndex] || '';
+                const normalizedCellValue = normalizeCategoryId(cellValue);
+                const normalizedSearchValue = normalizeCategoryId(searchValue);
+                match = normalizedCellValue === normalizedSearchValue;
+            } else {
+                match = data[i][columnIndex] === searchValue;
             }
         }
+
+        if (match) {
+            console.log(`Found match at row ${i+1}`); // Debug
+            return i + 1; // 1-based index
+        }
     }
+    console.log('No match found'); // Debug
     return -1;
 }
 
@@ -199,56 +222,26 @@ function normalizeCategoryId(id) {
     return normalized;
 }
 
-// في نهاية ملف sheets_api.js، أضف هذه الدالة
 /**
- * مقارنة مرنة للأوقات (تجاهل الثواني وتحويل AM/PM إذا لزم)
- * @param {string} time1 - الوقت الأول (HH:MM أو HH:MM:SS)
- * @param {string} time2 - الوقت الثاني (HH:MM أو HH:MM:SS)
- * @returns {boolean} true إذا تطابقا
+ * Flexible time matching (ignores seconds and handles AM/PM if needed).
+ * @param {string} time1 - First time (HH:MM or HH:MM:SS).
+ * @param {string} time2 - Second time (HH:MM or HH:MM:SS).
+ * @returns {boolean} True if they match.
  */
 function flexibleTimeMatch(time1, time2) {
     if (!time1 || !time2) return false;
     
-    // تنظيف وتوحيد التنسيق إلى HH:MM
-    const cleanTime1 = time1.substring(0, 5);
-    const cleanTime2 = time2.substring(0, 5);
+    // Clean and normalize to HH:MM
+    const cleanTime1 = time1.toString().substring(0, 5);
+    const cleanTime2 = time2.toString().substring(0, 5);
     
-    return cleanTime1 === cleanTime2;
-}
-
-/**
- * تحسين findRowIndex لدعم البحث في التقفيلات (مقارنة مرنة للأوقات والتواريخ)
- * @param {string} sheetName - اسم الورقة
- * @param {number} idColumn - عمود الـ ID
- * @param {string} id - الـ ID للبحث
- * @param {object} [closureFilters] - فلاتر إضافية للتقفيلات (cashier, dateFrom, etc.)
- * @returns {Promise<number>} رقم الصف (1-based) أو -1
- */
-async function findRowIndex(sheetName, idColumn, id, closureFilters = null) {
-    const data = await readSheet(sheetName);
-    for (let i = 1; i < data.length; i++) {
-        if (data[i][idColumn] === id) {
-            // إذا كان بحث تقفيلة، تحقق من الفلاتر المرنة
-            if (sheetName === SHEETS.SHIFT_CLOSURES && closureFilters) {
-                const rowCashier = data[i][1]; // عمود الكاشير (الثاني)
-                const rowDateFrom = data[i][2]; // dateFrom
-                const rowTimeFrom = data[i][3]; // timeFrom
-                const rowDateTo = data[i][4];   // dateTo
-                const rowTimeTo = data[i][5];   // timeTo
-                const rowStatus = data[i][18];  // status
-
-                if (rowCashier === closureFilters.cashier &&
-                    rowDateFrom === closureFilters.dateFrom &&
-                    flexibleTimeMatch(rowTimeFrom, closureFilters.timeFrom) &&
-                    rowDateTo === closureFilters.dateTo &&
-                    flexibleTimeMatch(rowTimeTo, closureFilters.timeTo) &&
-                    rowStatus === 'مغلق') {
-                    return i + 1;
-                }
-            } else {
-                return i + 1;
-            }
-        }
-    }
-    return -1;
+    // Handle potential AM/PM conversion if needed (basic check)
+    const normalizeHour = (time) => {
+        let [h, m] = time.split(':').map(Number);
+        if (time.includes('م') && h !== 12) h += 12;
+        if (time.includes('ص') && h === 12) h = 0;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    };
+    
+    return normalizeHour(cleanTime1) === normalizeHour(cleanTime2);
 }
