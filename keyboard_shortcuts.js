@@ -728,8 +728,9 @@ function openRegularExpenseModal() {
     }
 }
 
+
 /**
- * فتح نافذة المصروف المثبت - الإصدار المحسّن (تم تحسينها)
+ * فتح نافذة المصروف المثبت - الإصدار المحسّن (تم تحسينها مرة أخرى)
  */
 function openPinnedExpenseModalEnhanced() {
     if (!checkUserPermission()) return;
@@ -738,13 +739,13 @@ function openPinnedExpenseModalEnhanced() {
     
     const existingModal = document.getElementById('addExpenseModal');
 
-    // فحص أكثر دقة لحالة النافذة
+    // فحص أكثر دقة لحالة النافذة المرئية
     const isModalVisuallyOpen = existingModal && (
         existingModal.style.display === 'flex' || 
         existingModal.style.display === 'block' ||
         existingModal.classList.contains('show') ||
         existingModal.classList.contains('active') ||
-        existingModal.classList.contains('open') // أضفنا 'open'
+        existingModal.classList.contains('open')
     );
 
     if (isModalVisuallyOpen) {
@@ -753,46 +754,74 @@ function openPinnedExpenseModalEnhanced() {
         return;
     }
     
-    // إذا كانت النافذة موجودة ولكنها ليست مفتوحة بصرياً، قم بإعادة تعيينها
+    // إذا كانت النافذة موجودة ولكنها ليست مفتوحة بصرياً، قم بإعادة تعيينها بقوة
     if (existingModal) {
-        console.log('🔧 النافذة موجودة ولكنها ليست مرئية، جاري إعادة تعيين حالتها.');
-        existingModal.style.cssText = ''; // إزالة أي display:none قسري أو أنماط أخرى
-        existingModal.classList.remove('force-closed', 'broken', 'show', 'active', 'open'); // إزالة جميع كلاسات الحالة
+        console.log('🔧 النافذة موجودة ولكنها ليست مرئية، جاري إعادة تعيين حالتها بقوة.');
+        
+        // إزالة أي أنماط display قسرية
+        existingModal.style.cssText = ''; 
+        // إزالة جميع كلاسات الحالة المحتملة
+        existingModal.classList.remove('force-closed', 'broken', 'show', 'active', 'open'); 
+        
         // إزالة أي backdrop قد يكون عالقاً
-        const backdrop = document.querySelector('.modal-backdrop, .backdrop');
-        if (backdrop) backdrop.remove();
+        const backdrops = document.querySelectorAll('.modal-backdrop, .backdrop, [class*="backdrop"], .overlay, [class*="overlay"]');
+        backdrops.forEach(backdrop => {
+            console.log('🗑️ إزالة backdrop عالق:', backdrop.className);
+            backdrop.remove();
+        });
+
+        // إعادة ضبط حالة body
         document.body.classList.remove('modal-open', 'overflow-hidden', 'no-scroll');
         document.body.style.overflow = '';
+
+        // إذا كان هناك Bootstrap instance، حاول إخفاءه لضمان إعادة التعيين الكامل
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            try {
+                const bsModal = bootstrap.Modal.getInstance(existingModal);
+                if (bsModal) {
+                    console.log('🔧 محاولة إخفاء Bootstrap instance لضمان إعادة التعيين.');
+                    bsModal.hide();
+                }
+            } catch (e) {
+                console.log('❌ خطأ في Bootstrap modal instance أثناء إعادة التعيين:', e);
+            }
+        }
     }
     
-    // إعادة تعيين النموذج أولاً
-    if (typeof showAddExpenseModal === 'function') {
-        showAddExpenseModal();
-        console.log('✅ تم فتح نافذة المصروف الأساسية');
-        
-        // تفعيل خيار التثبيت بعد فتح النافذة
-        setTimeout(() => {
-            const pinToggle = document.getElementById('pinExpenseFormToggle');
-            if (pinToggle) {
-                pinToggle.checked = true;
-                console.log('✅ تم تفعيل خيار التثبيت');
-                
-                // تشغيل event التغيير إذا كان موجوداً
-                if (typeof pinToggle.onchange === 'function') {
-                    pinToggle.onchange(new Event('change'));
+    // تأخير بسيط للسماح لأي عمليات إغلاق أو إعادة تعيين بالانتهاء تمامًا
+    setTimeout(() => {
+        // الآن، حاول فتح النافذة
+        if (typeof showAddExpenseModal === 'function') {
+            showAddExpenseModal();
+            console.log('✅ تم فتح نافذة المصروف الأساسية بعد إعادة التعيين.');
+            
+            // تفعيل خيار التثبيت بعد فتح النافذة
+            setTimeout(() => {
+                const pinToggle = document.getElementById('pinExpenseFormToggle');
+                if (pinToggle) {
+                    pinToggle.checked = true;
+                    console.log('✅ تم تفعيل خيار التثبيت');
+                    
+                    // تشغيل event التغيير إذا كان موجوداً
+                    if (typeof pinToggle.onchange === 'function') {
+                        pinToggle.onchange(new Event('change'));
+                    } else {
+                        pinToggle.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                 } else {
-                    pinToggle.dispatchEvent(new Event('change', { bubbles: true }));
+                    console.log('⚠️ لم يتم العثور على زر التثبيت');
                 }
-            } else {
-                console.log('⚠️ لم يتم العثور على زر التثبيت');
-            }
-        }, 300);
-        
-    } else {
-        console.error('❌ دالة showAddExpenseModal غير موجودة');
-        showMessage('وظيفة إضافة المصروفات غير متوفرة', 'error');
-    }
+            }, 300); // تأخير إضافي لتفعيل التثبيت
+            
+        } else {
+            console.error('❌ دالة showAddExpenseModal غير موجودة');
+            showMessage('وظيفة إضافة المصروفات غير متوفرة', 'error');
+        }
+    }, 100); // تأخير 100ms قبل محاولة الفتح
+
 }
+
+
 
 /**
  * فحص حالة نافذة المصروف
