@@ -695,7 +695,27 @@ async function closeCashierByAccountant() {
         window.closingCashierInProgress = false;
     }
 }
-
+/**
+ * Finds the row index of a record by its ID
+ * @param {string} sheetName - The sheet name
+ * @param {number} idColumn - The column index containing the ID
+ * @param {string} id - The ID to search for
+ * @returns {Promise<number>} The row index (1-based) or -1 if not found
+ */
+async function findRowIndex(sheetName, idColumn, id) {
+    try {
+        const data = await readSheet(sheetName);
+        for (let i = 1; i < data.length; i++) {
+            if (data[i][idColumn] === id) {
+                return i + 1; // +1 because sheets are 1-based
+            }
+        }
+        return -1;
+    } catch (error) {
+        console.error('Error finding row index:', error);
+        return -1;
+    }
+}
 /**
  * Loads and displays the accountant's shift closures history.
  */
