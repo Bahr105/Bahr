@@ -82,23 +82,29 @@ function handleKeyboardShortcuts(event) {
 /**
  * معالجة زر Escape بذكاء
  */
+/**
+ * معالجة زر Escape بذكاء - النسخة المحسنة
+ */
 function handleEscapeKey(event) {
     event.preventDefault();
     event.stopPropagation();
 
-    // 1. إغلاق القوائم المنسدلة أولاً
+    // 1. إزالة تأثير البلور أولاً
+    removeBlurEffects();
+
+    // 2. إغلاق القوائم المنسدلة
     if (closeSuggestions()) {
-        console.log('✓ تم إغلاق القوائم المنسدلة');
+        console.log('✓ تم إغلاق القوائم المنسدلة وإزالة البلور');
         return;
     }
 
-    // 2. إغلاق النوافذ المنبثقة
+    // 3. إغلاق النوافذ المنبثقة
     if (closeModals()) {
-        console.log('✓ تم إغلاق النوافذ المنبثقة');
+        console.log('✓ تم إغلاق النوافذ المنبثقة وإزالة البلور');
         return;
     }
 
-    // 3. مسح محتوى حقل الإدخال النشط
+    // 4. مسح محتوى حقل الإدخال النشط
     const activeInput = document.activeElement;
     if (isInputField(activeInput) && activeInput.value.trim() !== '') {
         activeInput.value = '';
@@ -106,44 +112,187 @@ function handleEscapeKey(event) {
         return;
     }
 
-    // 4. الخروج من حقل الإدخال
+    // 5. الخروج من حقل الإدخال
     if (isInputField(activeInput)) {
         activeInput.blur();
         console.log('✓ تم الخروج من حقل الإدخال');
         return;
     }
 
-    // 5. إضافة: الرجوع إلى الواجهة الرئيسية (صفحة الكاشير أو المحاسب)
-    // مثال: إذا كانت صفحة تسجيل الدخول غير مفعلة، نعيد المستخدم إلى صفحته
+    // 6. الرجوع إلى الواجهة الرئيسية
+    navigateToMainInterface();
+
+    console.log('ℹ️ تمت معالجة زر ESC وإزالة البلور');
+}
+
+/**
+ * إزالة تأثيرات البلور من الصفحة
+ */
+function removeBlurEffects() {
+    // إزالة classes التي تسبب البلور
+    const blurClasses = ['blur', 'blurred', 'backdrop-blur', 'modal-backdrop', 'backdrop'];
+    
+    document.body.classList.remove(...blurClasses);
+    
+    // إزالة البلور من العناصر الأخرى
+    document.querySelectorAll('*').forEach(element => {
+        element.classList.remove(...blurClasses);
+    });
+    
+    // إزالة عناصر البلور المضافة ديناميكياً
+    const backdropElements = document.querySelectorAll('.modal-backdrop, .backdrop, [class*="backdrop"]');
+    backdropElements.forEach(el => {
+        if (el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
+    });
+    
+    // إعادة ضبط overflow إذا كان محجوزاً
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    
+    // إزالة أي styles مضاف للبلور
+    document.querySelectorAll('[style*="backdrop-filter"], [style*="filter"]').forEach(el => {
+        if (el.style.backdropFilter && el.style.backdropFilter.includes('blur')) {
+            el.style.backdropFilter = '';
+        }
+        if (el.style.filter && el.style.filter.includes('blur')) {
+            el.style.filter = '';
+        }
+    });
+}
+
+/**
+ * إغلاق جميع النوافذ المنبثقة - النسخة المحسنة
+ */
+function closeModals() {
+    const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"], [class*="modal"]');
+    let closed = false;
+
+    modals.forEach(modal => {
+        const isVisible = modal.style.display === 'block' || 
+                         modal.classList.contains('show') ||
+                         (modal.offsetParent !== null && getComputedStyle(modal).display !== 'none');
+
+        if (isVisible) {
+            // إغلاق النافذة
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+            
+            // تشغيل events الإغلاق إذا كانت موجودة
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) {
+                    bsModal.hide();
+                }
+            }
+            
+            // إطلاق event إغلاق مخصص
+            modal.dispatchEvent(new Event('modalClosed', { bubbles: true }));
+            
+            closed = true;
+        }
+    });
+
+    // إزالة البلور بعد إغلاق النوافذ
+    if (closed) {
+        setTimeout(removeBlurEffects, 50);
+    }
+
+    return closed;
+}
+
+/**
+ * التنقل إلى الواجهة الرئيسية
+ */
+function navigateToMainInterface() {
     const loginPage = document.getElementById('loginPage');
     const cashierPage = document.getElementById('cashierPage');
     const accountantPage = document.getElementById('accountantPage');
 
     if (loginPage && !loginPage.classList.contains('active')) {
         if (cashierPage && cashierPage.classList.contains('active')) {
-            // يمكن تنفيذ أي وظيفة تحديث أو إعادة تحميل هنا إذا لزم الأمر
             console.log('✓ ESC: أنت بالفعل في صفحة الكاشير');
         } else if (accountantPage && accountantPage.classList.contains('active')) {
             console.log('✓ ESC: أنت بالفعل في صفحة المحاسب');
         } else {
-            // إذا لم تكن في أي صفحة، يمكن إعادة توجيه أو إظهار صفحة الكاشير بشكل افتراضي
-            if (cashierPage) {
-                cashierPage.classList.add('active');
-            }
-            if (accountantPage) {
-                accountantPage.classList.remove('active');
-            }
-            if (loginPage) {
-                loginPage.classList.remove('active');
-            }
+            // الرجوع إلى صفحة الكاشير بشكل افتراضي
+            if (cashierPage) cashierPage.classList.add('active');
+            if (accountantPage) accountantPage.classList.remove('active');
+            if (loginPage) loginPage.classList.remove('active');
             console.log('✓ ESC: تم الرجوع إلى صفحة الكاشير');
         }
-        return;
+        
+        // إزالة البلور بعد التنقل
+        removeBlurEffects();
     }
-
-    console.log('ℹ️ لا يوجد شيء لإغلاقه أو الرجوع إليه');
 }
 
+/**
+ * إضافة CSS إضافي لمعالجة مشكلة البلور
+ */
+function addEnhancedBlurStyles() {
+    if (document.querySelector('#enhancedBlurStyles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'enhancedBlurStyles';
+    style.textContent = `
+        /* إزالة البلور عند إغلاق النوافذ */
+        body.modal-open {
+            overflow: auto !important;
+            padding-right: 0 !important;
+        }
+        
+        /* التأكد من إزالة تأثيرات البلور */
+        .modal-blur-removed {
+            backdrop-filter: none !important;
+            filter: none !important;
+        }
+        
+        /* إصلاح لبعض مكتبات CSS الشائعة */
+        .modal-backdrop {
+            display: none !important;
+            opacity: 0 !important;
+        }
+        
+        /* Bootstrap modal fixes */
+        .modal {
+            backdrop-filter: none !important;
+        }
+        
+        .modal.show ~ .modal-backdrop {
+            display: none !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// تحديث دالة initSystem لإضافة الأنماط المحسنة
+function initSystem() {
+    console.log('🚀 بدء تهيئة نظام اختصارات الكيبورد...');
+
+    // إضافة الأنماط
+    addKeyboardShortcutsStyles();
+    addEnhancedBlurStyles(); // <-- إضافة هذه السطر
+
+    // تهيئة الاختصارات
+    initializeKeyboardShortcuts();
+
+    // عرض رسالة ترحيبية
+    setTimeout(() => {
+        const storageKey = 'keyboard_shortcuts_welcome_shown';
+        try {
+            if (!localStorage.getItem(storageKey)) {
+                showMessage('💡 اضغط F1 لعرض جميع اختصارات الكيبورد', 'info', 5000);
+                localStorage.setItem(storageKey, 'true');
+            }
+        } catch (e) {
+            // تجاهل أخطاء localStorage
+        }
+    }, 2000);
+
+    
+}
 /**
  * معالجة زر Enter في حقول الإدخال
  */
