@@ -1102,56 +1102,59 @@ if (document.readyState === 'loading') {
 /**
  * كود تشخيصي لاكتشاف مصدر البلور
  */
+/**
+ * كود تشخيصي آمن لاكتشاف مصدر البلور
+ */
 function diagnoseBlurIssue() {
-    console.group('🔍 تشخيص مشكلة البلور');
-    
-    // 1. فحص classes في body
-    console.log('📋 Body classes:', document.body.className);
-    
-    // 2. فحص styles في body
-    const bodyStyle = window.getComputedStyle(document.body);
-    console.log('🎨 Body styles - backdrop-filter:', bodyStyle.backdropFilter);
-    console.log('🎨 Body styles - filter:', bodyStyle.filter);
-    console.log('🎨 Body styles - overflow:', bodyStyle.overflow);
-    
-    // 3. البحث عن عناصر البلور
-    const blurElements = document.querySelectorAll('*');
-    let foundBlur = false;
-    
-    blurElements.forEach(el => {
-        const style = window.getComputedStyle(el);
-        if (style.backdropFilter.includes('blur') || style.filter.includes('blur')) {
-            console.log('❌ عنصر به بلور:', el, {
-                backdropFilter: style.backdropFilter,
-                filter: style.filter,
-                classes: el.className
-            });
-            foundBlur = true;
+    try {
+        console.group('🔍 تشخيص مشكلة البلور');
+        
+        // 1. فحص classes في body
+        console.log('📋 Body classes:', document.body.className);
+        
+        // 2. فحص styles في body
+        const bodyStyle = window.getComputedStyle(document.body);
+        console.log('🎨 Body styles - backdrop-filter:', bodyStyle.backdropFilter);
+        console.log('🎨 Body styles - filter:', bodyStyle.filter);
+        
+        // 3. البحث عن عناصر البلور (بحد أقصى 100 عنصر)
+        const allElements = document.querySelectorAll('body, .modal, .modal-backdrop, .backdrop');
+        let foundBlur = false;
+        
+        for (let i = 0; i < allElements.length; i++) {
+            const el = allElements[i];
+            const style = window.getComputedStyle(el);
+            
+            if (style.backdropFilter.includes('blur') || style.filter.includes('blur')) {
+                console.log('❌ عنصر به بلور:', el.tagName, {
+                    backdropFilter: style.backdropFilter,
+                    filter: style.filter,
+                    classes: el.className
+                });
+                foundBlur = true;
+                break; // اكتفِ بأول عنصر
+            }
         }
-    });
-    
-    // 4. فحص النوافذ النشطة
-    const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"]');
-    modals.forEach(modal => {
-        const style = window.getComputedStyle(modal);
-        console.log('🪟 نافذة:', modal, {
-            display: style.display,
-            visibility: style.visibility,
-            classes: modal.className
-        });
-    });
-    
-    // 5. فحص عناصر backdrop
-    const backdrops = document.querySelectorAll('.modal-backdrop, .backdrop, [class*="backdrop"]');
-    console.log('🎭 عناصر backdrop:', backdrops);
-    
-    if (!foundBlur && backdrops.length === 0) {
-        console.log('✅ لم يتم العثور على عناصر بلور واضحة');
+        
+        // 4. فحص النوافذ النشطة
+        const modals = document.querySelectorAll('.modal, .dialog');
+        console.log('🪟 عدد النوافذ:', modals.length);
+        
+        // 5. فحص عناصر backdrop
+        const backdrops = document.querySelectorAll('.modal-backdrop, .backdrop');
+        console.log('🎭 عناصر backdrop:', backdrops.length);
+        
+        console.groupEnd();
+        return foundBlur || backdrops.length > 0;
+        
+    } catch (error) {
+        console.error('❌ خطأ في التشخيص:', error);
+        console.groupEnd();
+        return false;
     }
-    
-    console.groupEnd();
-    return foundBlur || backdrops.length > 0;
 }
+
+
 
 /**
  * الإصدار القوي لإزالة البلور
