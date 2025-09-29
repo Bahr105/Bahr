@@ -1099,7 +1099,169 @@ if (document.readyState === 'loading') {
 } else {
     initSystem();
 }
+/**
+ * كود تشخيصي لاكتشاف مصدر البلور
+ */
+function diagnoseBlurIssue() {
+    console.group('🔍 تشخيص مشكلة البلور');
+    
+    // 1. فحص classes في body
+    console.log('📋 Body classes:', document.body.className);
+    
+    // 2. فحص styles في body
+    const bodyStyle = window.getComputedStyle(document.body);
+    console.log('🎨 Body styles - backdrop-filter:', bodyStyle.backdropFilter);
+    console.log('🎨 Body styles - filter:', bodyStyle.filter);
+    console.log('🎨 Body styles - overflow:', bodyStyle.overflow);
+    
+    // 3. البحث عن عناصر البلور
+    const blurElements = document.querySelectorAll('*');
+    let foundBlur = false;
+    
+    blurElements.forEach(el => {
+        const style = window.getComputedStyle(el);
+        if (style.backdropFilter.includes('blur') || style.filter.includes('blur')) {
+            console.log('❌ عنصر به بلور:', el, {
+                backdropFilter: style.backdropFilter,
+                filter: style.filter,
+                classes: el.className
+            });
+            foundBlur = true;
+        }
+    });
+    
+    // 4. فحص النوافذ النشطة
+    const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"]');
+    modals.forEach(modal => {
+        const style = window.getComputedStyle(modal);
+        console.log('🪟 نافذة:', modal, {
+            display: style.display,
+            visibility: style.visibility,
+            classes: modal.className
+        });
+    });
+    
+    // 5. فحص عناصر backdrop
+    const backdrops = document.querySelectorAll('.modal-backdrop, .backdrop, [class*="backdrop"]');
+    console.log('🎭 عناصر backdrop:', backdrops);
+    
+    if (!foundBlur && backdrops.length === 0) {
+        console.log('✅ لم يتم العثور على عناصر بلور واضحة');
+    }
+    
+    console.groupEnd();
+    return foundBlur || backdrops.length > 0;
+}
 
+/**
+ * الإصدار القوي لإزالة البلور
+ */
+function removeBlurEffectsForce() {
+    console.log('🛠️ تشغيل الإزالة القوية للبلور...');
+    
+    // 1. إزالة جميع classes المشتبه بها
+    const suspectClasses = [
+        'blur', 'blurred', 'backdrop-blur', 'modal-open', 'overflow-hidden',
+        'no-scroll', 'scroll-lock', 'dialog-open', 'modal-active'
+    ];
+    
+    document.body.classList.remove(...suspectClasses);
+    document.documentElement.classList.remove(...suspectClasses);
+    
+    // 2. إزالة جميع عناصر backdrop
+    const backdrops = document.querySelectorAll(`
+        .modal-backdrop, .backdrop, [class*="backdrop"],
+        .overlay, [class*="overlay"],
+        .dialog-backdrop, [class*="dialog"]
+    `);
+    
+    backdrops.forEach(el => {
+        console.log('🗑️ إزالة backdrop:', el);
+        el.remove();
+    });
+    
+    // 3. إعادة ضبط جميع الـ styles
+    document.body.style.cssText = '';
+    document.documentElement.style.cssText = '';
+    
+    // 4. إعادة ضبط overflow في جميع العناصر
+    document.querySelectorAll('*').forEach(el => {
+        if (el.style.overflow === 'hidden') {
+            el.style.overflow = '';
+        }
+    });
+    
+    // 5. إغلاق جميع النوافذ بالقوة
+    const modals = document.querySelectorAll(`
+        .modal, .dialog, [role="dialog"],
+        .popup, [class*="modal"], [class*="popup"]
+    `);
+    
+    modals.forEach(modal => {
+        modal.style.display = 'none';
+        modal.classList.remove('show', 'active', 'open');
+        
+        // إطلاق events الإغلاق
+        modal.dispatchEvent(new Event('close', { bubbles: true }));
+        modal.dispatchEvent(new Event('hidden', { bubbles: true }));
+    });
+    
+    // 6. إزالة أي event listeners قد تسبب المشكلة
+    document.removeEventListener('keydown', handleKeyboardShortcuts);
+    setTimeout(() => {
+        document.addEventListener('keydown', handleKeyboardShortcuts, true);
+    }, 100);
+    
+    console.log('✅ تمت الإزالة القوية للبلور');
+}
+
+/**
+ * تحديث دالة handleEscapeKey
+ */
+function handleEscapeKey(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    console.log('⎋ زر ESC مضغوط - بدء التشخيص...');
+    
+    // التشخيص أولاً
+    const hasBlur = diagnoseBlurIssue();
+    
+    if (hasBlur) {
+        console.log('⚠️ تم اكتشاف بلور - استخدام الإزالة القوية');
+        removeBlurEffectsForce();
+    } else {
+        // الإزالة العادية
+        removeBlurEffects();
+    }
+
+    // الاستمرار في المنطق العادي
+    if (closeSuggestions()) {
+        console.log('✓ تم إغلاق القوائم المنسدلة');
+        return;
+    }
+
+    if (closeModals()) {
+        console.log('✓ تم إغلاق النوافذ المنبثقة');
+        return;
+    }
+
+    const activeInput = document.activeElement;
+    if (isInputField(activeInput) && activeInput.value.trim() !== '') {
+        activeInput.value = '';
+        console.log('✓ تم مسح محتوى الحقل');
+        return;
+    }
+
+    if (isInputField(activeInput)) {
+        activeInput.blur();
+        console.log('✓ تم الخروج من حقل الإدخال');
+        return;
+    }
+
+    navigateToMainInterface();
+    console.log('ℹ️ تمت معالجة زر ESC');
+}
 // =====================================
 // 📤 تصدير الوظائف للاستخدام الخارجي
 // =====================================
