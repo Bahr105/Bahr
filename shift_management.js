@@ -587,8 +587,16 @@ function updateAccountantClosureDisplay() {
  * Closes a cashier's shift by the accountant, saving the closure data.
  */
 async function closeCashierByAccountant() {
+    // منع الإضافة المزدوجة
+    if (window.closingCashierInProgress) {
+        showMessage('جاري تقفيل الشيفت، يرجى الانتظار...', 'warning');
+        return;
+    }
+    window.closingCashierInProgress = true;
+
     if (!window.currentClosureData) {
         showMessage('يرجى البحث عن بيانات الكاشير أولاً.', 'warning');
+        window.closingCashierInProgress = false;
         return;
     }
 
@@ -596,6 +604,7 @@ async function closeCashierByAccountant() {
     const newMindTotal = newMindTotalInput ? parseFloat(newMindTotalInput.value) : NaN;
     if (isNaN(newMindTotal) || newMindTotal < 0) {
         showMessage('يرجى إدخال قيمة صحيحة لإجمالي نيو مايند.', 'warning');
+        window.closingCashierInProgress = false;
         return;
     }
 
@@ -605,7 +614,7 @@ async function closeCashierByAccountant() {
 
     if (addReturns) {
         cashierTotalForComparison = cashierTotalForComparison + window.currentClosureData.totalReturns;
-        grandTotalAfterReturnsValue = grandTotalForComparison;
+        grandTotalAfterReturnsValue = cashierTotalForComparison;
     } else {
         grandTotalAfterReturnsValue = cashierTotalForComparison;
     }
@@ -658,6 +667,7 @@ async function closeCashierByAccountant() {
         showMessage('حدث خطأ أثناء تقفيل شيفت الكاشير.', 'error');
     } finally {
         showLoading(false);
+        window.closingCashierInProgress = false;
     }
 }
 
