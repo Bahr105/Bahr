@@ -609,21 +609,38 @@ async function closeCashierByAccountant() {
 
     showLoading(true);
     try {
-        // البحث عن تقفيلة الكاشير الأصلية
-        const allClosures = await loadShiftClosures({});
-        const originalClosure = allClosures.find(closure => 
-            closure.cashier === window.currentClosureData.cashier &&
-            closure.dateFrom === window.currentClosureData.dateFrom &&
-            closure.timeFrom === window.currentClosureData.timeFrom &&
-            closure.dateTo === window.currentClosureData.dateTo &&
-            closure.timeTo === window.currentClosureData.timeTo &&
-            closure.status === 'مغلق' // التأكد أنها التقفيلة الأصلية للكاشير
-        );
+        // فلاتر البحث المرنة للتقفيلة الأصلية
+        const searchFilters = {
+            cashier: window.currentClosureData.cashier,
+            dateFrom: window.currentClosureData.dateFrom,
+            timeFrom: window.currentClosureData.timeFrom,
+            dateTo: window.currentClosureData.dateTo,
+            timeTo: window.currentClosureData.timeTo
+        };
 
-        if (!originalClosure) {
-            showMessage('لم يتم العثور على تقفيلة الكاشير الأصلية.', 'error');
-            window.closingCashierInProgress = false;
-            return;
+        // البحث عن التقفيلة الأصلية باستخدام findRowIndex المحسن
+        const rowIndex = await findRowIndex(SHEETS.SHIFT_CLOSURES, 0, null, searchFilters); // لا نحتاج ID، نبحث بالفلاتر
+
+        const allClosures = await loadShiftClosures({});
+        let originalClosure = null;
+        if (rowIndex !== -1) {
+            // استرجاع السجل من data
+            const data = await readSheet(SHEETS.SHIFT_CLOSURES);
+            const rowData = data[rowIndex - 1]; // 0-based
+            originalClosure = {
+                id: rowData[0],
+                // ... باقي الحقول من rowData
+                // (يمكنك تعبئتها كاملة هنا، أو استخدام loadShiftClosures مع فلاتر)
+            };
+            // أو ابحث في allClosures باستخدام الفلاتر المرنة
+            originalClosure = allClosures.find(c => 
+                c.cashier === searchFilters.cashier &&
+                c.dateFrom === searchFilters.dateFrom &&
+                flexibleTimeMatch(c.timeFrom, searchFilters.timeFrom) &&
+                c.dateTo === searchFilters.dateTo &&
+                flexibleTimeMatch(c.timeTo, searchFilters.timeTo) &&
+                c.status === 'مغلق'
+            );
         }
 
         const addReturns = document.getElementById('deductReturnsAccountant')?.checked || false;
@@ -633,63 +650,60 @@ async function closeCashierByAccountant() {
         if (addReturns) {
             cashierTotalForComparison = cashierTotalForComparison + window.currentClosureData.totalReturns;
             grandTotalAfterReturnsValue = cashierTotalForComparison;
-        } else {
-            grandTotalAfterReturnsValue = cashierTotalForComparison;
         }
 
         const difference = cashierTotalForComparison - newMindTotal;
         const now = new Date();
 
-        // تحديث البيانات في السجل الأصلي
+        // إعداد البيانات المحدثة
         const updatedData = [
-            originalClosure.id, // استخدام نفس ال ID
-            originalClosure.cashier,
-            originalClosure.dateFrom,
-            originalClosure.timeFrom,
-            originalClosure.dateTo,
-            originalClosure.timeTo,
-            originalClosure.totalExpenses.toFixed(2),
-            originalClosure.expenseCount,
-            originalClosure.totalInsta.toFixed(2),
-            originalClosure.instaCount,
-            originalClosure.totalVisa.toFixed(2),
-            originalClosure.visaCount,
-            originalClosure.totalOnline.toFixed(2),
-            originalClosure.onlineCount,
-            originalClosure.grandTotal.toFixed(2),
-            originalClosure.drawerCash.toFixed(2),
-            newMindTotal.toFixed(2), // إضافة NewMind Total
-            difference.toFixed(2),   // إضافة الفرق
-            'مغلق بواسطة المحاسب',   // تحديث الحالة
-            now.toISOString().split('T')[0], // تاريخ التقفيل
-            now.toTimeString().split(' ')[0], // وقت التقفيل
-            currentUser.username,    // اسم المحاسب
-            originalClosure.totalReturns.toFixed(2),
+            originalClosure ? originalClosure.id : 'SHIFT_ACC_' + now.getTime(), // استخدم ID القديم إذا وجد
+            window.currentClosureData.cashier,
+            window.currentClosureData.dateFrom,
+            window.currentClosureData.timeFrom,
+            window.currentClosureData.dateTo,
+            window.currentClosureData.timeTo,
+            window.currentClosureData.totalNormal.toFixed(2), // استخدم البيانات من currentClosureData
+            window.currentClosureData.normalCount,
+            window.currentClosureData.totalInsta.toFixed(2),
+            window.currentClosureData.instaCount,
+            window.currentClosureData.totalVisa.toFixed(2),
+            window.currentClosureData.visaCount,
+            window.currentClosureData.totalOnline.toFixed(2),
+            window.currentClosureData.onlineCount,
+            window.currentClosureData.grandTotal.toFixed(2),
+            window.currentClosureData.drawerCash.toFixed(2),
+            newMindTotal.toFixed(2),
+            difference.toFixed(2),
+            'مغلق بواسطة المحاسب',
+            now.toISOString().split('T')[0],
+            now.toTimeString().split(' ')[0].substring(0, 8), // HH:MM:SS
+            currentUser .username,
+            window.currentClosureData.totalReturns.toFixed(2),
             grandTotalAfterReturnsValue.toFixed(2)
         ];
 
-        // البحث عن رقم الصف لتحديثه
-        const rowIndex = await findRowIndex(SHEETS.SHIFT_CLOSURES, 0, originalClosure.id);
-        
-        if (rowIndex === -1) {
-            showMessage('لم يتم العثور على صف التقفيلة الأصلية.', 'error');
-            window.closingCashierInProgress = false;
-            return;
+        let result;
+        if (originalClosure && rowIndex !== -1) {
+            // تحديث السجل القديم
+            result = await updateSheet(SHEETS.SHIFT_CLOSURES, `A${rowIndex}:X${rowIndex}`, [updatedData]);
+            showMessage('تم تحديث التقفيلة الأصلية بنجاح.', 'success');
+        } else {
+            // إنشاء سجل جديد (مع تحذير)
+            showMessage('لم يتم العثور على تقفيلة أصلية، سيتم إنشاء سجل جديد.', 'warning');
+            result = await appendToSheet(SHEETS.SHIFT_CLOSURES, updatedData);
         }
 
-        // تحديث السجل الأصلي بدلاً من إضافة سجل جديد
-        const result = await updateSheet(SHEETS.SHIFT_CLOSURES, `A${rowIndex}:X${rowIndex}`, [updatedData]);
-
         if (result.success) {
-            showMessage(`تم تقفيل شيفت الكاشير ${users.find(u => u.username === window.currentClosureData.cashier)?.name || window.currentClosureData.cashier} بنجاح بواسطة المحاسب.`, 'success');
             resetAccountantShiftForm();
             loadAccountantShiftClosuresHistory();
+            await loadCashierPreviousClosures(); // تحديث للكاشير إذا كان متاحاً
         } else {
-            showMessage('فشل تقفيل شيفت الكاشير.', 'error');
+            showMessage('فشل في حفظ التقفيل.', 'error');
         }
     } catch (error) {
         console.error('Error closing cashier shift by accountant:', error);
-        showMessage('حدث خطأ أثناء تقفيل شيفت الكاشير.', 'error');
+        showMessage('حدث خطأ أثناء تقفيل شيفت الكاشير: ' + error.message, 'error');
     } finally {
         showLoading(false);
         window.closingCashierInProgress = false;
@@ -697,29 +711,6 @@ async function closeCashierByAccountant() {
 }
 
 
-
-
-/**
- * Finds the row index of a record by its ID
- * @param {string} sheetName - The sheet name
- * @param {number} idColumn - The column index containing the ID
- * @param {string} id - The ID to search for
- * @returns {Promise<number>} The row index (1-based) or -1 if not found
- */
-async function findRowIndex(sheetName, idColumn, id) {
-    try {
-        const data = await readSheet(sheetName);
-        for (let i = 1; i < data.length; i++) {
-            if (data[i][idColumn] === id) {
-                return i + 1; // +1 because sheets are 1-based
-            }
-        }
-        return -1;
-    } catch (error) {
-        console.error('Error finding row index:', error);
-        return -1;
-    }
-}
 /**
  * Loads and displays the accountant's shift closures history.
  */
