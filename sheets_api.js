@@ -170,14 +170,17 @@ async function findRowIndex(sheetName, columnIndex, searchValue, closureFilters 
             const rowTimeTo = data[i][5];   // Column F: timeTo
             const rowStatus = data[i][18];  // Column S: status
 
-            match = rowCashier === closureFilters.cashier &&
-                    rowDateFrom === closureFilters.dateFrom &&
-                    flexibleTimeMatch(rowTimeFrom, closureFilters.timeFrom) &&
-                    rowDateTo === closureFilters.dateTo &&
-                    flexibleTimeMatch(rowTimeTo, closureFilters.timeTo) &&
-                    rowStatus === 'مغلق';
+            // Ensure all filter properties are present before comparison
+            const cashierMatch = closureFilters.cashier === undefined || rowCashier === closureFilters.cashier;
+            const dateFromMatch = closureFilters.dateFrom === undefined || rowDateFrom === closureFilters.dateFrom;
+            const timeFromMatch = closureFilters.timeFrom === undefined || flexibleTimeMatch(rowTimeFrom, closureFilters.timeFrom);
+            const dateToMatch = closureFilters.dateTo === undefined || rowDateTo === closureFilters.dateTo;
+            const timeToMatch = closureFilters.timeTo === undefined || flexibleTimeMatch(rowTimeTo, closureFilters.timeTo);
+            const statusMatch = closureFilters.status === undefined || rowStatus === closureFilters.status; // Added status filter
+
+            match = cashierMatch && dateFromMatch && timeFromMatch && dateToMatch && timeToMatch && statusMatch;
             
-            console.log(`Row ${i+1} match for filters:`, match, { rowCashier, rowDateFrom, rowTimeFrom, rowDateTo, rowTimeTo, rowStatus }); // Debug
+            console.log(`Row ${i+1} match for filters:`, match, { rowCashier, rowDateFrom, rowTimeFrom, rowDateTo, rowTimeTo, rowStatus, filterStatus: closureFilters.status }); // Debug
         } else if (searchValue !== null && searchValue !== undefined) {
             // Standard search by value (ID)
             if (sheetName === SHEETS.CATEGORIES) {
@@ -238,8 +241,8 @@ function flexibleTimeMatch(time1, time2) {
     // Handle potential AM/PM conversion if needed (basic check)
     const normalizeHour = (time) => {
         let [h, m] = time.split(':').map(Number);
-        if (time.includes('م') && h !== 12) h += 12;
-        if (time.includes('ص') && h === 12) h = 0;
+        // This part might need adjustment based on actual time format in sheets (e.g., 13:00 vs 01:00 PM)
+        // For now, assuming HH:MM 24-hour format or consistent 12-hour format.
         return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
     };
     
