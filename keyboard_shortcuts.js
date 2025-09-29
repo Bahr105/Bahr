@@ -8,13 +8,13 @@
 function initializeKeyboardShortcuts() {
     // إزالة المستمع القديم إن وجد
     document.removeEventListener('keydown', handleKeyboardShortcuts);
-    
+
     // إضافة المستمع الجديد
     document.addEventListener('keydown', handleKeyboardShortcuts, true);
-    
+
     // إعداد التنقل في القوائم المنسدلة
     setupSearchSuggestionNavigation();
-    
+
     console.log('✅ نظام اختصارات الكيبورد جاهز');
 }
 
@@ -25,54 +25,54 @@ function handleKeyboardShortcuts(event) {
     const key = event.key;
     const target = event.target;
     const isInput = isInputField(target);
-    
+
     // معالجة Escape بشكل خاص
     if (key === 'Escape') {
         handleEscapeKey(event);
         return;
     }
-    
+
     // معالجة Enter في حقول الإدخال
     if (key === 'Enter' && isInput) {
         handleEnterInInput(event);
         return;
     }
-    
+
     // معالجة الأسهم في حقول البحث
     if ((key === 'ArrowUp' || key === 'ArrowDown') && isInput) {
         handleArrowKeysInSearch(target, event);
         return;
     }
-    
+
     // تجاهل الاختصارات إذا كان المستخدم يكتب
     if (isInput && !event.ctrlKey && !event.metaKey && !event.altKey) {
         return;
     }
-    
+
     // منع اختصارات المتصفح المتعارضة
     if (shouldPreventDefault(event)) {
         event.preventDefault();
         event.stopPropagation();
     }
-    
+
     // معالجة Function Keys
     if (key.startsWith('F') && key.length <= 3) {
         handleFunctionKeys(event);
         return;
     }
-    
+
     // معالجة Ctrl/Cmd + مفتاح
     if (event.ctrlKey || event.metaKey) {
         handleCtrlShortcuts(event);
         return;
     }
-    
+
     // معالجة Alt + مفتاح
     if (event.altKey) {
         handleAltShortcuts(event);
         return;
     }
-    
+
     // معالجة مفاتيح منفردة
     if (!isInput) {
         handleSingleKeyShortcuts(event);
@@ -85,19 +85,19 @@ function handleKeyboardShortcuts(event) {
 function handleEscapeKey(event) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     // 1. إغلاق القوائم المنسدلة أولاً
     if (closeSuggestions()) {
         console.log('✓ تم إغلاق القوائم المنسدلة');
         return;
     }
-    
+
     // 2. إغلاق النوافذ المنبثقة
     if (closeModals()) {
         console.log('✓ تم إغلاق النوافذ المنبثقة');
         return;
     }
-    
+
     // 3. مسح محتوى حقل الإدخال النشط
     const activeInput = document.activeElement;
     if (isInputField(activeInput) && activeInput.value.trim() !== '') {
@@ -105,14 +105,14 @@ function handleEscapeKey(event) {
         console.log('✓ تم مسح محتوى الحقل');
         return;
     }
-    
+
     // 4. الخروج من حقل الإدخال
     if (isInputField(activeInput)) {
         activeInput.blur();
         console.log('✓ تم الخروج من حقل الإدخال');
         return;
     }
-    
+
     console.log('ℹ️ لا يوجد شيء لإغلاقه');
 }
 
@@ -122,7 +122,7 @@ function handleEscapeKey(event) {
 function handleEnterInInput(event) {
     const target = event.target;
     const searchId = target.id;
-    
+
     // البحث في القوائم المنسدلة
     const searchFields = {
         'expenseCategorySearch': 'expenseCategorySuggestions',
@@ -131,32 +131,32 @@ function handleEnterInInput(event) {
         'supplierSearch': 'supplierSuggestions',
         'productSearch': 'productSuggestions'
     };
-    
+
     if (searchFields[searchId]) {
         event.preventDefault();
         selectActiveOrFirstSuggestion(searchFields[searchId]);
         return;
     }
-    
+
     // حقول البحث العامة
     if (target.type === 'search' || target.classList.contains('search-input')) {
         event.preventDefault();
         performSearch(target.value);
         return;
     }
-    
+
     // Ctrl/Cmd + Enter لإرسال النماذج
     if (event.ctrlKey || event.metaKey) {
         event.preventDefault();
         submitParentForm(target);
         return;
     }
-    
+
     // Enter عادي في textarea يبقى سطر جديد
     if (target.tagName.toLowerCase() === 'textarea') {
         return; // اسمح بالسلوك الافتراضي
     }
-    
+
     // Enter عادي في input ينتقل للحقل التالي أو يرسل النموذج
     event.preventDefault();
     const form = target.closest('form');
@@ -164,7 +164,7 @@ function handleEnterInInput(event) {
         const inputs = Array.from(form.querySelectorAll('input, select, textarea, button'));
         const currentIndex = inputs.indexOf(target);
         const nextInput = inputs[currentIndex + 1];
-        
+
         if (nextInput && nextInput.type !== 'submit' && nextInput.tagName !== 'BUTTON') {
             nextInput.focus();
         } else {
@@ -178,7 +178,7 @@ function handleEnterInInput(event) {
  */
 function shouldPreventDefault(event) {
     const key = event.key.toLowerCase();
-    
+
     const conflicts = [
         { ctrl: true, key: 'p' },      // طباعة
         { ctrl: true, key: 'n' },      // نافذة جديدة
@@ -194,7 +194,7 @@ function shouldPreventDefault(event) {
         { alt: true, key: '3' },
         { alt: true, key: '4' }
     ];
-    
+
     return conflicts.some(conflict => {
         const ctrlMatch = !conflict.ctrl || (event.ctrlKey || event.metaKey);
         const altMatch = !conflict.alt || event.altKey;
@@ -209,7 +209,7 @@ function shouldPreventDefault(event) {
 function handleFunctionKeys(event) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     const actions = {
         'F1': () => openHelpModal(),
         'F2': () => openQuickSearch(),
@@ -218,7 +218,7 @@ function handleFunctionKeys(event) {
         'F5': () => refreshCurrentView(),
         'F9': () => toggleSidebar()
     };
-    
+
     const action = actions[event.key];
     if (action) {
         action();
@@ -231,19 +231,26 @@ function handleFunctionKeys(event) {
 function handleCtrlShortcuts(event) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     const key = event.key.toLowerCase();
     const actions = {
         'n': () => openRegularExpenseModal(),
         'p': () => openPinnedExpenseModal(),
         'f': () => openQuickSearch(),
         's': () => saveCurrentData(),
-        'r': () => refreshCurrentView(),
+        'r': () => {
+            // دعم إعادة تحميل الصفحة عند Ctrl+R
+            if (typeof refreshCurrentView === 'function') {
+                refreshCurrentView();
+            } else if (typeof location !== 'undefined') {
+                location.reload();
+            }
+        },
         'h': () => openHelpModal(),
         'q': () => quickLogout(),
         '/': () => openHelpModal() // مساعدة بديلة
     };
-    
+
     const action = actions[key];
     if (action) {
         action();
@@ -256,7 +263,7 @@ function handleCtrlShortcuts(event) {
 function handleAltShortcuts(event) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     const key = event.key;
     const sections = {
         '1': 'dashboard',
@@ -268,7 +275,7 @@ function handleAltShortcuts(event) {
         '4': 'settings',
         '٤': 'settings'
     };
-    
+
     const section = sections[key];
     if (section) {
         navigateToSection(section);
@@ -280,7 +287,7 @@ function handleAltShortcuts(event) {
  */
 function handleSingleKeyShortcuts(event) {
     const key = event.key;
-    
+
     const actions = {
         '/': () => {
             event.preventDefault();
@@ -297,7 +304,7 @@ function handleSingleKeyShortcuts(event) {
             }
         }
     };
-    
+
     const action = actions[key];
     if (action) {
         action();
@@ -320,13 +327,13 @@ function handleArrowKeysInSearch(target, event) {
         'supplierSearch': 'supplierSuggestions',
         'productSearch': 'productSuggestions'
     };
-    
+
     const suggestionsId = suggestionsMap[searchId];
     if (!suggestionsId) return;
-    
+
     const suggestions = document.getElementById(suggestionsId);
     if (!suggestions || suggestions.style.display === 'none') return;
-    
+
     event.preventDefault();
     navigateSuggestions(suggestions, event.key);
 }
@@ -337,19 +344,25 @@ function handleArrowKeysInSearch(target, event) {
 function navigateSuggestions(container, direction) {
     const items = Array.from(container.querySelectorAll('.suggestion-item:not([style*="display: none"])'));
     if (items.length === 0) return;
-    
+
     const current = container.querySelector('.suggestion-item.active');
     let index = current ? items.indexOf(current) : -1;
-    
+
     if (direction === 'ArrowDown') {
         index = (index + 1) % items.length;
     } else if (direction === 'ArrowUp') {
         index = index <= 0 ? items.length - 1 : index - 1;
     }
-    
+
     items.forEach(item => item.classList.remove('active'));
     items[index].classList.add('active');
-    items[index].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+    // Scroll only if item is out of view
+    const itemRect = items[index].getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    if (itemRect.top < containerRect.top || itemRect.bottom > containerRect.bottom) {
+        items[index].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
 }
 
 /**
@@ -358,10 +371,10 @@ function navigateSuggestions(container, direction) {
 function selectActiveOrFirstSuggestion(suggestionsId) {
     const suggestions = document.getElementById(suggestionsId);
     if (!suggestions || suggestions.style.display === 'none') return false;
-    
+
     const active = suggestions.querySelector('.suggestion-item.active');
     const target = active || suggestions.querySelector('.suggestion-item');
-    
+
     if (target) {
         target.click();
         return true;
@@ -389,7 +402,7 @@ function setupSearchSuggestionNavigation() {
 function closeSuggestions() {
     const suggestions = document.querySelectorAll('.suggestions, .dropdown-menu, [class*="suggestion"]');
     let closed = false;
-    
+
     suggestions.forEach(s => {
         if (s.style.display !== 'none' && s.offsetParent !== null) {
             s.style.display = 'none';
@@ -397,7 +410,7 @@ function closeSuggestions() {
             closed = true;
         }
     });
-    
+
     return closed;
 }
 
@@ -407,21 +420,23 @@ function closeSuggestions() {
 function closeModals() {
     const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"], [class*="modal"]');
     let closed = false;
-    
+
     modals.forEach(modal => {
         const isVisible = modal.style.display === 'block' || 
                          modal.classList.contains('show') ||
                          (modal.offsetParent !== null && getComputedStyle(modal).display !== 'none');
-        
+
         if (isVisible) {
             modal.style.display = 'none';
             modal.classList.remove('show');
             closed = true;
         }
     });
-    
+
     return closed;
 }
+
+
 
 // =====================================
 // 🛠️ دوال التطبيق
@@ -716,15 +731,29 @@ function performSearch(query) {
 /**
  * التحقق من أن العنصر هو حقل إدخال
  */
+// =====================================
+// 🛠️ دوال التطبيق
+// =====================================
+
+// ... باقي دوال التطبيق كما هي بدون تغيير ...
+
+// =====================================
+// 🔧 دوال مساعدة
+// =====================================
+
+/**
+ * التحقق من أن العنصر هو حقل إدخال
+ */
 function isInputField(element) {
     if (!element) return false;
-    
+
     const tag = element.tagName.toLowerCase();
     const isInput = ['input', 'textarea', 'select'].includes(tag);
     const isEditable = element.isContentEditable;
-    
+
     return isInput || isEditable;
 }
+
 
 /**
  * التحقق من صلاحيات المستخدم
@@ -853,6 +882,8 @@ function addKeyboardShortcutsStyles() {
     document.head.appendChild(style);
 }
 
+
+
 // =====================================
 // 🚀 التهيئة التلقائية
 // =====================================
@@ -862,13 +893,13 @@ function addKeyboardShortcutsStyles() {
  */
 function initSystem() {
     console.log('🚀 بدء تهيئة نظام اختصارات الكيبورد...');
-    
+
     // إضافة الأنماط
     addKeyboardShortcutsStyles();
-    
+
     // تهيئة الاختصارات
     initializeKeyboardShortcuts();
-    
+
     // عرض رسالة ترحيبية (مرة واحدة فقط)
     setTimeout(() => {
         const storageKey = 'keyboard_shortcuts_welcome_shown';
@@ -881,7 +912,7 @@ function initSystem() {
             // تجاهل أخطاء localStorage
         }
     }, 2000);
-    
+
     console.log('✅ نظام اختصارات الكيبورد جاهز للاستخدام!');
 }
 
