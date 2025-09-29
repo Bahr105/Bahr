@@ -82,20 +82,18 @@ function handleKeyboardShortcuts(event) {
 /**
  * معالجة زر Escape - الإصدار المحسّن
  */
-function handleEscapeKey(event) {
+function handleEscapeKeyEnhanced(event) {
     event.preventDefault();
     event.stopPropagation();
 
-    console.log('⎋ زر ESC - بدء الإغلاق الذكي...');
+    console.log('⎋ زر ESC - بدء الإغلاق الآمن...');
 
     // التشخيص أولاً
     debugModalClosing();
 
-    // 1. محاولة إغلاق النوافذ المحسّن
-    if (closeModalsEnhanced()) {
+    // 1. محاولة إغلاق النوافذ الآمن
+    if (closeModalsSafe()) {
         console.log('✅ تم إغلاق النوافذ بنجاح');
-        // إزالة البلور بعد الإغلاق
-        removeBlurEffectsForce(); // استخدام الإزالة القوية
         return;
     }
 
@@ -138,8 +136,7 @@ function closeExpenseModalSpecific() {
         '#expenseModal',
         '.expense-modal',
         '[id*="expense"][id*="modal"]',
-        '[class*="expense"][class*="modal"]',
-        '.modal:has([id*="expense"]), .modal:has([class*="expense"])'
+        '[class*="expense"][class*="modal"]'
     ];
 
     let foundAndClosed = false;
@@ -150,18 +147,38 @@ function closeExpenseModalSpecific() {
             modals.forEach(modal => {
                 const style = window.getComputedStyle(modal);
                 // تحقق مما إذا كانت النافذة مرئية
-                if (style.display === 'block' || modal.classList.contains('show') || modal.classList.contains('active')) {
+                if (style.display !== 'none' && 
+                    (style.display === 'block' || 
+                     style.display === 'flex' || 
+                     modal.classList.contains('show') || 
+                     modal.classList.contains('active'))) {
+                    
                     console.log('🎯 عثرت على نافذة مصروف مرئية:', modal.id || modal.className);
 
-                    // 1. البحث عن زر إغلاق والنقر عليه
-                    // محددات أكثر شمولاً لأزرار الإغلاق
+                    // الطريقة الآمنة: استخدام Bootstrap إذا كان متاحاً
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                        try {
+                            const bsModal = bootstrap.Modal.getInstance(modal);
+                            if (bsModal) {
+                                console.log('✅ استخدام Bootstrap لإغلاق النافذة');
+                                bsModal.hide();
+                                foundAndClosed = true;
+                                return;
+                            }
+                        } catch (e) {
+                            console.log('❌ خطأ في Bootstrap modal:', e);
+                        }
+                    }
+
+                    // الطريقة الثانية: البحث عن زر إغلاق والنقر عليه
                     const closeBtn = modal.querySelector(
-                        '[data-dismiss="modal"], ' + // Bootstrap 3/4
-                        '[data-bs-dismiss="modal"], ' + // Bootstrap 5
-                        '.close, ' + // فئة عامة لزر الإغلاق
-                        '.btn-close, ' + // فئة Bootstrap 5 لزر الإغلاق
-                        'button[aria-label="Close"], ' + // زر إغلاق شائع مع aria-label
-                        '.modal-header button' // أي زر في رأس المودال
+                        '[data-dismiss="modal"], ' +
+                        '[data-bs-dismiss="modal"], ' +
+                        '.close, ' +
+                        '.btn-close, ' +
+                        'button[aria-label="Close"], ' +
+                        '.modal-header button, ' +
+                        '[onclick*="hide"], [onclick*="close"]'
                     );
 
                     if (closeBtn) {
@@ -169,32 +186,22 @@ function closeExpenseModalSpecific() {
                         closeBtn.click();
                         foundAndClosed = true;
                     } else {
-                        console.log('⚠️ لم يتم العثور على زر إغلاق محدد. جاري إغلاق النافذة مباشرة.');
-                        // إذا لم يتم العثور على زر إغلاق، قم بإغلاق النافذة مباشرة
+                        console.log('⚠️ لم يتم العثور على زر إغلاق محدد. جاري إخفاء النافذة بلطف.');
+                        // إخفاء النافذة دون إزالة كاملة
                         modal.style.display = 'none';
-                        modal.classList.remove('show', 'active');
+                        modal.classList.remove('show', 'active', 'open');
+                        
+                        // إطلاق event للإغلاق
+                        modal.dispatchEvent(new Event('hidden.bs.modal', { bubbles: true }));
+                        modal.dispatchEvent(new Event('close', { bubbles: true }));
+                        
                         foundAndClosed = true;
                     }
-
-                    // 2. إزالة أي backdrop قد يكون موجودًا
-                    const backdrop = document.querySelector('.modal-backdrop, .backdrop, [class*="backdrop"]');
-                    if (backdrop) {
-                        console.log('🗑️ إزالة backdrop.');
-                        backdrop.remove();
-                    }
-
-                    // 3. إزالة فئات الجسم التي تمنع التمرير أو تسبب البلور
-                    document.body.classList.remove('modal-open', 'dialog-open', 'no-scroll', 'overflow-hidden');
-                    document.body.style.overflow = ''; // إعادة ضبط overflow
-
-                    // بمجرد إغلاق نافذة واحدة، يمكننا التوقف
-                    if (foundAndClosed) return;
                 }
             });
         } catch (e) {
             console.log('❌ خطأ في البحث عن:', selector, e);
         }
-        if (foundAndClosed) return; // إذا تم الإغلاق، لا داعي للمتابعة في المحددات الأخرى
     });
 
     return foundAndClosed;
@@ -203,78 +210,88 @@ function closeExpenseModalSpecific() {
 
 
 
+
 /**
  * إزالة تأثيرات البلور من الصفحة (النسخة الأصلية - تم استبدالها بـ removeBlurEffectsForce في handleEscapeKey)
  */
-function removeBlurEffects() {
-    // إزالة classes التي تسبب البلور
-    const blurClasses = ['blur', 'blurred', 'backdrop-blur', 'modal-backdrop', 'backdrop'];
+function removeBlurEffectsSafe() {
+    console.log('🛡️ تشغيل الإزالة الآمنة للبلور...');
 
-    document.body.classList.remove(...blurClasses);
+    // 1. إزالة classes المشتبه بها فقط من body
+    const suspectClasses = [
+        'modal-open', 'overflow-hidden', 'no-scroll'
+    ];
 
-    // إزالة البلور من العناصر الأخرى
-    document.querySelectorAll('*').forEach(element => {
-        element.classList.remove(...blurClasses);
-    });
-
-    // إزالة عناصر البلور المضافة ديناميكياً
-    const backdropElements = document.querySelectorAll('.modal-backdrop, .backdrop, [class*="backdrop"]');
-    backdropElements.forEach(el => {
-        if (el.parentNode) {
-            el.parentNode.removeChild(el);
-        }
-    });
-
-    // إعادة ضبط overflow إذا كان محجوزاً
+    document.body.classList.remove(...suspectClasses);
     document.body.style.overflow = '';
-    document.documentElement.style.overflow = '';
 
-    // إزالة أي styles مضاف للبلور
-    document.querySelectorAll('[style*="backdrop-filter"], [style*="filter"]').forEach(el => {
-        if (el.style.backdropFilter && el.style.backdropFilter.includes('blur')) {
-            el.style.backdropFilter = '';
-        }
-        if (el.style.filter && el.style.filter.includes('blur')) {
-            el.style.filter = '';
+    // 2. إزالة backdrop فقط إذا كان موجوداً
+    const backdrops = document.querySelectorAll('.modal-backdrop, .backdrop');
+    backdrops.forEach(backdrop => {
+        // التأكد من أن الـ backdrop مرتبط بنافذة مغلقة
+        const relatedModal = document.querySelector('.modal.show, .modal[style*="display: block"]');
+        if (!relatedModal) {
+            console.log('🗑️ إزالة backdrop آمنة');
+            backdrop.remove();
         }
     });
+
+    console.log('✅ تمت الإزالة الآمنة للبلور');
 }
+
+
+
+
 
 /**
  * إغلاق جميع النوافذ المنبثقة (النسخة الأصلية - تم استبدالها بـ closeModalsEnhanced في handleEscapeKey)
  */
-function closeModals() {
-    const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"], [class*="modal"]');
+function closeModalsSafe() {
+    console.log('🛡️ محاولة إغلاق النوافذ الآمن...');
+
     let closed = false;
 
-    modals.forEach(modal => {
-        const isVisible = modal.style.display === 'block' ||
-                         modal.classList.contains('show') ||
-                         (modal.offsetParent !== null && getComputedStyle(modal).display !== 'none');
+    // أولاً: محاولة إغلاق نافذة المصروف المثبت تحديداً
+    if (closeExpenseModalSpecific()) {
+        console.log('✅ تم إغلاق نافذة المصروف المثبت بنجاح');
+        closed = true;
+    }
 
-        if (isVisible) {
-            // إغلاق النافذة
-            modal.style.display = 'none';
-            modal.classList.remove('show');
+    // ثانياً: إغلاق النوافذ الأخرى المرئية
+    const visibleModals = document.querySelectorAll(`
+        .modal.show, .dialog.show,
+        .modal[style*="display: block"], .dialog[style*="display: block"],
+        .modal[style*="display: flex"]
+    `);
 
-            // تشغيل events الإغلاق إذا كانت موجودة
+    visibleModals.forEach(modal => {
+        if (modal.id !== 'addExpenseModal') { // تجنب نافذة المصروف التي عالجناها
+            console.log('🚪 إغلاق نافذة آمن:', modal.id || modal.className);
+            
+            // استخدام Bootstrap إذا كان متاحاً
             if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                const bsModal = bootstrap.Modal.getInstance(modal);
-                if (bsModal) {
-                    bsModal.hide();
+                try {
+                    const bsModal = bootstrap.Modal.getInstance(modal);
+                    if (bsModal) {
+                        bsModal.hide();
+                        closed = true;
+                        return;
+                    }
+                } catch (e) {
+                    console.log('❌ خطأ في Bootstrap modal:', e);
                 }
             }
 
-            // إطلاق event إغلاق مخصص
-            modal.dispatchEvent(new Event('modalClosed', { bubbles: true }));
-
+            // إخفاء النافذة بلطف
+            modal.style.display = 'none';
+            modal.classList.remove('show', 'active');
             closed = true;
         }
     });
 
-    // إزالة البلور بعد إغلاق النوافذ
+    // إزالة البلور بعد الإغلاق
     if (closed) {
-        setTimeout(removeBlurEffects, 50);
+        setTimeout(removeBlurEffectsSafe, 50);
     }
 
     return closed;
@@ -708,17 +725,26 @@ function openRegularExpenseModal() {
 /**
  * فتح نافذة المصروف المثبت - الإصدار المحسّن
  */
-function openPinnedExpenseModal() {
+function openPinnedExpenseModalEnhanced() {
     if (!checkUserPermission()) return;
     
     console.log('🎯 محاولة فتح نافذة المصروف المثبت...');
     
     // أولاً: التحقق مما إذا كانت النافذة مفتوحة بالفعل
     const existingModal = document.getElementById('addExpenseModal');
-    if (existingModal && (existingModal.style.display === 'flex' || existingModal.classList.contains('active'))) {
+    if (existingModal && (existingModal.style.display === 'flex' || 
+                         existingModal.style.display === 'block' ||
+                         existingModal.classList.contains('show') ||
+                         existingModal.classList.contains('active'))) {
         console.log('ℹ️ النافذة مفتوحة بالفعل - جلب التركيز');
         existingModal.focus();
         return;
+    }
+    
+    // التأكد من إزالة أي إغلاق قسري سابق
+    if (existingModal) {
+        existingModal.style.display = '';
+        existingModal.classList.remove('force-closed');
     }
     
     // إعادة تعيين النموذج أولاً
@@ -742,7 +768,7 @@ function openPinnedExpenseModal() {
             } else {
                 console.log('⚠️ لم يتم العثور على زر التثبيت');
             }
-        }, 200);
+        }, 300);
         
     } else {
         console.error('❌ دالة showAddExpenseModal غير موجودة');
@@ -750,6 +776,55 @@ function openPinnedExpenseModal() {
     }
 }
 
+
+
+/**
+ * فحص حالة نافذة المصروف
+ */
+function checkExpenseModalState() {
+    const modal = document.getElementById('addExpenseModal');
+    if (!modal) {
+        console.log('❌ نافذة المصروف غير موجودة في DOM');
+        return false;
+    }
+    
+    const style = window.getComputedStyle(modal);
+    console.log('🔍 حالة نافذة المصروف:', {
+        display: style.display,
+        visibility: style.visibility,
+        classes: modal.className,
+        parent: modal.parentElement ? modal.parentElement.tagName : 'no-parent'
+    });
+    
+    return style.display !== 'none';
+}
+
+/**
+ * إصلاح نافذة المصروف إذا كانت معطلة
+ */
+function repairExpenseModal() {
+    const modal = document.getElementById('addExpenseModal');
+    if (!modal) return false;
+    
+    console.log('🔧 محاولة إصلاح نافذة المصروف...');
+    
+    // إعادة تعيين الأنماط
+    modal.style.cssText = '';
+    modal.classList.remove('force-closed', 'broken');
+    
+    // إعادة إرفاق الأحداث إذا أمكن
+    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        try {
+            // محاولة إعادة إنشاء instance
+            const bsModal = new bootstrap.Modal(modal);
+            console.log('✅ تم إصلاح instance Bootstrap');
+        } catch (e) {
+            console.log('❌ لا يمكن إصلاح Bootstrap instance:', e);
+        }
+    }
+    
+    return true;
+}
 /**
  * التحقق مما إذا كانت نافذة المصروف مفتوحة
  */
