@@ -30,15 +30,15 @@ function handleKeyboardShortcuts(event) {
     // Global shortcuts (when not in input fields)
     if (event.ctrlKey || event.metaKey) { // Ctrl or Cmd key
         switch (event.key) {
-            case 'z':
+            case 'q':
             case 'Z':
-            case 'ئ': 
+            case 'ض': 
                 if (event.shiftKey) {
-                    // Ctrl+Shift+Z - Open pinned expense modal
+                    // Ctrl+Shift+q - Open pinned expense modal
                     event.preventDefault();
                     openPinnedExpenseModal();
                 } else {
-                    // Ctrl+Z - Open regular expense modal
+                    // Ctrl+q - Open regular expense modal
                     event.preventDefault();
                     openRegularExpenseModal();
                 }
