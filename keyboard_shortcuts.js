@@ -439,7 +439,7 @@ function shouldPreventDefault(event) {
 }
 
 /**
- * معالجة Function Keys
+ * معالجة Function Keys - الإصدار المحسّن
  */
 function handleFunctionKeys(event) {
     // لا تمنع السلوك الافتراضي لـ F12 هنا
@@ -453,8 +453,14 @@ function handleFunctionKeys(event) {
     const actions = {
         'F1': () => openHelpModal(),
         'F2': () => openQuickSearch(),
-        'F3': () => openRegularExpenseModal(),
-        'F4': () => openPinnedExpenseModal(),
+        'F3': () => {
+            console.log('🎯 F3 - فتح مصروف عادي');
+            openRegularExpenseModal();
+        },
+        'F4': () => {
+            console.log('🎯 F4 - فتح مصروف مثبت');
+            openPinnedExpenseModal();
+        },
         'F5': () => refreshCurrentView(),
         'F9': () => toggleSidebar()
     };
@@ -462,6 +468,8 @@ function handleFunctionKeys(event) {
     const action = actions[event.key];
     if (action) {
         action();
+    } else {
+        console.log(`ℹ️ مفتاح ${event.key} بدون إجراء مخصص`);
     }
 }
 
@@ -698,26 +706,81 @@ function openRegularExpenseModal() {
 }
 
 /**
- * فتح نافذة المصروف المثبت
+ * فتح نافذة المصروف المثبت - الإصدار المحسّن
  */
 function openPinnedExpenseModal() {
     if (!checkUserPermission()) return;
-
+    
+    console.log('🎯 محاولة فتح نافذة المصروف المثبت...');
+    
+    // أولاً: التحقق مما إذا كانت النافذة مفتوحة بالفعل
+    const existingModal = document.getElementById('addExpenseModal');
+    if (existingModal && (existingModal.style.display === 'flex' || existingModal.classList.contains('active'))) {
+        console.log('ℹ️ النافذة مفتوحة بالفعل - جلب التركيز');
+        existingModal.focus();
+        return;
+    }
+    
+    // إعادة تعيين النموذج أولاً
     if (typeof showAddExpenseModal === 'function') {
         showAddExpenseModal();
-        console.log('✓ فتح نافذة المصروف المثبت');
-
-        // تفعيل خيار التثبيت تلقائياً
+        console.log('✅ تم فتح نافذة المصروف الأساسية');
+        
+        // تفعيل خيار التثبيت بعد فتح النافذة
         setTimeout(() => {
             const pinToggle = document.getElementById('pinExpenseFormToggle');
-            if (pinToggle && !pinToggle.checked) {
+            if (pinToggle) {
                 pinToggle.checked = true;
-                pinToggle.dispatchEvent(new Event('change', { bubbles: true }));
+                console.log('✅ تم تفعيل خيار التثبيت');
+                
+                // تشغيل event التغيير إذا كان موجوداً
+                if (typeof pinToggle.onchange === 'function') {
+                    pinToggle.onchange(new Event('change'));
+                } else {
+                    pinToggle.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            } else {
+                console.log('⚠️ لم يتم العثور على زر التثبيت');
             }
-        }, 150);
+        }, 200);
+        
     } else {
+        console.error('❌ دالة showAddExpenseModal غير موجودة');
         showMessage('وظيفة إضافة المصروفات غير متوفرة', 'error');
     }
+}
+
+/**
+ * التحقق مما إذا كانت نافذة المصروف مفتوحة
+ */
+function isExpenseModalOpen() {
+    const modal = document.getElementById('addExpenseModal');
+    return modal && (modal.style.display === 'flex' || modal.classList.contains('active'));
+}
+
+/**
+ * إغلاق نافذة المصروف بشكل آمن
+ */
+function closeExpenseModalSafely() {
+    const modal = document.getElementById('addExpenseModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active', 'show');
+        
+        // إزالة أي backdrop مرتبط
+        const backdrop = document.querySelector('.modal-backdrop, .backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+        
+        // إعادة ضبط حالة body
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        
+        console.log('✅ تم إغلاق نافذة المصروف بشكل آمن');
+        return true;
+    }
+    return false;
 }
 
 /**
