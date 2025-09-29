@@ -42,34 +42,35 @@ document.addEventListener('DOMContentLoaded', async () => {
  * @param {KeyboardEvent} event - The keyboard event object.
  */
 function handleKeyboardShortcuts(event) {
-    // 1. التحقق مما إذا كانت صفحة الكاشير هي النشطة حاليًا
+    // فقط استجب لـ Ctrl + z أو Ctrl + s
+    if (!event.ctrlKey || (event.key !== 'z' && event.key !== 's')) {
+        return;
+    }
+    
+    event.preventDefault();
+    
+    // التحقق البسيط من صفحة الكاشير
     const cashierPage = document.getElementById('cashierPage');
     if (!cashierPage || !cashierPage.classList.contains('active')) {
-        return; // إذا لم تكن صفحة الكاشير نشطة، لا تفعل شيئًا
+        return;
     }
-
-    // 2. التحقق مما إذا كان هناك أي نافذة منبثقة (modal) مفتوحة حاليًا
-    //    إذا كان هناك مودال مفتوح غير مودال إضافة المصروف، لا تفعل شيئًا
+    
+    // التحقق من المودالات النشطة
     const activeModals = document.querySelectorAll('.modal.active');
     if (activeModals.length > 0 && activeModals[0].id !== 'addExpenseModal') {
         return;
     }
-
-    // 3. اختصار Ctrl + z: لفتح نافذة إضافة مصروف جديد
-    if (event.ctrlKey && event.key === 'z') {
-        event.preventDefault(); // منع السلوك الافتراضي للمتصفح (مثل تحديد كل النص)
-        showAddExpenseModal(); // استدعاء الدالة التي تفتح نافذة إضافة المصروف
-    }
-
-    // 4. اختصار Ctrl + S: لحفظ المصروف (إذا كانت نافذة إضافة المصروف مفتوحة)
-    if (event.ctrlKey && event.key === 's') {
-        const addExpenseModal = document.getElementById('addExpenseModal');
-        // التحقق مما إذا كانت نافذة إضافة المصروف مفتوحة ونشطة
-        if (addExpenseModal && addExpenseModal.classList.contains('active')) {
-            event.preventDefault(); // منع السلوك الافتراضي للمتصفح (مثل حفظ الصفحة)
+    
+    // تنفيذ الأوامر
+    if (event.key === 'z') {
+        if (activeModals.length === 0) { // فقط افتح إذا لم يكن هناك مودال مفتوح
+            showAddExpenseModal();
+        }
+    } else if (event.key === 's') {
+        if (activeModals.length > 0 && activeModals[0].id === 'addExpenseModal') {
             const saveButton = document.getElementById('addExpenseModalSaveBtn');
             if (saveButton) {
-                saveButton.click(); // محاكاة النقر على زر الحفظ
+                saveButton.click();
             }
         }
     }
@@ -148,5 +149,4 @@ window.updateAccountantCashierOverview = updateAccountantCashierOverview;
 window.searchInvoiceAccountant = searchInvoiceAccountant;
 window.populateReportFilters = populateReportFilters;
 window.generateAccountantReport = generateAccountantReport;
-
 
