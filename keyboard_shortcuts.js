@@ -1,3 +1,5 @@
+[file name]: keyboard_shortcuts.js
+[file content begin]
 // --- Keyboard Shortcuts Functions ---
 
 /**
@@ -8,12 +10,6 @@ function initializeKeyboardShortcuts() {
     
     // Add focus management for search suggestions
     setupSearchSuggestionNavigation();
-
-    // Add specific shortcuts for the login page
-    const loginPage = document.getElementById('loginPage');
-    if (loginPage) {
-        loginPage.addEventListener('keydown', handleLoginShortcuts);
-    }
 }
 
 /**
@@ -21,63 +17,123 @@ function initializeKeyboardShortcuts() {
  * @param {KeyboardEvent} event - The keyboard event
  */
 function handleKeyboardShortcuts(event) {
-    // Only process if we're not in an input field or textarea
+    // Ignore shortcuts when user is typing in input fields, textareas, or contenteditable elements
     if (isInputField(event.target)) {
         handleInputFieldShortcuts(event);
         return;
     }
 
     // Global shortcuts (when not in input fields)
-    if (event.ctrlKey || event.metaKey) { // Ctrl or Cmd key
-        switch (event.key) {
-            case 'z':
-            case 'Z':
-            case 'ئ': 
-                if (event.shiftKey) {
-                    // Ctrl+Shift+Z - Open pinned expense modal
-                    event.preventDefault();
-                    openPinnedExpenseModal();
-                } else {
-                    // Ctrl+Z - Open regular expense modal
-                    event.preventDefault();
-                    openRegularExpenseModal();
-                }
-                break;
-                
+    switch (event.key) {
+        case 'F1':
+            event.preventDefault();
+            openHelpModal();
+            break;
+            
+        case 'F2':
+            event.preventDefault();
+            openQuickSearch();
+            break;
+            
+        case 'F3':
+            event.preventDefault();
+            openRegularExpenseModal();
+            break;
+            
+        case 'F4':
+            event.preventDefault();
+            openPinnedExpenseModal();
+            break;
+            
+        case 'F5':
+            event.preventDefault();
+            refreshCurrentView();
+            break;
+            
+        case 'F9':
+            event.preventDefault();
+            toggleSidebar();
+            break;
+            
+        case 'Escape':
+            event.preventDefault();
+            closeAllModals();
+            break;
+            
+        case ' ':
+            // Space key for quick actions
+            if (!event.ctrlKey && !event.altKey && !event.shiftKey) {
+                event.preventDefault();
+                executeQuickAction();
+            }
+            break;
+    }
+
+    // Ctrl/Cmd based shortcuts
+    if (event.ctrlKey || event.metaKey) {
+        switch (event.key.toLowerCase()) {
             case 'n':
-            case 'N':
-                // Ctrl+N - Add new expense (alternative shortcut)
                 event.preventDefault();
                 openRegularExpenseModal();
                 break;
+                
+            case 'p':
+                event.preventDefault();
+                openPinnedExpenseModal();
+                break;
+                
+            case 'f':
+                event.preventDefault();
+                openQuickSearch();
+                break;
+                
+            case 's':
+                event.preventDefault();
+                saveCurrentData();
+                break;
+                
+            case 'r':
+                event.preventDefault();
+                refreshCurrentView();
+                break;
+                
+            case 'h':
+                event.preventDefault();
+                openHelpModal();
+                break;
+                
+            case 'q':
+                event.preventDefault();
+                quickLogout();
+                break;
+        }
+    }
+
+    // Alt based shortcuts
+    if (event.altKey) {
+        switch (event.key.toLowerCase()) {
+            case '1':
+                event.preventDefault();
+                navigateToSection('dashboard');
+                break;
+                
+            case '2':
+                event.preventDefault();
+                navigateToSection('expenses');
+                break;
+                
+            case '3':
+                event.preventDefault();
+                navigateToSection('reports');
+                break;
+                
+            case '4':
+                event.preventDefault();
+                navigateToSection('settings');
+                break;
         }
     }
 }
-
-/**
- * Handles keyboard shortcuts specifically for the login page.
- * @param {KeyboardEvent} event - The keyboard event
- */
-function handleLoginShortcuts(event) {
-    const target = event.target;
-    // Check if the target is the username or password input field
-    if (target.id === 'username' || target.id === 'password') {
-        if (event.key === 'Enter') {
-            event.preventDefault(); // Prevent default Enter behavior (e.g., form submission)
-            const loginButton = document.getElementById('loginButton'); // Assuming 'loginButton' is the ID of your login button
-            if (loginButton) {
-                loginButton.click(); // Simulate a click on the login button
-            } else {
-                console.warn("Login button with ID 'loginButton' not found.");
-                // Fallback: if button not found, try to call login function directly
-                if (typeof window.login === 'function') {
-                    window.login();
-                }
-            }
-        }
-    }
-}
-
 
 /**
  * Handles keyboard shortcuts when in input fields
@@ -88,20 +144,31 @@ function handleInputFieldShortcuts(event) {
     
     // Handle Enter key in search fields
     if (event.key === 'Enter') {
-        event.preventDefault(); // Prevent form submission or other default behavior
         handleEnterKeyInSearch(target);
         return;
     }
     
+    // Handle Escape key to close suggestions or clear field
+    if (event.key === 'Escape') {
+        if (target.value.trim() === '') {
+            target.blur();
+        } else {
+            target.value = '';
+            closeAllSuggestions();
+        }
+        return;
+    }
+    
     // Handle arrow keys in search suggestion lists
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+    if (['ArrowUp', 'ArrowDown'].includes(event.key)) {
         handleArrowKeysInSearch(target, event);
         return;
     }
     
-    // Handle Escape key to close suggestions
-    if (event.key === 'Escape') {
-        closeAllSuggestions();
+    // Ctrl+Enter to submit forms from any input
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        submitParentForm(target);
         return;
     }
 }
@@ -113,12 +180,15 @@ function handleInputFieldShortcuts(event) {
  */
 function isInputField(target) {
     const inputTypes = ['input', 'textarea', 'select'];
-    return inputTypes.includes(target.tagName.toLowerCase()) || 
-           target.isContentEditable;
+    const isInput = inputTypes.includes(target.tagName.toLowerCase());
+    const isContentEditable = target.isContentEditable;
+    const isSearchField = target.type === 'search';
+    
+    return isInput || isContentEditable || isSearchField;
 }
 
 /**
- * Opens the regular expense modal (Ctrl+Z)
+ * Opens the regular expense modal (F3 or Ctrl+N)
  */
 function openRegularExpenseModal() {
     if (currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
@@ -129,7 +199,7 @@ function openRegularExpenseModal() {
 }
 
 /**
- * Opens the pinned expense modal (Ctrl+Shift+Z)
+ * Opens the pinned expense modal (F4 or Ctrl+P)
  */
 function openPinnedExpenseModal() {
     if (currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
@@ -139,6 +209,9 @@ function openPinnedExpenseModal() {
             const pinToggle = document.getElementById('pinExpenseFormToggle');
             if (pinToggle) {
                 pinToggle.checked = true;
+                // Trigger any change events if needed
+                const event = new Event('change', { bubbles: true });
+                pinToggle.dispatchEvent(event);
             }
         }, 100);
     } else {
@@ -147,8 +220,172 @@ function openPinnedExpenseModal() {
 }
 
 /**
+ * Opens quick search modal (F2 or Ctrl+F)
+ */
+function openQuickSearch() {
+    const searchModal = document.getElementById('quickSearchModal');
+    if (searchModal) {
+        searchModal.style.display = 'block';
+        const searchInput = searchModal.querySelector('input[type="search"]');
+        if (searchInput) {
+            searchInput.focus();
+        }
+    } else {
+        // Fallback: focus on existing search field if available
+        const existingSearch = document.querySelector('input[type="search"]');
+        if (existingSearch) {
+            existingSearch.focus();
+        }
+    }
+}
+
+/**
+ * Opens help modal (F1 or Ctrl+H)
+ */
+function openHelpModal() {
+    showMessage('شاشة المساعدة - قائمة الاختصارات:\n\n' +
+        'F1 - المساعدة\n' +
+        'F2 - بحث سريع\n' +
+        'F3 - إضافة مصروف\n' +
+        'F4 - إضافة مصروف مثبت\n' +
+        'F5 - تحديث\n' +
+        'F9 - إظهار/إخفاء القائمة الجانبية\n' +
+        'Esc - إغلاق النوافذ\n' +
+        'Space - إجراء سريع\n' +
+        'Alt+1-4 - التنقل بين الأقسام\n' +
+        'Ctrl+N - مصروف جديد\n' +
+        'Ctrl+P - مصروف مثبت\n' +
+        'Ctrl+F - بحث\n' +
+        'Ctrl+S - حفظ\n' +
+        'Ctrl+R - تحديث\n' +
+        'Ctrl+Q - خروج سريع', 'info', 8000);
+}
+
+/**
+ * Refreshes current view (F5 or Ctrl+R)
+ */
+function refreshCurrentView() {
+    if (typeof refreshExpenses === 'function') {
+        refreshExpenses();
+    } else if (typeof loadDashboard === 'function') {
+        loadDashboard();
+    } else {
+        location.reload();
+    }
+}
+
+/**
+ * Toggles sidebar visibility (F9)
+ */
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar, .side-nav, nav');
+    if (sidebar) {
+        const isHidden = sidebar.style.display === 'none' || sidebar.classList.contains('hidden');
+        sidebar.style.display = isHidden ? 'block' : 'none';
+        if (sidebar.classList) {
+            sidebar.classList.toggle('hidden');
+        }
+    }
+}
+
+/**
+ * Closes all modals and dropdowns (Escape)
+ */
+function closeAllModals() {
+    // Close modals
+    const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"]');
+    modals.forEach(modal => {
+        if (modal.style.display === 'block' || modal.classList.contains('show')) {
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+        }
+    });
+    
+    // Close dropdowns
+    const dropdowns = document.querySelectorAll('.dropdown-menu, .suggestions');
+    dropdowns.forEach(dropdown => {
+        dropdown.style.display = 'none';
+    });
+    
+    // Clear any active selections
+    document.querySelectorAll('.active').forEach(item => {
+        item.classList.remove('active');
+    });
+}
+
+/**
+ * Executes quick action based on context (Space)
+ */
+function executeQuickAction() {
+    // Determine context and execute appropriate action
+    if (document.querySelector('.expense-list')) {
+        // If we're in expenses list, open add expense
+        openRegularExpenseModal();
+    } else if (document.querySelector('.dashboard')) {
+        // If in dashboard, refresh data
+        refreshCurrentView();
+    } else {
+        // Default action: toggle quick search
+        openQuickSearch();
+    }
+}
+
+/**
+ * Navigates to specific section (Alt+1-4)
+ */
+function navigateToSection(section) {
+    const sections = {
+        'dashboard': () => { if (typeof loadDashboard === 'function') loadDashboard(); },
+        'expenses': () => { if (typeof loadExpenses === 'function') loadExpenses(); },
+        'reports': () => { if (typeof loadReports === 'function') loadReports(); },
+        'settings': () => { if (typeof loadSettings === 'function') loadSettings(); }
+    };
+    
+    if (sections[section]) {
+        sections[section]();
+    }
+}
+
+/**
+ * Saves current data (Ctrl+S)
+ */
+function saveCurrentData() {
+    // Check if we're in a form context
+    const activeForm = document.querySelector('form:focus-within');
+    if (activeForm) {
+        activeForm.dispatchEvent(new Event('submit', { cancelable: true }));
+    } else {
+        showMessage('لا يوجد بيانات للحفظ في الوقت الحالي.', 'info');
+    }
+}
+
+/**
+ * Quick logout (Ctrl+Q)
+ */
+function quickLogout() {
+    if (confirm('هل تريد تسجيل الخروج؟')) {
+        if (typeof logout === 'function') {
+            logout();
+        } else {
+            window.location.href = 'logout.html';
+        }
+    }
+}
+
+/**
+ * Submits parent form of an input element
+ */
+function submitParentForm(element) {
+    let form = element.closest('form');
+    if (form) {
+        form.dispatchEvent(new Event('submit', { cancelable: true }));
+    }
+}
+
+// --- Search and Suggestion Functions (Keep existing but optimized) ---
+
+/**
  * Handles Enter key press in search fields
- * @param {HTMLInputElement} target - The search input field
  */
 function handleEnterKeyInSearch(target) {
     const searchId = target.id;
@@ -157,51 +394,28 @@ function handleEnterKeyInSearch(target) {
         case 'expenseCategorySearch':
             selectActiveOrFirstSuggestion('expenseCategorySuggestions');
             break;
-            
         case 'customerSearch':
             selectActiveOrFirstSuggestion('customerSuggestions');
             break;
-            
         case 'employeeSearch':
             selectActiveOrFirstSuggestion('employeeSuggestions');
             break;
-            
         default:
-            // For other search fields, just blur or submit if applicable
+            if (target.type === 'search') {
+                performSearch(target.value);
+            }
             target.blur();
             break;
     }
 }
 
 /**
- * Selects the currently active suggestion or the first one if none is active.
- * @param {string} suggestionsId - The ID of the suggestions container
- */
-function selectActiveOrFirstSuggestion(suggestionsId) {
-    const suggestions = document.getElementById(suggestionsId);
-    if (!suggestions || suggestions.style.display === 'none') return;
-    
-    const activeSuggestion = suggestions.querySelector('.suggestion-item.active');
-    if (activeSuggestion) {
-        activeSuggestion.click();
-    } else {
-        const firstSuggestion = suggestions.querySelector('.suggestion-item');
-        if (firstSuggestion) {
-            firstSuggestion.click();
-        }
-    }
-}
-
-/**
  * Handles arrow key navigation in search fields
- * @param {HTMLInputElement} target - The search input field
- * @param {KeyboardEvent} event - The keyboard event
  */
 function handleArrowKeysInSearch(target, event) {
     const searchId = target.id;
     let suggestionsId;
     
-    // Determine which suggestions we're dealing with
     switch (searchId) {
         case 'expenseCategorySearch':
             suggestionsId = 'expenseCategorySuggestions';
@@ -213,7 +427,7 @@ function handleArrowKeysInSearch(target, event) {
             suggestionsId = 'employeeSuggestions';
             break;
         default:
-            return; // Not a search field we handle
+            return;
     }
     
     const suggestions = document.getElementById(suggestionsId);
@@ -224,8 +438,6 @@ function handleArrowKeysInSearch(target, event) {
 
 /**
  * Navigates through search suggestions using arrow keys
- * @param {HTMLElement} suggestions - The suggestions container
- * @param {KeyboardEvent} event - The keyboard event
  */
 function navigateSuggestions(suggestions, event) {
     event.preventDefault();
@@ -247,29 +459,40 @@ function navigateSuggestions(suggestions, event) {
     items.forEach(item => item.classList.remove('active'));
     items[currentIndex].classList.add('active');
     items[currentIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-
-    console.log(`Suggestion navigation: active index ${currentIndex}`);
 }
 
+/**
+ * Selects the currently active suggestion or the first one if none is active.
+ */
+function selectActiveOrFirstSuggestion(suggestionsId) {
+    const suggestions = document.getElementById(suggestionsId);
+    if (!suggestions || suggestions.style.display === 'none') return;
+    
+    const activeSuggestion = suggestions.querySelector('.suggestion-item.active');
+    if (activeSuggestion) {
+        activeSuggestion.click();
+    } else {
+        const firstSuggestion = suggestions.querySelector('.suggestion-item');
+        if (firstSuggestion) {
+            firstSuggestion.click();
+        }
+    }
+}
 
 /**
  * Sets up navigation for search suggestions
  */
 function setupSearchSuggestionNavigation() {
-    // Add click handlers for suggestions
     document.addEventListener('click', (event) => {
         if (event.target.classList.contains('suggestion-item')) {
             event.target.classList.remove('active');
         }
     });
     
-    // Add mouseover handlers for suggestions
     document.addEventListener('mouseover', (event) => {
         if (event.target.classList.contains('suggestion-item')) {
-            // Remove active class from all siblings
             const siblings = Array.from(event.target.parentElement.children);
             siblings.forEach(sibling => sibling.classList.remove('active'));
-            // Add active class to hovered item
             event.target.classList.add('active');
         }
     });
@@ -282,76 +505,46 @@ function closeAllSuggestions() {
     const allSuggestions = document.querySelectorAll('.suggestions');
     allSuggestions.forEach(suggestion => {
         suggestion.style.display = 'none';
-        // Remove active classes
         const items = suggestion.querySelectorAll('.suggestion-item');
         items.forEach(item => item.classList.remove('active'));
     });
 }
 
 /**
- * Enhances existing search functions to support keyboard navigation
+ * Performs a general search
  */
-function enhanceSearchFunctions() {
-    // Store original functions
-    const originalSearchExpenseCategories = window.searchExpenseCategories;
-    const originalSearchCustomersForExpense = window.searchCustomersForExpense;
-    const originalSearchEmployeesForExpense = window.searchEmployeesForExpense;
-    
-    // Enhance expense category search
-    window.searchExpenseCategories = function(searchTerm) {
-        originalSearchExpenseCategories(searchTerm);
-        // Ensure setupSuggestionNavigation is called after DOM update
-        setTimeout(() => setupSuggestionNavigationForContainer('expenseCategorySuggestions'), 0);
-    };
-    
-    // Enhance customer search
-    window.searchCustomersForExpense = function(searchTerm) {
-        originalSearchCustomersForExpense(searchTerm);
-        // Ensure setupSuggestionNavigation is called after DOM update
-        setTimeout(() => setupSuggestionNavigationForContainer('customerSuggestions'), 0);
-    };
-    
-    // Enhance employee search
-    window.searchEmployeesForExpense = function(searchTerm) {
-        originalSearchEmployeesForExpense(searchTerm);
-        // Ensure setupSuggestionNavigation is called after DOM update
-        setTimeout(() => setupSuggestionNavigationForContainer('employeeSuggestions'), 0);
-    };
+function performSearch(query) {
+    if (typeof window.globalSearch === 'function') {
+        window.globalSearch(query);
+    } else {
+        showMessage(`بحث عن: ${query}`, 'info');
+    }
 }
-
-/**
- * Sets up navigation for a specific suggestions container (renamed for clarity).
- * @param {string} suggestionsId - The ID of the suggestions container
- */
-function setupSuggestionNavigationForContainer(suggestionsId) {
-    const suggestions = document.getElementById(suggestionsId);
-    if (!suggestions) return;
-
-    const items = suggestions.querySelectorAll('.suggestion-item');
-    if (items.length === 0) return;
-
-    // إزالة أي صنف active موجود
-    items.forEach(item => item.classList.remove('active'));
-
-    // تعيين الصنف active للعنصر الأول
-    items[0].classList.add('active');
-}
-
 
 // Initialize keyboard shortcuts when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     initializeKeyboardShortcuts();
-    enhanceSearchFunctions();
     
     // Add CSS for active suggestion items
     addSuggestionStyles();
+    
+    // Show available shortcuts on first load
+    setTimeout(() => {
+        if (!localStorage.getItem('shortcutsShown')) {
+            openHelpModal();
+            localStorage.setItem('shortcutsShown', 'true');
+        }
+    }, 2000);
 });
 
 /**
  * Adds CSS styles for active suggestion items
  */
 function addSuggestionStyles() {
+    if (document.querySelector('#keyboardShortcutsStyles')) return;
+    
     const style = document.createElement('style');
+    style.id = 'keyboardShortcutsStyles';
     style.textContent = `
         .suggestion-item.active {
             background-color: #007bff !important;
@@ -369,11 +562,23 @@ function addSuggestionStyles() {
             z-index: 1000;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+        .shortcut-hint {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 12px;
+            opacity: 0.9;
+            z-index: 10000;
+        }
     `;
     document.head.appendChild(style);
 }
 
-// Expose functions globally for HTML event handlers
+// Expose functions globally
 window.initializeKeyboardShortcuts = initializeKeyboardShortcuts;
 window.handleKeyboardShortcuts = handleKeyboardShortcuts;
-window.handleLoginShortcuts = handleLoginShortcuts; // Expose for potential direct use if needed
+[file content end]
