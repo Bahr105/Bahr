@@ -6,8 +6,6 @@
  */
 function initializeKeyboardShortcuts() {
     document.addEventListener('keydown', handleKeyboardShortcuts);
-    
-    // Add focus management for search suggestions
     setupSearchSuggestionNavigation();
 }
 
@@ -16,121 +14,211 @@ function initializeKeyboardShortcuts() {
  * @param {KeyboardEvent} event - The keyboard event
  */
 function handleKeyboardShortcuts(event) {
-    // Ignore shortcuts when user is typing in input fields, textareas, or contenteditable elements
+    // Prevent Chrome default shortcuts that conflict with our app
+    preventChromeDefaultShortcuts(event);
+    
+    // Ignore shortcuts when user is typing in input fields
     if (isInputField(event.target)) {
         handleInputFieldShortcuts(event);
         return;
     }
 
     // Global shortcuts (when not in input fields)
+    handleGlobalShortcuts(event);
+}
+
+/**
+ * Prevents Chrome default shortcuts that conflict with our application
+ * @param {KeyboardEvent} event - The keyboard event
+ */
+function preventChromeDefaultShortcuts(event) {
+    const key = event.key.toLowerCase();
+    
+    // Prevent Chrome shortcuts that we want to use in our app
+    const conflicts = [
+        // Ctrl+P (Print) - we use for pinned expense
+        { ctrl: true, key: 'p', prevent: true },
+        // Ctrl+N (New Window) - we use for new expense
+        { ctrl: true, key: 'n', prevent: true },
+        // F1 (Chrome Help) - we use for app help
+        { key: 'f1', prevent: true },
+        // F5 (Refresh) - we use for refresh data
+        { key: 'f5', prevent: true },
+        // F3 (Search) - we use for new expense
+        { key: 'f3', prevent: true },
+        // F4 (Address bar) - we use for pinned expense
+        { key: 'f4', prevent: true },
+        // Alt+D (Address bar) - we use for navigation
+        { alt: true, key: 'd', prevent: true },
+        // Alt+1-9 (Tab switching) - we use for section navigation
+        { alt: true, key: '1', prevent: true },
+        { alt: true, key: '2', prevent: true },
+        { alt: true, key: '3', prevent: true },
+        { alt: true, key: '4', prevent: true },
+        { alt: true, key: '5', prevent: true }
+    ];
+
+    conflicts.forEach(conflict => {
+        const ctrlMatch = !('ctrl' in conflict) || (conflict.ctrl === (event.ctrlKey || event.metaKey));
+        const altMatch = !('alt' in conflict) || (conflict.alt === event.altKey);
+        const shiftMatch = !('shift' in conflict) || (conflict.shift === event.shiftKey);
+        const keyMatch = conflict.key === key || conflict.key === event.key;
+        
+        if (ctrlMatch && altMatch && shiftMatch && keyMatch && conflict.prevent) {
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
+        }
+    });
+}
+
+/**
+ * Handles global keyboard shortcuts
+ * @param {KeyboardEvent} event - The keyboard event
+ */
+function handleGlobalShortcuts(event) {
+    const key = event.key.toLowerCase();
+    
+    // Function key shortcuts (F1-F12)
+    if (key.startsWith('f') && !isNaN(key.substring(1))) {
+        handleFunctionKeyShortcuts(event);
+        return;
+    }
+
+    // Ctrl/Cmd based shortcuts
+    if (event.ctrlKey || event.metaKey) {
+        handleCtrlShortcuts(event);
+        return;
+    }
+
+    // Alt based shortcuts
+    if (event.altKey) {
+        handleAltShortcuts(event);
+        return;
+    }
+
+    // Single key shortcuts
+    handleSingleKeyShortcuts(event);
+}
+
+/**
+ * Handles function key shortcuts (F1-F12)
+ * @param {KeyboardEvent} event - The keyboard event
+ */
+function handleFunctionKeyShortcuts(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
     switch (event.key) {
         case 'F1':
-            event.preventDefault();
             openHelpModal();
             break;
-            
         case 'F2':
-            event.preventDefault();
             openQuickSearch();
             break;
-            
         case 'F3':
-            event.preventDefault();
             openRegularExpenseModal();
             break;
-            
         case 'F4':
-            event.preventDefault();
             openPinnedExpenseModal();
             break;
-            
         case 'F5':
-            event.preventDefault();
             refreshCurrentView();
             break;
-            
         case 'F9':
-            event.preventDefault();
             toggleSidebar();
             break;
-            
+        case 'F12':
+            // Leave F12 for developer tools
+            break;
+    }
+}
+
+/**
+ * Handles Ctrl/Cmd based shortcuts
+ * @param {KeyboardEvent} event - The keyboard event
+ */
+function handleCtrlShortcuts(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    switch (event.key.toLowerCase()) {
+        case 'n':
+            openRegularExpenseModal();
+            break;
+        case 'p':
+            openPinnedExpenseModal();
+            break;
+        case 'f':
+            openQuickSearch();
+            break;
+        case 's':
+            saveCurrentData();
+            break;
+        case 'r':
+            refreshCurrentView();
+            break;
+        case 'h':
+            openHelpModal();
+            break;
+        case 'q':
+            quickLogout();
+            break;
+    }
+}
+
+/**
+ * Handles Alt based shortcuts
+ * @param {KeyboardEvent} event - The keyboard event
+ */
+function handleAltShortcuts(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    switch (event.key) {
+        case '1':
+        case '١': // Arabic 1
+            navigateToSection('dashboard');
+            break;
+        case '2':
+        case '٢': // Arabic 2
+            navigateToSection('expenses');
+            break;
+        case '3':
+        case '٣': // Arabic 3
+            navigateToSection('reports');
+            break;
+        case '4':
+        case '٤': // Arabic 4
+            navigateToSection('settings');
+            break;
+    }
+}
+
+/**
+ * Handles single key shortcuts
+ * @param {KeyboardEvent} event - The keyboard event
+ */
+function handleSingleKeyShortcuts(event) {
+    switch (event.key) {
         case 'Escape':
             event.preventDefault();
             closeAllModals();
             break;
-            
         case ' ':
-            // Space key for quick actions
             if (!event.ctrlKey && !event.altKey && !event.shiftKey) {
                 event.preventDefault();
                 executeQuickAction();
             }
             break;
-    }
-
-    // Ctrl/Cmd based shortcuts
-    if (event.ctrlKey || event.metaKey) {
-        switch (event.key.toLowerCase()) {
-            case 'n':
-                event.preventDefault();
-                openRegularExpenseModal();
-                break;
-                
-            case 'p':
-                event.preventDefault();
-                openPinnedExpenseModal();
-                break;
-                
-            case 'f':
-                event.preventDefault();
-                openQuickSearch();
-                break;
-                
-            case 's':
-                event.preventDefault();
-                saveCurrentData();
-                break;
-                
-            case 'r':
-                event.preventDefault();
-                refreshCurrentView();
-                break;
-                
-            case 'h':
-                event.preventDefault();
-                openHelpModal();
-                break;
-                
-            case 'q':
-                event.preventDefault();
-                quickLogout();
-                break;
-        }
-    }
-
-    // Alt based shortcuts
-    if (event.altKey) {
-        switch (event.key.toLowerCase()) {
-            case '1':
-                event.preventDefault();
-                navigateToSection('dashboard');
-                break;
-                
-            case '2':
-                event.preventDefault();
-                navigateToSection('expenses');
-                break;
-                
-            case '3':
-                event.preventDefault();
-                navigateToSection('reports');
-                break;
-                
-            case '4':
-                event.preventDefault();
-                navigateToSection('settings');
-                break;
-        }
+        case '/':
+            event.preventDefault();
+            openQuickSearch();
+            break;
+        case '?':
+            event.preventDefault();
+            openHelpModal();
+            break;
     }
 }
 
@@ -141,12 +229,6 @@ function handleKeyboardShortcuts(event) {
 function handleInputFieldShortcuts(event) {
     const target = event.target;
     
-    // Handle Enter key in search fields
-    if (event.key === 'Enter') {
-        handleEnterKeyInSearch(target);
-        return;
-    }
-    
     // Handle Escape key to close suggestions or clear field
     if (event.key === 'Escape') {
         if (target.value.trim() === '') {
@@ -155,6 +237,14 @@ function handleInputFieldShortcuts(event) {
             target.value = '';
             closeAllSuggestions();
         }
+        event.preventDefault();
+        return;
+    }
+    
+    // Handle Enter key in search fields
+    if (event.key === 'Enter') {
+        handleEnterKeyInSearch(target);
+        event.preventDefault();
         return;
     }
     
@@ -168,6 +258,13 @@ function handleInputFieldShortcuts(event) {
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
         submitParentForm(target);
+        return;
+    }
+    
+    // Ctrl+/ for quick help while in input fields
+    if (event.key === '/' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        openHelpModal();
         return;
     }
 }
@@ -186,12 +283,15 @@ function isInputField(target) {
     return isInput || isContentEditable || isSearchField;
 }
 
+// --- Application Functions ---
+
 /**
  * Opens the regular expense modal (F3 or Ctrl+N)
  */
 function openRegularExpenseModal() {
     if (currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
         showAddExpenseModal();
+        console.log('فتح modal المصروف العادي');
     } else {
         showMessage('ليس لديك الصلاحية لإضافة مصروفات.', 'error');
     }
@@ -203,12 +303,12 @@ function openRegularExpenseModal() {
 function openPinnedExpenseModal() {
     if (currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
         showAddExpenseModal();
+        console.log('فتح modal المصروف المثبت');
         // Auto-check the pin toggle
         setTimeout(() => {
             const pinToggle = document.getElementById('pinExpenseFormToggle');
             if (pinToggle) {
                 pinToggle.checked = true;
-                // Trigger any change events if needed
                 const event = new Event('change', { bubbles: true });
                 pinToggle.dispatchEvent(event);
             }
@@ -219,9 +319,10 @@ function openPinnedExpenseModal() {
 }
 
 /**
- * Opens quick search modal (F2 or Ctrl+F)
+ * Opens quick search modal (F2 or Ctrl+F or /)
  */
 function openQuickSearch() {
+    console.log('فتح البحث السريع');
     const searchModal = document.getElementById('quickSearchModal');
     if (searchModal) {
         searchModal.style.display = 'block';
@@ -230,46 +331,62 @@ function openQuickSearch() {
             searchInput.focus();
         }
     } else {
-        // Fallback: focus on existing search field if available
         const existingSearch = document.querySelector('input[type="search"]');
         if (existingSearch) {
             existingSearch.focus();
+        } else {
+            showMessage('خيار البحث غير متاح حالياً.', 'info');
         }
     }
 }
 
 /**
- * Opens help modal (F1 or Ctrl+H)
+ * Opens help modal (F1 or Ctrl+H or ?)
  */
 function openHelpModal() {
-    showMessage('شاشة المساعدة - قائمة الاختصارات:\n\n' +
-        'F1 - المساعدة\n' +
-        'F2 - بحث سريع\n' +
-        'F3 - إضافة مصروف\n' +
-        'F4 - إضافة مصروف مثبت\n' +
-        'F5 - تحديث\n' +
-        'F9 - إظهار/إخفاء القائمة الجانبية\n' +
-        'Esc - إغلاق النوافذ\n' +
-        'Space - إجراء سريع\n' +
-        'Alt+1-4 - التنقل بين الأقسام\n' +
-        'Ctrl+N - مصروف جديد\n' +
-        'Ctrl+P - مصروف مثبت\n' +
-        'Ctrl+F - بحث\n' +
-        'Ctrl+S - حفظ\n' +
-        'Ctrl+R - تحديث\n' +
-        'Ctrl+Q - خروج سريع', 'info', 8000);
+    const shortcutsList = `
+        <div style="text-align: right; line-height: 1.8;">
+            <h3>🎯 اختصارات الكيبورد</h3>
+            <br>
+            <strong>الأزرار الوظيفية:</strong><br>
+            F1 - عرض هذه المساعدة<br>
+            F2 - بحث سريع<br>
+            F3 - إضافة مصروف جديد<br>
+            F4 - إضافة مصروف مثبت<br>
+            F5 - تحديث البيانات<br>
+            F9 - إظهار/إخفاء القائمة الجانبية<br>
+            <br>
+            <strong>اختصارات التحكم:</strong><br>
+            Ctrl + N - مصروف جديد<br>
+            Ctrl + P - مصروف مثبت<br>
+            Ctrl + F - بحث سريع<br>
+            Ctrl + S - حفظ<br>
+            Ctrl + R - تحديث<br>
+            Ctrl + H - مساعدة<br>
+            Ctrl + Q - خروج سريع<br>
+            <br>
+            <strong>اختصارات أخرى:</strong><br>
+            / - بحث سريع<br>
+            ? - مساعدة<br>
+            Esc - إغلاق النوافذ<br>
+            Space - إجراء سريع<br>
+        </div>
+    `;
+    
+    showMessage(shortcutsList, 'info', 10000);
 }
 
 /**
  * Refreshes current view (F5 or Ctrl+R)
  */
 function refreshCurrentView() {
+    console.log('تحديث البيانات');
     if (typeof refreshExpenses === 'function') {
         refreshExpenses();
     } else if (typeof loadDashboard === 'function') {
         loadDashboard();
     } else {
-        location.reload();
+        showMessage('تم تحديث البيانات', 'success');
     }
 }
 
@@ -277,13 +394,19 @@ function refreshCurrentView() {
  * Toggles sidebar visibility (F9)
  */
 function toggleSidebar() {
-    const sidebar = document.querySelector('.sidebar, .side-nav, nav');
+    const sidebar = document.querySelector('.sidebar, .side-nav, nav, [class*="sidebar"], [class*="side"]');
     if (sidebar) {
-        const isHidden = sidebar.style.display === 'none' || sidebar.classList.contains('hidden');
+        const isHidden = sidebar.style.display === 'none' || 
+                        sidebar.classList.contains('hidden') ||
+                        sidebar.offsetParent === null;
+        
         sidebar.style.display = isHidden ? 'block' : 'none';
         if (sidebar.classList) {
-            sidebar.classList.toggle('hidden');
+            sidebar.classList.toggle('hidden', !isHidden);
         }
+        console.log('تبديل القائمة الجانبية: ' + (isHidden ? 'إظهار' : 'إخفاء'));
+    } else {
+        showMessage('القائمة الجانبية غير موجودة', 'info');
     }
 }
 
@@ -291,22 +414,18 @@ function toggleSidebar() {
  * Closes all modals and dropdowns (Escape)
  */
 function closeAllModals() {
-    // Close modals
+    console.log('إغلاق جميع النوافذ');
     const modals = document.querySelectorAll('.modal, .dialog, [role="dialog"]');
     modals.forEach(modal => {
-        if (modal.style.display === 'block' || modal.classList.contains('show')) {
-            modal.style.display = 'none';
-            modal.classList.remove('show');
-        }
+        modal.style.display = 'none';
+        modal.classList.remove('show');
     });
     
-    // Close dropdowns
     const dropdowns = document.querySelectorAll('.dropdown-menu, .suggestions');
     dropdowns.forEach(dropdown => {
         dropdown.style.display = 'none';
     });
     
-    // Clear any active selections
     document.querySelectorAll('.active').forEach(item => {
         item.classList.remove('active');
     });
@@ -316,15 +435,12 @@ function closeAllModals() {
  * Executes quick action based on context (Space)
  */
 function executeQuickAction() {
-    // Determine context and execute appropriate action
+    console.log('إجراء سريع');
     if (document.querySelector('.expense-list')) {
-        // If we're in expenses list, open add expense
         openRegularExpenseModal();
     } else if (document.querySelector('.dashboard')) {
-        // If in dashboard, refresh data
         refreshCurrentView();
     } else {
-        // Default action: toggle quick search
         openQuickSearch();
     }
 }
@@ -333,11 +449,24 @@ function executeQuickAction() {
  * Navigates to specific section (Alt+1-4)
  */
 function navigateToSection(section) {
+    console.log('التنقل إلى: ' + section);
     const sections = {
-        'dashboard': () => { if (typeof loadDashboard === 'function') loadDashboard(); },
-        'expenses': () => { if (typeof loadExpenses === 'function') loadExpenses(); },
-        'reports': () => { if (typeof loadReports === 'function') loadReports(); },
-        'settings': () => { if (typeof loadSettings === 'function') loadSettings(); }
+        'dashboard': () => { 
+            if (typeof loadDashboard === 'function') loadDashboard();
+            else showMessage('شاشة الرئيسية', 'info');
+        },
+        'expenses': () => { 
+            if (typeof loadExpenses === 'function') loadExpenses();
+            else showMessage('شاشة المصروفات', 'info');
+        },
+        'reports': () => { 
+            if (typeof loadReports === 'function') loadReports();
+            else showMessage('شاشة التقارير', 'info');
+        },
+        'settings': () => { 
+            if (typeof loadSettings === 'function') loadSettings();
+            else showMessage('شاشة الإعدادات', 'info');
+        }
     };
     
     if (sections[section]) {
@@ -349,7 +478,7 @@ function navigateToSection(section) {
  * Saves current data (Ctrl+S)
  */
 function saveCurrentData() {
-    // Check if we're in a form context
+    console.log('حفظ البيانات');
     const activeForm = document.querySelector('form:focus-within');
     if (activeForm) {
         activeForm.dispatchEvent(new Event('submit', { cancelable: true }));
@@ -363,6 +492,7 @@ function saveCurrentData() {
  */
 function quickLogout() {
     if (confirm('هل تريد تسجيل الخروج؟')) {
+        console.log('خروج سريع');
         if (typeof logout === 'function') {
             logout();
         } else {
@@ -381,7 +511,7 @@ function submitParentForm(element) {
     }
 }
 
-// --- Search and Suggestion Functions (Keep existing but optimized) ---
+// --- Search and Suggestion Functions ---
 
 /**
  * Handles Enter key press in search fields
@@ -451,13 +581,13 @@ function navigateSuggestions(suggestions, event) {
         currentIndex = (currentIndex + 1) % items.length;
     } else if (event.key === 'ArrowUp') {
         currentIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
-    } else {
-        return;
     }
 
     items.forEach(item => item.classList.remove('active'));
-    items[currentIndex].classList.add('active');
-    items[currentIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (currentIndex >= 0) {
+        items[currentIndex].classList.add('active');
+        items[currentIndex].scrollIntoView({ block: 'nearest' });
+    }
 }
 
 /**
@@ -523,17 +653,15 @@ function performSearch(query) {
 // Initialize keyboard shortcuts when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     initializeKeyboardShortcuts();
-    
-    // Add CSS for active suggestion items
     addSuggestionStyles();
     
     // Show available shortcuts on first load
     setTimeout(() => {
         if (!localStorage.getItem('shortcutsShown')) {
-            openHelpModal();
+            showMessage('💡 يمكنك استخدام اختصارات الكيبورد - اضغط F1 للمساعدة', 'info', 5000);
             localStorage.setItem('shortcutsShown', 'true');
         }
-    }, 2000);
+    }, 3000);
 });
 
 /**
@@ -561,18 +689,6 @@ function addSuggestionStyles() {
             z-index: 1000;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        .shortcut-hint {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #333;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            font-size: 12px;
-            opacity: 0.9;
-            z-index: 10000;
-        }
     `;
     document.head.appendChild(style);
 }
@@ -580,3 +696,5 @@ function addSuggestionStyles() {
 // Expose functions globally
 window.initializeKeyboardShortcuts = initializeKeyboardShortcuts;
 window.handleKeyboardShortcuts = handleKeyboardShortcuts;
+
+console.log('✅ اختصارات الكيبورد جاهزة للاستخدام!');
