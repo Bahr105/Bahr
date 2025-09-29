@@ -29,13 +29,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-// إضافة مستمع لحدث الضغط على لوحة المفاتيح لتشغيل الاختصارات
-        document.addEventListener('keydown', handleKeyboardShortcuts);
+    // إضافة مستمع لحدث الضغط على لوحة المفاتيح لتشغيل الاختصارات
+    document.addEventListener('keydown', handleKeyboardShortcuts);
 
     console.log('DOM loaded and initialized successfully.');
 });
 
-
+// متغيرات للتحكم في التنقل في نتائج البحث
+let currentSearchResults = [];
+let selectedSearchIndex = -1;
 
 /**
  * Handles keyboard shortcuts for the application.
@@ -55,10 +57,16 @@ function handleKeyboardShortcuts(event) {
         return;
     }
 
-    // 3. اختصار Ctrl + z: لفتح نافذة إضافة مصروف جديد
-    if (event.ctrlKey && event.key === 'z') {
-        event.preventDefault(); // منع السلوك الافتراضي للمتصفح (مثل تحديد كل النص)
-        showAddExpenseModal(); // استدعاء الدالة التي تفتح نافذة إضافة المصروف
+    // 3. اختصار Ctrl + Shift + z: لفتح نافذة إضافة مصروف جديد وتثبيتها
+    if (event.ctrlKey && event.shiftKey && event.key === 'Z') {
+        event.preventDefault(); // منع السلوك الافتراضي للمتصفح
+        showAddExpenseModal();
+        
+        // تثبيت النافذة إذا كانت متاحة
+        const addExpenseModal = document.getElementById('addExpenseModal');
+        if (addExpenseModal) {
+            addExpenseModal.classList.add('pinned');
+        }
     }
 
     // 4. اختصار Ctrl + S: لحفظ المصروف (إذا كانت نافذة إضافة المصروف مفتوحة)
@@ -73,8 +81,108 @@ function handleKeyboardShortcuts(event) {
             }
         }
     }
+
+    // 5. التنقل في نتائج البحث باستخدام الأسهم واختيارها بـ Enter
+    handleSearchNavigation(event);
 }
 
+/**
+ * Handles keyboard navigation in search results
+ * @param {KeyboardEvent} event - The keyboard event object.
+ */
+function handleSearchNavigation(event) {
+    const searchResults = document.querySelectorAll('.search-results li, .autocomplete-items div');
+    
+    if (searchResults.length === 0) {
+        return;
+    }
+
+    // تحديث القائمة الحالية للنتائج
+    currentSearchResults = Array.from(searchResults);
+    
+    switch(event.key) {
+        case 'ArrowDown':
+            event.preventDefault();
+            selectedSearchIndex = Math.min(selectedSearchIndex + 1, currentSearchResults.length - 1);
+            updateSelectedSearchResult();
+            break;
+            
+        case 'ArrowUp':
+            event.preventDefault();
+            selectedSearchIndex = Math.max(selectedSearchIndex - 1, 0);
+            updateSelectedSearchResult();
+            break;
+            
+        case 'Enter':
+            if (selectedSearchIndex >= 0 && selectedSearchIndex < currentSearchResults.length) {
+                event.preventDefault();
+                currentSearchResults[selectedSearchIndex].click();
+                clearSearchSelection();
+            }
+            break;
+            
+        case 'Escape':
+            clearSearchSelection();
+            break;
+    }
+}
+
+/**
+ * Updates the visual selection in search results
+ */
+function updateSelectedSearchResult() {
+    currentSearchResults.forEach((result, index) => {
+        if (index === selectedSearchIndex) {
+            result.classList.add('selected');
+            result.scrollIntoView({ block: 'nearest' });
+        } else {
+            result.classList.remove('selected');
+        }
+    });
+}
+
+/**
+ * Clears search selection
+ */
+function clearSearchSelection() {
+    selectedSearchIndex = -1;
+    currentSearchResults.forEach(result => {
+        result.classList.remove('selected');
+    });
+    currentSearchResults = [];
+}
+
+/**
+ * Initializes search functionality with keyboard navigation
+ * @param {string} searchInputId - ID of the search input element
+ * @param {string} resultsContainerId - ID of the results container element
+ * @param {Function} searchFunction - Function to perform the search
+ */
+function initializeSearchWithNavigation(searchInputId, resultsContainerId, searchFunction) {
+    const searchInput = document.getElementById(searchInputId);
+    const resultsContainer = document.getElementById(resultsContainerId);
+    
+    if (!searchInput || !resultsContainer) return;
+    
+    searchInput.addEventListener('input', (e) => {
+        searchFunction(e.target.value);
+        selectedSearchIndex = -1;
+        currentSearchResults = Array.from(resultsContainer.querySelectorAll('li, div'));
+    });
+    
+    searchInput.addEventListener('keydown', (e) => {
+        if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) {
+            handleSearchNavigation(e);
+        }
+    });
+    
+    // إعادة تعيين عند فقدان التركيز
+    searchInput.addEventListener('blur', () => {
+        setTimeout(() => {
+            clearSearchSelection();
+        }, 200);
+    });
+}
 
 // --- Global Error Handling ---
 window.addEventListener('unhandledrejection', (event) => {
@@ -148,4 +256,25 @@ window.updateAccountantCashierOverview = updateAccountantCashierOverview;
 window.searchInvoiceAccountant = searchInvoiceAccountant;
 window.populateReportFilters = populateReportFilters;
 window.generateAccountantReport = generateAccountantReport;
-window.print
+window.initializeSearchWithNavigation = initializeSearchWithNavigation;
+window.handleSearchNavigation = handleSearchNavigation;
+window.updateSelectedSearchResult = updateSelectedSearchResult;
+window.clearSearchSelection = clearSearchSelection;
+
+// CSS إضافي يمكن إضافته للتنسيق
+const additionalStyles = `
+    .search-results li.selected,
+    .autocomplete-items div.selected {
+        background-color: #007bff;
+        color: white;
+    }
+    
+    .modal.pinned {
+        z-index: 9999 !important;
+    }
+`;
+
+// إضافة الأنماط إلى الصفحة
+const styleSheet = document.createElement('style');
+styleSheet.textContent = additionalStyles;
+document.head.appendChild(styleSheet);
