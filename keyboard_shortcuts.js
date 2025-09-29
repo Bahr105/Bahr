@@ -482,7 +482,7 @@ function handleFunctionKeys(event) {
         },
         'F4': () => {
             console.log('🎯 F4 - فتح مصروف مثبت');
-            openPinnedExpenseModalEnhanced(); // تأكد من استدعاء النسخة المحسنة
+            openPinnedExpenseModalEnhanced(); // تم التصحيح: استدعاء الدالة المحسنة مباشرة
         },
         'F5': () => refreshCurrentView(),
         'F9': () => toggleSidebar()
@@ -506,7 +506,7 @@ function handleCtrlShortcuts(event) {
     const key = event.key.toLowerCase();
     const actions = {
         'n': () => openRegularExpenseModal(),
-        'p': () => openPinnedExpenseModalEnhanced(), // تأكد من استدعاء النسخة المحسنة
+        'p': () => openPinnedExpenseModalEnhanced(), // تم التصحيح: استدعاء الدالة المحسنة مباشرة
         'f': () => openQuickSearch(),
         's': () => saveCurrentData(),
         'r': () => {
@@ -756,7 +756,7 @@ function openPinnedExpenseModalEnhanced() {
     // إذا كانت النافذة موجودة ولكنها ليست مفتوحة بصرياً، قم بإعادة تعيينها
     if (existingModal) {
         console.log('🔧 النافذة موجودة ولكنها ليست مرئية، جاري إعادة تعيين حالتها.');
-        existingModal.style.display = ''; // إزالة أي display:none قسري
+        existingModal.style.cssText = ''; // إزالة أي display:none قسري أو أنماط أخرى
         existingModal.classList.remove('force-closed', 'broken', 'show', 'active', 'open'); // إزالة جميع كلاسات الحالة
         // إزالة أي backdrop قد يكون عالقاً
         const backdrop = document.querySelector('.modal-backdrop, .backdrop');
@@ -968,8 +968,6 @@ function refreshCurrentView() {
         refreshExpenses();
     } else if (typeof loadDashboard === 'function') {
         loadDashboard();
-    } else if (typeof location !== 'undefined') {
-        location.reload();
     } else {
         showMessage('تم تحديث البيانات', 'success');
     }
