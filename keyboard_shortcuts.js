@@ -1,5 +1,4 @@
-[file name]: keyboard_shortcuts.js
-[file content begin]
+
 // --- Keyboard Shortcuts Functions ---
 
 /**
@@ -581,4 +580,3 @@ function addSuggestionStyles() {
 // Expose functions globally
 window.initializeKeyboardShortcuts = initializeKeyboardShortcuts;
 window.handleKeyboardShortcuts = handleKeyboardShortcuts;
-[file content end]
