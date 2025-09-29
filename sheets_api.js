@@ -198,3 +198,57 @@ function normalizeCategoryId(id) {
     
     return normalized;
 }
+
+// في نهاية ملف sheets_api.js، أضف هذه الدالة
+/**
+ * مقارنة مرنة للأوقات (تجاهل الثواني وتحويل AM/PM إذا لزم)
+ * @param {string} time1 - الوقت الأول (HH:MM أو HH:MM:SS)
+ * @param {string} time2 - الوقت الثاني (HH:MM أو HH:MM:SS)
+ * @returns {boolean} true إذا تطابقا
+ */
+function flexibleTimeMatch(time1, time2) {
+    if (!time1 || !time2) return false;
+    
+    // تنظيف وتوحيد التنسيق إلى HH:MM
+    const cleanTime1 = time1.substring(0, 5);
+    const cleanTime2 = time2.substring(0, 5);
+    
+    return cleanTime1 === cleanTime2;
+}
+
+/**
+ * تحسين findRowIndex لدعم البحث في التقفيلات (مقارنة مرنة للأوقات والتواريخ)
+ * @param {string} sheetName - اسم الورقة
+ * @param {number} idColumn - عمود الـ ID
+ * @param {string} id - الـ ID للبحث
+ * @param {object} [closureFilters] - فلاتر إضافية للتقفيلات (cashier, dateFrom, etc.)
+ * @returns {Promise<number>} رقم الصف (1-based) أو -1
+ */
+async function findRowIndex(sheetName, idColumn, id, closureFilters = null) {
+    const data = await readSheet(sheetName);
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][idColumn] === id) {
+            // إذا كان بحث تقفيلة، تحقق من الفلاتر المرنة
+            if (sheetName === SHEETS.SHIFT_CLOSURES && closureFilters) {
+                const rowCashier = data[i][1]; // عمود الكاشير (الثاني)
+                const rowDateFrom = data[i][2]; // dateFrom
+                const rowTimeFrom = data[i][3]; // timeFrom
+                const rowDateTo = data[i][4];   // dateTo
+                const rowTimeTo = data[i][5];   // timeTo
+                const rowStatus = data[i][18];  // status
+
+                if (rowCashier === closureFilters.cashier &&
+                    rowDateFrom === closureFilters.dateFrom &&
+                    flexibleTimeMatch(rowTimeFrom, closureFilters.timeFrom) &&
+                    rowDateTo === closureFilters.dateTo &&
+                    flexibleTimeMatch(rowTimeTo, closureFilters.timeTo) &&
+                    rowStatus === 'مغلق') {
+                    return i + 1;
+                }
+            } else {
+                return i + 1;
+            }
+        }
+    }
+    return -1;
+}
