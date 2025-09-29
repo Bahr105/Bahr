@@ -728,7 +728,6 @@ function openRegularExpenseModal() {
     }
 }
 
-
 /**
  * فتح نافذة المصروف المثبت - الإصدار المحسّن (تم تحسينها مرة أخرى)
  */
@@ -820,8 +819,6 @@ function openPinnedExpenseModalEnhanced() {
     }, 100); // تأخير 100ms قبل محاولة الفتح
 
 }
-
-
 
 /**
  * فحص حالة نافذة المصروف
