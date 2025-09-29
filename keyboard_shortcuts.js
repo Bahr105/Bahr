@@ -27,25 +27,30 @@ function handleKeyboardShortcuts(event) {
         return;
     }
 
+    // Normalize key to lowercase for easier comparison
+    const key = event.key.toLowerCase();
+
+    // Define keys for Z in English and Arabic
+    const zKeys = ['z', 'ز'];
+
+    // Ctrl + Z or Ctrl + ز to open regular expense modal
+    if ((event.ctrlKey || event.metaKey) && zKeys.includes(key)) {
+        event.preventDefault();
+        openRegularExpenseModal();
+        return;
+    }
+
+    // Alt + Z or Alt + ز to open pinned expense modal
+    if (event.altKey && !event.ctrlKey && !event.metaKey && zKeys.includes(key)) {
+        event.preventDefault();
+        openPinnedExpenseModal();
+        return;
+    }
+
     // Global shortcuts (when not in input fields)
     if (event.ctrlKey || event.metaKey) { // Ctrl or Cmd key
-        switch (event.key) {
-            case 'q':
-            case 'Z':
-            case 'ض': 
-                if (event.shiftKey) {
-                    // Ctrl+Shift+q - Open pinned expense modal
-                    event.preventDefault();
-                    openPinnedExpenseModal();
-                } else {
-                    // Ctrl+q - Open regular expense modal
-                    event.preventDefault();
-                    openRegularExpenseModal();
-                }
-                break;
-                
+        switch (key) {
             case 'n':
-            case 'N':
                 // Ctrl+N - Add new expense (alternative shortcut)
                 event.preventDefault();
                 openRegularExpenseModal();
@@ -77,7 +82,6 @@ function handleLoginShortcuts(event) {
         }
     }
 }
-
 
 /**
  * Handles keyboard shortcuts when in input fields
@@ -121,18 +125,25 @@ function isInputField(target) {
  * Opens the regular expense modal (Ctrl+Z)
  */
 function openRegularExpenseModal() {
-    if (currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
+    if (currentUser Role === 'كاشير' || currentUser Role === 'محاسب') {
         showAddExpenseModal();
+        // Uncheck pin toggle if exists
+        setTimeout(() => {
+            const pinToggle = document.getElementById('pinExpenseFormToggle');
+            if (pinToggle) {
+                pinToggle.checked = false;
+            }
+        }, 100);
     } else {
         showMessage('ليس لديك الصلاحية لإضافة مصروفات.', 'error');
     }
 }
 
 /**
- * Opens the pinned expense modal (Ctrl+Shift+Z)
+ * Opens the pinned expense modal (Alt+Z)
  */
 function openPinnedExpenseModal() {
-    if (currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
+    if (currentUser Role === 'كاشير' || currentUser Role === 'محاسب') {
         showAddExpenseModal();
         // Auto-check the pin toggle
         setTimeout(() => {
@@ -250,7 +261,6 @@ function navigateSuggestions(suggestions, event) {
 
     console.log(`Suggestion navigation: active index ${currentIndex}`);
 }
-
 
 /**
  * Sets up navigation for search suggestions
@@ -377,3 +387,5 @@ function addSuggestionStyles() {
 window.initializeKeyboardShortcuts = initializeKeyboardShortcuts;
 window.handleKeyboardShortcuts = handleKeyboardShortcuts;
 window.handleLoginShortcuts = handleLoginShortcuts; // Expose for potential direct use if needed
+window.openRegularExpenseModal = openRegularExpenseModal;
+window.openPinnedExpenseModal = openPinnedExpenseModal;
