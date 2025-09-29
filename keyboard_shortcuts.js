@@ -8,6 +8,12 @@ function initializeKeyboardShortcuts() {
     
     // Add focus management for search suggestions
     setupSearchSuggestionNavigation();
+
+    // Add specific shortcuts for the login page
+    const loginPage = document.getElementById('loginPage');
+    if (loginPage) {
+        loginPage.addEventListener('keydown', handleLoginShortcuts);
+    }
 }
 
 /**
@@ -22,11 +28,10 @@ function handleKeyboardShortcuts(event) {
     }
 
     // Global shortcuts (when not in input fields)
-    if (event.ctrlKey || event.metaKey) {
+    if (event.ctrlKey || event.metaKey) { // Ctrl or Cmd key
         switch (event.key) {
             case 'z':
             case 'Z':
-                case 'ئ':
                 if (event.shiftKey) {
                     // Ctrl+Shift+Z - Open pinned expense modal
                     event.preventDefault();
@@ -49,6 +54,31 @@ function handleKeyboardShortcuts(event) {
 }
 
 /**
+ * Handles keyboard shortcuts specifically for the login page.
+ * @param {KeyboardEvent} event - The keyboard event
+ */
+function handleLoginShortcuts(event) {
+    const target = event.target;
+    // Check if the target is the username or password input field
+    if (target.id === 'username' || target.id === 'password') {
+        if (event.key === 'Enter') {
+            event.preventDefault(); // Prevent default Enter behavior (e.g., form submission)
+            const loginButton = document.getElementById('loginButton'); // Assuming 'loginButton' is the ID of your login button
+            if (loginButton) {
+                loginButton.click(); // Simulate a click on the login button
+            } else {
+                console.warn("Login button with ID 'loginButton' not found.");
+                // Fallback: if button not found, try to call login function directly
+                if (typeof window.login === 'function') {
+                    window.login();
+                }
+            }
+        }
+    }
+}
+
+
+/**
  * Handles keyboard shortcuts when in input fields
  * @param {KeyboardEvent} event - The keyboard event
  */
@@ -57,6 +87,7 @@ function handleInputFieldShortcuts(event) {
     
     // Handle Enter key in search fields
     if (event.key === 'Enter') {
+        event.preventDefault(); // Prevent form submission or other default behavior
         handleEnterKeyInSearch(target);
         return;
     }
@@ -91,6 +122,8 @@ function isInputField(target) {
 function openRegularExpenseModal() {
     if (currentUserRole === 'كاشير' || currentUserRole === 'محاسب') {
         showAddExpenseModal();
+    } else {
+        showMessage('ليس لديك الصلاحية لإضافة مصروفات.', 'error');
     }
 }
 
@@ -107,6 +140,8 @@ function openPinnedExpenseModal() {
                 pinToggle.checked = true;
             }
         }, 100);
+    } else {
+        showMessage('ليس لديك الصلاحية لإضافة مصروفات.', 'error');
     }
 }
 
@@ -119,15 +154,15 @@ function handleEnterKeyInSearch(target) {
     
     switch (searchId) {
         case 'expenseCategorySearch':
-            selectFirstSuggestion('expenseCategorySuggestions');
+            selectActiveOrFirstSuggestion('expenseCategorySuggestions');
             break;
             
         case 'customerSearch':
-            selectFirstSuggestion('customerSuggestions');
+            selectActiveOrFirstSuggestion('customerSuggestions');
             break;
             
         case 'employeeSearch':
-            selectFirstSuggestion('employeeSuggestions');
+            selectActiveOrFirstSuggestion('employeeSuggestions');
             break;
             
         default:
@@ -138,16 +173,21 @@ function handleEnterKeyInSearch(target) {
 }
 
 /**
- * Selects the first suggestion in a suggestions list
+ * Selects the currently active suggestion or the first one if none is active.
  * @param {string} suggestionsId - The ID of the suggestions container
  */
-function selectFirstSuggestion(suggestionsId) {
+function selectActiveOrFirstSuggestion(suggestionsId) {
     const suggestions = document.getElementById(suggestionsId);
     if (!suggestions || suggestions.style.display === 'none') return;
     
-    const firstSuggestion = suggestions.querySelector('.suggestion-item');
-    if (firstSuggestion) {
-        firstSuggestion.click();
+    const activeSuggestion = suggestions.querySelector('.suggestion-item.active');
+    if (activeSuggestion) {
+        activeSuggestion.click();
+    } else {
+        const firstSuggestion = suggestions.querySelector('.suggestion-item');
+        if (firstSuggestion) {
+            firstSuggestion.click();
+        }
     }
 }
 
@@ -216,7 +256,7 @@ function navigateSuggestions(suggestions, event) {
     items[currentIndex].classList.add('active');
     
     // Scroll into view if needed
-    items[currentIndex].scrollIntoView({ block: 'nearest' });
+    items[currentIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); // Added smooth behavior
 }
 
 /**
@@ -267,27 +307,30 @@ function enhanceSearchFunctions() {
     // Enhance expense category search
     window.searchExpenseCategories = function(searchTerm) {
         originalSearchExpenseCategories(searchTerm);
-        setTimeout(() => setupSuggestionNavigation('expenseCategorySuggestions'), 0);
+        // Ensure setupSuggestionNavigation is called after DOM update
+        setTimeout(() => setupSuggestionNavigationForContainer('expenseCategorySuggestions'), 0);
     };
     
     // Enhance customer search
     window.searchCustomersForExpense = function(searchTerm) {
         originalSearchCustomersForExpense(searchTerm);
-        setTimeout(() => setupSuggestionNavigation('customerSuggestions'), 0);
+        // Ensure setupSuggestionNavigation is called after DOM update
+        setTimeout(() => setupSuggestionNavigationForContainer('customerSuggestions'), 0);
     };
     
     // Enhance employee search
     window.searchEmployeesForExpense = function(searchTerm) {
         originalSearchEmployeesForExpense(searchTerm);
-        setTimeout(() => setupSuggestionNavigation('employeeSuggestions'), 0);
+        // Ensure setupSuggestionNavigation is called after DOM update
+        setTimeout(() => setupSuggestionNavigationForContainer('employeeSuggestions'), 0);
     };
 }
 
 /**
- * Sets up navigation for a specific suggestions container
+ * Sets up navigation for a specific suggestions container (renamed for clarity).
  * @param {string} suggestionsId - The ID of the suggestions container
  */
-function setupSuggestionNavigation(suggestionsId) {
+function setupSuggestionNavigationForContainer(suggestionsId) {
     const suggestions = document.getElementById(suggestionsId);
     if (!suggestions) return;
     
@@ -341,3 +384,4 @@ function addSuggestionStyles() {
 // Expose functions globally for HTML event handlers
 window.initializeKeyboardShortcuts = initializeKeyboardShortcuts;
 window.handleKeyboardShortcuts = handleKeyboardShortcuts;
+window.handleLoginShortcuts = handleLoginShortcuts; // Expose for potential direct use if needed
