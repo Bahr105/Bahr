@@ -714,59 +714,128 @@ function openRegularExpenseModal() {
 /**
  * فتح نافذة المصروف المثبت - الإصدار العملي
  */
+function openPinnedExpenseModal() {
+    console.log('🎯 فتح نافذة المصروف المثبت - البدء...');
+    
+    // الطريقة 1: استخدام الدالة الأصلية إذا كانت تعمل
+    if (typeof showAddExpenseModal === 'function') {
+        try {
+            showAddExpenseModal();
+            console.log('✅ تم استدعاء showAddExpenseModal()');
+            
+            // تأخير تفعيل التثبيت لضمان تحميل النافذة
+            setTimeout(() => {
+                activatePinning();
+            }, 300);
+            
+            return;
+        } catch (error) {
+            console.error('❌ خطأ في showAddExpenseModal:', error);
+        }
+    }
+    
+    // الطريقة 2: فتح النافذة يدوياً إذا فشلت الطريقة الأولى
+    openExpenseModalManually();
+}
+
 /**
- * إغلاق نافذة المصروف المثبت تحديداً - الإصدار المحسّن
+ * تفعيل خيار التثبيت
  */
-function closeExpenseModalSpecific() {
-    console.log('🎯 البحث عن نافذة المصروف المثبت...');
+function activatePinning() {
+    const pinToggle = document.getElementById('pinExpenseFormToggle');
+    if (pinToggle) {
+        pinToggle.checked = true;
+        console.log('✅ تم تفعيل خيار التثبيت');
+        
+        // تشغيل event التغيير
+        const changeEvent = new Event('change', { bubbles: true });
+        pinToggle.dispatchEvent(changeEvent);
+        
+        // أيضًا تشغيل event click للتأكد
+        const clickEvent = new Event('click', { bubbles: true });
+        pinToggle.dispatchEvent(clickEvent);
+    } else {
+        console.log('⚠️ لم يتم العثور على زر التثبيت، جاري البحث مرة أخرى...');
+        
+        // محاولة أخرى بعد تأخير
+        setTimeout(() => {
+            const pinToggleRetry = document.getElementById('pinExpenseFormToggle');
+            if (pinToggleRetry) {
+                pinToggleRetry.checked = true;
+                pinToggleRetry.dispatchEvent(new Event('change', { bubbles: true }));
+                console.log('✅ تم تفعيل التثبيت في المحاولة الثانية');
+            } else {
+                console.error('❌ فشل العثور على زر التثبيت بعد محاولتين');
+            }
+        }, 500);
+    }
+}
+
+/**
+ * فتح النافذة يدوياً
+ */
+function openExpenseModalManually() {
+    console.log('🔧 فتح النافذة يدوياً...');
     
     const modal = document.getElementById('addExpenseModal');
     if (!modal) {
-        console.log('❌ نافذة المصروف غير موجودة');
-        return false;
+        console.error('❌ نافذة addExpenseModal غير موجودة في DOM');
+        showMessage('نافذة المصروف غير متاحة', 'error');
+        return;
     }
     
-    const isVisible = modal.style.display === 'flex' || 
-                     modal.classList.contains('active') || 
-                     modal.classList.contains('show');
+    // إظهار النافذة
+    modal.style.display = 'flex';
+    modal.style.opacity = '1';
+    modal.style.visibility = 'visible';
+    modal.classList.add('active', 'show');
     
-    if (!isVisible) {
-        console.log('❌ نافذة المصروف غير مرئية');
-        return false;
+    // إضافة backdrop
+    let backdrop = document.querySelector('.modal-backdrop');
+    if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop fade show';
+        document.body.appendChild(backdrop);
     }
+    backdrop.style.display = 'block';
     
-    console.log('✅ عثرت على نافذة مصروف مرئية');
+    // منع التمرير
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    document.body.style.paddingRight = '0px';
     
-    // الطريقة 1: استخدام زر الإغلاق الموجود
-    const closeBtn = modal.querySelector('.close-btn, [onclick*="closeModal"]');
-    if (closeBtn) {
-        console.log('✅ تم العثور على زر الإغلاق، جاري النقر عليه');
-        closeBtn.click();
-        return true;
-    }
+    // إعادة تعيين النموذج
+    const form = document.getElementById('addExpenseForm');
+    if (form) form.reset();
     
-    // الطريقة 2: استخدام الدالة closeModal مباشرة إذا كانت موجودة
-    if (typeof closeModal === 'function') {
-        console.log('✅ استخدام دالة closeModal مباشرة');
-        closeModal('addExpenseModal');
-        return true;
-    }
+    // تفعيل التثبيت بعد فتح النافذة
+    setTimeout(() => {
+        activatePinning();
+    }, 200);
     
-    // الطريقة 3: الإغلاق اليدوي
-    console.log('🔧 الإغلاق اليدوي للنافذة');
-    modal.style.display = 'none';
-    modal.classList.remove('active', 'show');
-    
-    // تنظيف الـ backdrop
-    const backdrops = document.querySelectorAll('.modal-backdrop, .backdrop');
-    backdrops.forEach(backdrop => backdrop.remove());
-    
-    // إعادة ضبط body
-    document.body.classList.remove('modal-open');
-    document.body.style.overflow = '';
-    
-    return true;
+    console.log('✅ تم فتح النافذة يدوياً بنجاح');
 }
+
+/**
+ * التحقق من حالة النافذة
+ */
+function checkModalState() {
+    const modal = document.getElementById('addExpenseModal');
+    if (modal) {
+        const styles = window.getComputedStyle(modal);
+        console.log('🔍 حالة النافذة:', {
+            display: styles.display,
+            visibility: styles.visibility,
+            opacity: styles.opacity,
+            classes: modal.className,
+            hasBackdrop: !!document.querySelector('.modal-backdrop')
+        });
+    } else {
+        console.log('❌ النافذة غير موجودة في DOM');
+    }
+}
+
+
  
 
 
