@@ -26,6 +26,7 @@ function handleKeyboardShortcuts(event) {
         switch (event.key) {
             case 'z':
             case 'Z':
+                case 'ئ':
                 if (event.shiftKey) {
                     // Ctrl+Shift+Z - Open pinned expense modal
                     event.preventDefault();
