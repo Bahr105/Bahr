@@ -55,8 +55,8 @@ function handleKeyboardShortcuts(event) {
         return;
     }
 
-    // 3. اختصار Ctrl + A: لفتح نافذة إضافة مصروف جديد
-    if (event.ctrlKey && event.key === 'a') {
+    // 3. اختصار Ctrl + z: لفتح نافذة إضافة مصروف جديد
+    if (event.ctrlKey && event.key === 'z') {
         event.preventDefault(); // منع السلوك الافتراضي للمتصفح (مثل تحديد كل النص)
         showAddExpenseModal(); // استدعاء الدالة التي تفتح نافذة إضافة المصروف
     }
