@@ -17,10 +17,295 @@ if (typeof handleLoginShortcuts === 'undefined') {
 }
 
 /**
+ * التحقق من ضرورة منع السلوك الافتراضي
+ */
+function shouldPreventDefault(event) {
+    const key = event.key.toLowerCase();
+
+    const conflicts = [
+        { ctrl: true, key: 'p' },      // طباعة
+        { ctrl: true, key: 'n' },      // نافذة جديدة
+        { ctrl: true, key: 's' },      // حفظ
+        { ctrl: true, key: 'f' },      // بحث
+        { ctrl: true, key: 'h' },      // سجل
+        { key: 'f1' },                 // مساعدة
+        { key: 'f3' },                 // بحث
+        { key: 'f4' },                 // عنوان URL
+        { key: 'f5' },                 // تحديث
+        { alt: true, key: '1' },
+        { alt: true, key: '2' },
+        { alt: true, key: '3' },
+        { alt: true, key: '4' }
+    ];
+
+    return conflicts.some(conflict => {
+        const ctrlMatch = !conflict.ctrl || (event.ctrlKey || event.metaKey);
+        const altMatch = !conflict.alt || event.altKey;
+        const keyMatch = conflict.key === key;
+        return ctrlMatch && altMatch && keyMatch;
+    });
+}
+
+/**
+ * معالجة Function Keys
+ */
+function handleFunctionKeys(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const actions = {
+        'F1': () => openHelpModal(),
+        'F2': () => openQuickSearch(),
+        'F3': () => openRegularExpenseModal(),
+        'F4': () => openPinnedExpenseModal(),
+        'F5': () => refreshCurrentView(),
+        'F9': () => toggleSidebar()
+    };
+
+    const action = actions[event.key];
+    if (action) {
+        action();
+    }
+}
+
+/**
+ * معالجة اختصارات Ctrl/Cmd
+ */
+function handleCtrlShortcuts(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const key = event.key.toLowerCase();
+    const actions = {
+        'n': () => openRegularExpenseModal(),
+        'p': () => openPinnedExpenseModal(),
+        'f': () => openQuickSearch(),
+        's': () => saveCurrentData(),
+        'r': () => {
+            if (typeof refreshCurrentView === 'function') {
+                refreshCurrentView();
+            } else if (typeof location !== 'undefined') {
+                location.reload();
+            }
+        },
+        'h': () => openHelpModal(),
+        'q': () => quickLogout(),
+        '/': () => openHelpModal()
+    };
+
+    const action = actions[key];
+    if (action) {
+        action();
+    }
+}
+
+/**
+ * معالجة اختصارات Alt
+ */
+function handleAltShortcuts(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const key = event.key;
+    const sections = {
+        '1': 'dashboard',
+        '٧': 'dashboard',
+        '2': 'expenses',
+        '٢': 'expenses',
+        '3': 'reports',
+        '٣': 'reports',
+        '4': 'settings',
+        '٤': 'settings'
+    };
+
+    const section = sections[key];
+    if (section) {
+        navigateToSection(section);
+    }
+}
+
+/**
+ * معالجة المفاتيح المنفردة
+ */
+function handleSingleKeyShortcuts(event) {
+    const key = event.key;
+
+    const actions = {
+        '/': () => {
+            event.preventDefault();
+            openQuickSearch();
+        },
+        '?': () => {
+            event.preventDefault();
+            openHelpModal();
+        },
+        ' ': () => {
+            if (!event.ctrlKey && !event.altKey && !event.shiftKey) {
+                event.preventDefault();
+                executeQuickAction();
+            }
+        }
+    };
+
+    const action = actions[key];
+    if (action) {
+        action();
+    }
+}
+
+/**
+ * معالجة زر Enter في حقول الإدخال
+ */
+function handleEnterInInput(event) {
+    const target = event.target;
+    const searchId = target.id;
+
+    const searchFields = {
+        'expenseCategorySearch': 'expenseCategorySuggestions',
+        'customerSearch': 'customerSuggestions',
+        'employeeSearch': 'employeeSuggestions',
+        'supplierSearch': 'supplierSuggestions',
+        'productSearch': 'productSuggestions'
+    };
+
+    if (searchFields[searchId]) {
+        event.preventDefault();
+        selectActiveOrFirstSuggestion(searchFields[searchId]);
+        return;
+    }
+
+    if (target.type === 'search' || target.classList.contains('search-input')) {
+        event.preventDefault();
+        performSearch(target.value);
+        return;
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        submitParentForm(target);
+        return;
+    }
+
+    if (target.tagName.toLowerCase() === 'textarea') {
+        return;
+    }
+
+    event.preventDefault();
+    const form = target.closest('form');
+    if (form) {
+        const inputs = Array.from(form.querySelectorAll('input, select, textarea, button'));
+        const currentIndex = inputs.indexOf(target);
+        const nextInput = inputs[currentIndex + 1];
+
+        if (nextInput && nextInput.type !== 'submit' && nextInput.tagName !== 'BUTTON') {
+            nextInput.focus();
+        } else {
+            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+    }
+}
+
+/**
+ * التنقل في الاقتراحات بالأسهم
+ */
+function handleArrowKeysInSearch(target, event) {
+    const searchId = target.id;
+    const suggestionsMap = {
+        'expenseCategorySearch': 'expenseCategorySuggestions',
+        'customerSearch': 'customerSuggestions',
+        'employeeSearch': 'employeeSuggestions',
+        'supplierSearch': 'supplierSuggestions',
+        'productSearch': 'productSuggestions'
+    };
+
+    const suggestionsId = suggestionsMap[searchId];
+    if (!suggestionsId) return;
+
+    const suggestions = document.getElementById(suggestionsId);
+    if (!suggestions || suggestions.style.display === 'none') return;
+
+    event.preventDefault();
+    navigateSuggestions(suggestions, event.key);
+}
+
+/**
+ * التنقل في قائمة الاقتراحات
+ */
+function navigateSuggestions(container, direction) {
+    const items = Array.from(container.querySelectorAll('.suggestion-item:not([style*="display: none"])'));
+    if (items.length === 0) return;
+
+    const current = container.querySelector('.suggestion-item.active');
+    let index = current ? items.indexOf(current) : -1;
+
+    if (direction === 'ArrowDown') {
+        index = (index + 1) % items.length;
+    } else if (direction === 'ArrowUp') {
+        index = index <= 0 ? items.length - 1 : index - 1;
+    }
+
+    items.forEach(item => item.classList.remove('active'));
+    items[index].classList.add('active');
+
+    const itemRect = items[index].getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    if (itemRect.top < containerRect.top || itemRect.bottom > containerRect.bottom) {
+        items[index].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+}
+
+/**
+ * اختيار الاقتراح النشط أو الأول
+ */
+function selectActiveOrFirstSuggestion(suggestionsId) {
+    const suggestions = document.getElementById(suggestionsId);
+    if (!suggestions || suggestions.style.display === 'none') return false;
+
+    const active = suggestions.querySelector('.suggestion-item.active');
+    const target = active || suggestions.querySelector('.suggestion-item');
+
+    if (target) {
+        target.click();
+        return true;
+    }
+    return false;
+}
+
+/**
+ * إعداد التنقل في الاقتراحات
+ */
+function setupSearchSuggestionNavigation() {
+    document.addEventListener('mouseover', (e) => {
+        if (e.target.classList.contains('suggestion-item')) {
+            const siblings = e.target.parentElement.querySelectorAll('.suggestion-item');
+            siblings.forEach(s => s.classList.remove('active'));
+            e.target.classList.add('active');
+        }
+    });
+}
+
+/**
+ * إغلاق جميع القوائم المنسدلة
+ */
+function closeSuggestions() {
+    const suggestions = document.querySelectorAll('.suggestions, .dropdown-menu, [class*="suggestion"]');
+    let closed = false;
+
+    suggestions.forEach(s => {
+        if (s.style.display !== 'none' && s.offsetParent !== null) {
+            s.style.display = 'none';
+            s.querySelectorAll('.active').forEach(item => item.classList.remove('active'));
+            closed = true;
+        }
+    });
+
+    return closed;
+}
+
+/**
  * عرض رسالة للمستخدم - الإصدار الآمن
  */
 function showMessage(message, type = 'info', duration = 3000) {
-    // تجنب التكرار اللانهائي
     if (window._showingMessage) {
         console.log('⚠️ منع تكرار الرسالة:', String(message).substring(0, 50));
         return;
@@ -29,13 +314,11 @@ function showMessage(message, type = 'info', duration = 3000) {
     try {
         window._showingMessage = true;
         
-        // إذا كانت هناك دالة showMessage أصلية، استخدمها
         if (typeof window._originalShowMessage === 'function') {
             window._originalShowMessage(message, type, duration);
             return;
         }
         
-        // إنشاء رسالة مخصصة
         createSafeToast(message, type, duration);
         
     } catch (error) {
@@ -51,7 +334,6 @@ function showMessage(message, type = 'info', duration = 3000) {
  * إنشاء رسالة آمنة بدون تكرار
  */
 function createSafeToast(message, type = 'info', duration = 3000) {
-    // تنظيف الرسائل القديمة
     const oldToasts = document.querySelectorAll('.safe-toast-message');
     oldToasts.forEach(toast => {
         if (toast.parentNode) toast.parentNode.removeChild(toast);
@@ -60,7 +342,6 @@ function createSafeToast(message, type = 'info', duration = 3000) {
     const toast = document.createElement('div');
     toast.className = 'safe-toast-message';
     
-    // تحديد اللون حسب النوع
     let backgroundColor;
     switch(type) {
         case 'error': backgroundColor = '#dc3545'; break;
@@ -69,7 +350,6 @@ function createSafeToast(message, type = 'info', duration = 3000) {
         default: backgroundColor = '#17a2b8';
     }
     
-    // إعداد الأنماط
     Object.assign(toast.style, {
         position: 'fixed',
         top: '20px',
@@ -90,7 +370,6 @@ function createSafeToast(message, type = 'info', duration = 3000) {
     toast.textContent = typeof message === 'string' ? message : String(message);
     document.body.appendChild(toast);
     
-    // إزالة تلقائية
     if (duration > 0) {
         setTimeout(() => {
             if (toast.parentNode) {
@@ -198,20 +477,17 @@ function handleEscapeKey(event) {
 
     console.log('⎋ زر ESC - بدء الإغلاق الذكي...');
     
-    // 1. محاولة إغلاق النوافذ المحسّن
     if (closeModalsEnhanced()) {
         console.log('✅ تم إغلاق النوافذ بنجاح');
         setTimeout(removeBlurEffects, 100);
         return;
     }
     
-    // 2. إغلاق القوائم المنسدلة
     if (closeSuggestions()) {
         console.log('✅ تم إغلاق القوائم المنسدلة');
         return;
     }
 
-    // 3. مسح محتوى الحقول النشطة
     const activeInput = document.activeElement;
     if (isInputField(activeInput) && activeInput.value.trim() !== '') {
         activeInput.value = '';
@@ -219,7 +495,6 @@ function handleEscapeKey(event) {
         return;
     }
 
-    // 4. الخروج من الحقول النشطة
     if (isInputField(activeInput)) {
         activeInput.blur();
         console.log('✅ تم الخروج من حقل الإدخال');
@@ -279,7 +554,6 @@ function closeExpenseModalSpecific() {
 function closeModalsEnhanced() {
     console.log('🔧 محاولة إغلاق النوافذ المحسّن...');
     
-    // أولاً: محاولة إغلاق نافذة المصروف المثبت تحديداً
     if (closeExpenseModalSpecific()) {
         console.log('✅ تم إغلاق نافذة المصروف المثبت بنجاح');
         return true;
@@ -287,7 +561,6 @@ function closeModalsEnhanced() {
     
     let closed = false;
     
-    // إغلاق النوافذ المرئية
     const visibleModals = document.querySelectorAll(`
         .modal.show, .dialog.show,
         .modal[style*="display: block"], .dialog[style*="display: block"]
@@ -301,7 +574,6 @@ function closeModalsEnhanced() {
         modal.style.display = 'none';
         modal.classList.remove('show', 'active', 'open');
         
-        // Bootstrap modal
         if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             try {
                 const bsModal = bootstrap.Modal.getInstance(modal);
@@ -314,14 +586,12 @@ function closeModalsEnhanced() {
             }
         }
         
-        // أحداث الإغلاق
         ['close', 'hide', 'hidden'].forEach(eventName => {
             try {
                 modal.dispatchEvent(new Event(eventName, { bubbles: true }));
             } catch (e) {}
         });
         
-        // أزرار الإغلاق
         const closeButtons = modal.querySelectorAll(`
             [data-dismiss="modal"], [data-bs-dismiss="modal"],
             .close, .btn-close
@@ -339,7 +609,6 @@ function closeModalsEnhanced() {
         closed = true;
     });
     
-    // إزالة backdrop
     const backdrops = document.querySelectorAll('.modal-backdrop, .backdrop');
     backdrops.forEach(backdrop => {
         console.log('🗑️ إزالة backdrop');
@@ -347,7 +616,6 @@ function closeModalsEnhanced() {
         closed = true;
     });
     
-    // إصلاح body
     ['modal-open', 'dialog-open', 'no-scroll'].forEach(className => {
         if (document.body.classList.contains(className)) {
             document.body.classList.remove(className);
